@@ -1,0 +1,11 @@
+/build*/
+/dist/
+/.idea/
+/.vscode/
+*.log
+*.o
+*.obj
+*.tmp
+*~
+__pycache__/
+*.pyc

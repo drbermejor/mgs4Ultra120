@@ -1,8 +1,23 @@
 # Windows installation
 
-1. Download and extract the release package.
-2. Exit the game and Steam.
-3. Open PowerShell in the extracted directory and run:
+## Easy installation (recommended)
+
+1. Download the **Windows ZIP** from Releases and extract it.
+2. Exit the game.
+3. Double-click **`MGS4Ultra120-Setup.cmd`**.
+4. The setup normally finds the Steam game automatically. Click **Install / update**.
+5. In the configurator that opens, choose any combination of fixes and click
+   **Save settings**.
+6. Start the game normally from Steam and select DirectX 12.
+
+The same setup window can reopen the configurator or uninstall the patch. If
+Windows displays a SmartScreen warning for the downloaded archive, choose
+**More info > Run anyway** only after verifying that it came from this
+repository's Releases page.
+
+## Manual/advanced installation
+
+Open PowerShell in the extracted directory and run:
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\scripts\windows\install.ps1

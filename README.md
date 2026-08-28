@@ -6,7 +6,7 @@ user can enable ultrawide only, 120 FPS only, the controller fix only, any
 combination of them, or all modules together.
 
 > **Public alpha.** Back up your saves and read the limitations. Version
-> `v0.3.0-alpha.1` is verified against one Steam executable. Other builds are
+> `v0.3.1-alpha.1` is verified against one Steam executable. Other builds are
 > blocked by default but can be attempted with an explicit unsafe override.
 
 ## Modules
@@ -56,10 +56,15 @@ the game and releases that state after all controllers disconnect.
   crashes remain possible and the override is off by default.
 - A full playthrough and save compatibility are not yet certified.
 
-## Installation
+## Easy installation
 
 Download the Windows ZIP or Linux tarball from
 [Releases](https://github.com/drbermejor/mgs4Ultra120/releases).
+
+**Windows:** extract the ZIP, exit the game, and double-click
+`MGS4Ultra120-Setup.cmd`. It detects Steam automatically, installs reversibly,
+and opens the graphical configurator. No PowerShell commands or manual file
+copying are required for the normal path.
 
 - [Windows installation](docs/INSTALL_WINDOWS.md)
 - [Linux / Proton installation](docs/INSTALL_LINUX.md)

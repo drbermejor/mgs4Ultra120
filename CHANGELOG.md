@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.1-alpha.1
+
+- Added a Windows easy-setup window launched by double-clicking
+  `MGS4Ultra120-Setup.cmd`.
+- Added automatic discovery of the game across the default Steam folder and
+  additional libraries listed in `libraryfolders.vdf`.
+- Combined reversible install/update, configuration and uninstall entry points
+  in the easy-setup window.
+- Rewrote the Windows guide so the normal path requires no terminal commands
+  or manual file copying.
+- Kept the in-progress proportional/anchored UI rewrite out of release builds;
+  only the previously documented legacy 16:9 UI experiment remains available.
+
 ## v0.3.0-alpha.1 - 2026-08-28
 
 - Added an independent controller-profile fix that preserves the game's native

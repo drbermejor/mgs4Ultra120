@@ -27,6 +27,9 @@ make_tree() {
   install -m0755 "$WRAPPER" "$root/bin/launcher.exe"
   install -m0644 "$REPO_DIR/config/mgs4_ultrawide.ini" "$root/config/mgs4_ultrawide.ini"
   for name in "${COMMON[@]}"; do install -m0644 "$REPO_DIR/$name" "$root/$name"; done
+  if [[ "$platform" == windows ]]; then
+    install -m0644 "$REPO_DIR/MGS4Ultra120-Setup.cmd" "$root/MGS4Ultra120-Setup.cmd"
+  fi
   cp -a -- "$REPO_DIR/docs/." "$root/docs/"
   for script in "$REPO_DIR/scripts/$platform/"*; do
     [[ -f "$script" ]] && cp -a -- "$script" "$root/scripts/$platform/"

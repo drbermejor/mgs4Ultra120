@@ -47,7 +47,8 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
     $ExistingText = Get-Content -Raw -LiteralPath $Existing
     foreach ($Key in @(
         "UltrawideEnabled", "FPSOverrideEnabled", "AllowUnsupportedExecutable",
-        "Width", "Height", "FOVMultiplier", "Limit", "ControllerProfileFixEnabled",
+        "Width", "Height", "FOVMultiplier", "SupersamplingEnabled",
+        "RenderScale", "Limit", "ControllerProfileFixEnabled",
         "SkipUnityLauncher", "Region", "SelfRegion", "Language", "ControllerType",
         "DisplayMode", "UsePrimaryPhysicalResolution"
     )) {

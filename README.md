@@ -147,6 +147,8 @@ restores the original only when ownership hashes still match.
 Further reading:
 
 - [Configuration](docs/CONFIGURATION.md)
+- [Experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md) (separate
+  branch only; not included in alpha.5)
 - [Controller profile fix](docs/CONTROLLER_FIX.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
 - [UI and video status](docs/UI_AND_VIDEO.md)

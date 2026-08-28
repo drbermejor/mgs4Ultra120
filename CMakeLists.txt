@@ -118,6 +118,11 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(projection_math_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
     add_test(NAME projection_math COMMAND projection_math_test)
 
+    add_executable(supersampling_math_test tests/supersampling_math_test.cpp)
+    target_compile_features(supersampling_math_test PRIVATE cxx_std_17)
+    target_include_directories(supersampling_math_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+    add_test(NAME supersampling_math COMMAND supersampling_math_test)
+
     add_test(NAME winmm_proxy_smoke COMMAND winmm_proxy_smoke)
     add_executable(launcher_args_probe tests/launcher_args_probe.cpp)
     target_compile_features(launcher_args_probe PRIVATE cxx_std_17)

@@ -24,21 +24,20 @@ renderer hook corrects aspect only, so FOV is applied exactly once.
 The final Windows candidate was tested at:
 
 - 3440x1440 physical output;
-- 3956x1656 internal rendering (`RenderScale=1.15`);
-- a deliberately wide development FOV stress profile;
+- final `FOVMultiplier=1.050` framing;
 - corrected 120 FPS through MGSFPSUnlock.
 
-The runtime log reported 760 native camera-input adjustments, 950 final aspect
-corrections, native mode active, zero fallback and no new crash. Natural object
-proportions and the in-game cinematic fix were confirmed visually.
+Runtime logging confirmed that native mode remained active with no fallback or
+new crash. Natural object proportions, the `1.050` framing and the in-game
+cinematic fix were confirmed visually.
 
 `FOVMultiplier=1.050` is the recommended 21:9 default and supported maximum.
 `1.000` preserves the original vertical FOV, but final visual comparison found
-that it framed Snake too tightly in the tested gameplay view. Even the modest
-`1.050` increase can reveal actors, geometry, animation transitions or other
-off-camera content before a cutscene was authored to show it. Projection and
-culling can be correct while this staging limitation is still visible; both
-configurators warn when saving a value above `1.000`.
+that it framed Snake too tightly in the tested gameplay view. Values above
+`1.000` may reveal actors, geometry, animation transitions or other off-camera
+content before a cutscene was authored to show it. Projection and culling can
+be correct while this staging limitation is still visible; both configurators
+warn when saving a value above `1.000`.
 
 All application-facing components identify themselves as
 `v0.3.2-alpha.2`, including Windows file properties for the ASI and launcher,

@@ -4,11 +4,11 @@ This is the new recommended Windows and Linux release.
 
 The FOV fix now works at the game's native camera input. MGS4 builds its own projection and culling data from the corrected value, so cinematics keep the wider FOV without the tall/thin character problem from the earlier alpha.6 experiment.
 
-The final candidate was validated on Windows at 3440x1440, including a deliberately wider development stress test. Native mode stayed active with no fallback or new crash. FOV 1.050 is now the recommended 21:9 default and maximum; 1.000 remains valid but framed Snake too tightly in our final visual comparison.
+The final candidate was validated on Windows at 3440x1440. Native mode stayed active with no fallback or new crash. FOV 1.050 is now the recommended 21:9 default and maximum; 1.000 remains valid but framed Snake too tightly in our final visual comparison.
 
 [b]FOV framing warning[/b]
 
-Even at the supported 1.050 maximum, a cutscene may reveal soldiers, geometry or animation transitions near the edges slightly before they were intended to enter the frame. This can happen even when projection and culling are technically correct. The configurator warns when saving a value above 1.000.
+FOV values above 1.000 may reveal soldiers, geometry or animation transitions near the edges slightly before they were intended to enter the frame. This can happen even when projection and culling are technically correct. The configurator warns when saving a value above 1.000.
 
 [b]Language fix[/b]
 

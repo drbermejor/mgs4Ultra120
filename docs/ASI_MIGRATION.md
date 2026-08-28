@@ -2,9 +2,13 @@
 
 ## Status
 
-`v0.3.1-alpha.4` is a Windows-only prerelease built from an open pull request.
+`v0.3.1-alpha.4` is a Windows-only prerelease built from a review branch.
 It does not supersede the validated `v0.3.1-alpha.3` Windows release. Linux and
 Proton remain on their separate prior release line.
+
+Review the exact branch comparison at
+https://github.com/drbermejor/mgs4Ultra120/compare/main...feat/asi-loader-alpha4
+before proposing or merging it into `main`.
 
 ## Layout
 

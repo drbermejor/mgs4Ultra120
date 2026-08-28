@@ -8,8 +8,8 @@ combination of them, or all modules together.
 > **Public alpha.** Back up your saves and read the limitations. Version
 > `v0.3.1-alpha.3` is verified against one Steam executable. Other builds are
 > blocked by default but can be attempted with an explicit unsafe override.
-> The `v0.3.1-alpha.4` ASI migration is a separately published preview from an
-> open PR. **Alpha.3 remains the recommended validated Windows release.**
+> The `v0.3.1-alpha.4` ASI migration is a separately published preview from a
+> review branch. **Alpha.3 remains the recommended validated Windows release.**
 
 ## Modules
 
@@ -66,7 +66,7 @@ Windows and Linux/Proton are maintained as separate validated release lines:
 | Platform | Validated release | Download |
 |---|---|---|
 | Native Windows (recommended) | `v0.3.1-alpha.3` | Validated unsigned setup EXE or portable Windows ZIP |
-| Native Windows ASI preview | `v0.3.1-alpha.4` | PR prerelease; does not supersede alpha.3 |
+| Native Windows ASI preview | `v0.3.1-alpha.4` | Review-branch prerelease; does not supersede alpha.3 |
 | Linux / Proton | `v0.3.1-alpha.2` | Linux tarball from the previous release |
 
 The alpha.3 release intentionally contains only Windows assets. Linux users

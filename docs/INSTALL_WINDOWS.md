@@ -2,7 +2,7 @@
 
 > **Recommended release:** use `v0.3.1-alpha.3` unless you intentionally want
 > to test the `v0.3.1-alpha.4` ASI migration preview. Alpha.4 is published from
-> an open PR and does not supersede the previously validated release.
+> a review branch and does not supersede the previously validated release.
 
 ## Easy installation (recommended)
 

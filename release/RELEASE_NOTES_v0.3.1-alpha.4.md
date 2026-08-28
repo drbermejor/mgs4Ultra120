@@ -1,6 +1,8 @@
 # MGS4 Ultra120 v0.3.1-alpha.4 - ASI migration preview
 
-This is a Windows-only preview published from an open pull request.
+This is a Windows-only preview published from a review branch. The exact
+comparison is available at:
+https://github.com/drbermejor/mgs4Ultra120/compare/main...feat/asi-loader-alpha4
 
 **It does not supersede v0.3.1-alpha.3. Alpha.3 remains the recommended and
 previously validated native-Windows release.** Linux/Proton remains on its

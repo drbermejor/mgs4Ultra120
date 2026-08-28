@@ -14,6 +14,10 @@ renderer hook corrects aspect only, so FOV is applied exactly once.
 - Fixed configurator language persistence. The chosen language is now written
   to the patch INI, normalized for direct launch and synchronized with the
   official Unity launcher's saved state.
+- Fixed **Recommended settings** resetting the current language to English.
+  Rendering defaults now leave the user's language unchanged.
+- Aligned Linux `stable` and `ultrawide-only` with the same documented `1.050`
+  FOV default used by Windows.
 - Corrected German from the invalid legacy token `ge` to the game's `gr` token
   and added Portuguese (`pt`). Existing `ge` settings migrate automatically.
 - Kept optional supersampling in the unified packages. It remains experimental
@@ -70,3 +74,6 @@ No game files are included and `mgs4.exe` is never modified.
 
 The five published assets were scanned locally with Microsoft Defender after
 the final build and produced no detections. The setup EXE remains unsigned.
+
+The existing alpha.2 downloads were refreshed in place with this language fix;
+the version, release URL and asset names did not change.

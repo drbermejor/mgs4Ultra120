@@ -12,7 +12,7 @@ FOV values above 1.000 may reveal soldiers, geometry or animation transitions ne
 
 [b]Language fix[/b]
 
-The configurator now preserves the selected game language with both the Unity-launcher bypass and the original launcher. German uses the correct game token, and Portuguese is also available. The ASI, launcher, installer and configurator now expose the same v0.3.2-alpha.2 version so reports are unambiguous.
+The configurator now preserves the selected game language with both the Unity-launcher bypass and the original launcher. Using Recommended settings no longer resets the selection to English. German uses the correct game token, and Portuguese is also available. The existing alpha.2 downloads were refreshed in place, so the version and links have not changed.
 
 [url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.2-alpha.2]Download v0.3.2-alpha.2[/url]
 

@@ -11,10 +11,17 @@ try {
     New-Item -ItemType Directory -Force -Path $LauncherDir, $GameDir | Out-Null
     Copy-Item -LiteralPath $Wrapper -Destination (Join-Path $LauncherDir "launcher.exe")
     Copy-Item -LiteralPath $Probe -Destination (Join-Path $GameDir "mgs4.exe")
-    foreach ($Case in @(
+    $Cases = @(
+        [pscustomobject]@{ Mode = "Windowed"; Language = "en"; ExpectedLanguage = "en"; Expected = "0" },
         [pscustomobject]@{ Mode = "Windowed"; Language = "sp"; ExpectedLanguage = "sp"; Expected = "0" },
+        [pscustomobject]@{ Mode = "Windowed"; Language = "fr"; ExpectedLanguage = "fr"; Expected = "0" },
+        [pscustomobject]@{ Mode = "Windowed"; Language = "it"; ExpectedLanguage = "it"; Expected = "0" },
+        [pscustomobject]@{ Mode = "Windowed"; Language = "gr"; ExpectedLanguage = "gr"; Expected = "0" },
+        [pscustomobject]@{ Mode = "Windowed"; Language = "jp"; ExpectedLanguage = "jp"; Expected = "0" },
+        [pscustomobject]@{ Mode = "Windowed"; Language = "pt"; ExpectedLanguage = "pt"; Expected = "0" },
         [pscustomobject]@{ Mode = "Fullscreen"; Language = "ge"; ExpectedLanguage = "gr"; Expected = "0" }
-    )) {
+    )
+    foreach ($Case in $Cases) {
         [IO.File]::WriteAllText((Join-Path $GameDir "mgs4_ultrawide.ini"),
             "[Launcher]`nDisplayMode=$($Case.Mode)`nLanguage=$($Case.Language)`nRegion=eu`nSelfRegion=EU`nControllerType=XBOX`n",
             [Text.UTF8Encoding]::new($false))
@@ -48,10 +55,24 @@ try {
             $Arguments[$LanguageIndex + 1] -ne $Case.ExpectedLanguage) {
             throw "Language=$($Case.Language) was not normalized to $($Case.ExpectedLanguage)."
         }
+        if ($Arguments.Count -ne 14) {
+            throw "The official bootstrap must contain exactly 14 tokens."
+        }
         $RootIndex = [Array]::IndexOf($Arguments, "-launcherroot")
         if ($RootIndex -lt 0 -or $Arguments[$RootIndex + 1] -ne $LauncherDir) {
             throw "Launcher path with spaces was not preserved as one argument."
         }
+    }
+    $Configurator = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot `
+        "..\scripts\windows\configure.ps1")
+    $RecommendedHandler = [regex]::Match($Configurator,
+        '(?s)\$StableButton\.Add_Click\(\{(?<Body>.*?)\r?\n\}\)')
+    if (-not $RecommendedHandler.Success) {
+        throw "Could not locate the recommended-settings handler."
+    }
+    if ($RecommendedHandler.Groups['Body'].Value -match
+        '\$LanguageBox\.(?:SelectedItem|SelectedIndex)\s*=') {
+        throw "Recommended settings must preserve the selected game language."
     }
     Write-Host "Direct-launch wrapper smoke test passed."
 } finally {

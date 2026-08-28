@@ -304,6 +304,37 @@ try {
         }
     }
 
+    # The official launcher uses Def.LANGUAGE (not the zero-based launcher-UI
+    # enum) for prevPlayLanguage. Verify every public language code so a future
+    # UI change cannot silently select a neighbouring language.
+    $LanguageValues = [ordered]@{
+        jp = "1"; en = "2"; fr = "3"; it = "4"
+        gr = "5"; sp = "6"; pt = "7"
+    }
+    foreach ($LanguageEntry in $LanguageValues.GetEnumerator()) {
+        $LanguageIni = Get-Content -Raw -LiteralPath $InstalledConfigPath
+        $LanguageIni = [regex]::Replace($LanguageIni,
+            '(?m)^Language=.*$', "Language=$($LanguageEntry.Key)")
+        [IO.File]::WriteAllText($InstalledConfigPath, $LanguageIni,
+            [Text.UTF8Encoding]::new($false))
+        & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
+            -GameDir $GameDir -Profile stable
+        $LanguageSettings = Get-Content -Raw -LiteralPath `
+            $LauncherSettingsPath | ConvertFrom-Json
+        $LanguageMap = @{}
+        for ($Index = 0; $Index -lt $LanguageSettings.keyList.Count; $Index++) {
+            $LanguageMap[[string]$LanguageSettings.keyList[$Index]] =
+                [string]$LanguageSettings.valueList[$Index]
+        }
+        if ($LanguageMap.prevPlayLanguage -ne $LanguageEntry.Value) {
+            throw "Language=$($LanguageEntry.Key) did not map to the official launcher value $($LanguageEntry.Value)."
+        }
+        if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
+            "(?m)^Language=$([regex]::Escape($LanguageEntry.Key))$") {
+            throw "Stable profile did not preserve Language=$($LanguageEntry.Key)."
+        }
+    }
+
     $IniPath = Join-Path $GameDir "mgs4_ultrawide.ini"
     $Customized = Get-Content -Raw -LiteralPath $IniPath
     $Customized = [regex]::Replace($Customized, '(?m)^Width=.*$', 'Width=5120')

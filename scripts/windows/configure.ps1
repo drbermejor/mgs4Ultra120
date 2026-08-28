@@ -489,7 +489,8 @@ $StableButton.Add_Click({
     $FpsBox.SelectedIndex = 0
     $UltrawideBox.Checked = $true
     $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
-    $LanguageBox.SelectedItem = "English (en)"
+    # Language is a user preference, not a rendering default. Keep the current
+    # selection when recommended settings are restored.
     $UnsupportedBox.Checked = $false
 })
 $script:Mgs4Ultra120SettingsSaved = $false

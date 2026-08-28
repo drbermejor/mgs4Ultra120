@@ -17,8 +17,14 @@
   German code (`ge` -> `gr`), added Portuguese, and synchronized the selected
   language with both the direct-launch bootstrap and the official Unity
   launcher's `prevPlayLanguage` state.
+- Fixed **Recommended settings** silently changing the selected game language
+  back to English. Rendering defaults now preserve the user's language.
+- Aligned Linux `stable` and `ultrawide-only` with the documented Windows
+  `1.050` default, and skipped display detection in explicitly non-interactive
+  setup runs.
 - Added friendly English language names, migration of legacy settings,
-  rollback-safe launcher metadata and language/package regression tests.
+  rollback-safe launcher metadata and regression coverage for all seven
+  supported language mappings and the recommended-settings button.
 - Added visible and embedded `v0.3.2-alpha.2` version information to the ASI,
   legacy proxy, direct-launch wrapper, Windows GUIs and Linux shortcuts.
 - Unified the definitive FOV build and optional experimental supersampling in

@@ -69,7 +69,9 @@ UsePrimaryPhysicalResolution=1
   DPI-scaled desktop bounds when the GUI saves.
 - `Language` accepts `en`, `sp`, `fr`, `it`, `gr`, `jp` and `pt`. Current
   Windows setup synchronizes this selection with both launcher paths. Legacy
-  `ge` is migrated to the game's correct German token, `gr`.
+  `ge` is migrated to the game's correct German token, `gr`. **Recommended
+  settings** changes rendering/input defaults but deliberately preserves the
+  selected language.
 
 `FPSOverrideEnabled` and `[FPS] Limit` remain only so older files and tools can
 be migrated safely. The current Windows ASI ignores them and setup always forces

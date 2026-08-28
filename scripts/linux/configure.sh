@@ -178,8 +178,8 @@ case "$MODE" in
     apply_values "$detected_width" "$detected_height" 1.000 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"
     exit 0
     ;;
-  stable) apply_values 3440 1440 1.000 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
-  ultrawide-only) apply_values 3440 1440 1.000 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  stable) apply_values 3440 1440 1.050 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  ultrawide-only) apply_values 3440 1440 1.050 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
   controller-fix-only) apply_values 3440 1440 1.000 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
   status) show_status; exit $? ;;
   gui) ;;

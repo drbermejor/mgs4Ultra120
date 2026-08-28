@@ -86,8 +86,9 @@ driver/display setup.
   Linux/Proton. The native child command line remained clean while launch data
   was consumed from the official bootstrap file.
 - Language persistence: static inspection of the official IL2CPP launcher
-  confirmed its `Def.LANGUAGE` values. Package tests verify that the selected
-  language is retained in the INI, normalized for the bootstrap and mirrored
-  into `launcher_sv` for the original launcher path.
+  confirmed its one-based `Def.LANGUAGE` values and its exact `-lan` tokens.
+  Package tests verify all seven mappings, retention in the INI, normalization
+  in the 14-token bootstrap, mirroring into `launcher_sv` and preservation when
+  the configurator's recommended settings are applied.
 - A full playthrough is not yet certified; back up saves and treat the project
   as alpha software.

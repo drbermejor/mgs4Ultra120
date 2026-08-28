@@ -28,10 +28,11 @@ if [[ -z "${MGS4_INSTALL_FPS_UNLOCK+x}" &&
   fi
 fi
 "$PACKAGE_DIR/scripts/linux/install.sh"
-"$PACKAGE_DIR/scripts/linux/configure.sh" detected || true
 if [[ "${MGS4_CONFIGURE_AFTER_INSTALL:-1}" == 0 ]]; then
   exit 0
-elif command -v zenity >/dev/null 2>&1; then
+fi
+"$PACKAGE_DIR/scripts/linux/configure.sh" detected || true
+if command -v zenity >/dev/null 2>&1; then
   "$PACKAGE_DIR/scripts/linux/configure.sh" gui
 else
   echo "Installed successfully. Install zenity for the graphical configurator,"

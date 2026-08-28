@@ -56,3 +56,5 @@ enable it again; the newly installed launcher becomes the newest restore
 target and older backup generations are retained with UTC timestamp suffixes.
 
 The wrapper log is `Launcher/mgs4_direct_wrapper.log`.
+It records the selected two-letter game-language token on each launch without
+including user paths or other personal data.

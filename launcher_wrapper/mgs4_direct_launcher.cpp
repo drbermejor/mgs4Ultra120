@@ -162,6 +162,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     // this token as a fullscreen boolean: it is an independent resolution slot.
     const std::wstring display_mode = read_token(
         ini_path, L"DisplayMode", L"Fullscreen");
+    append_log(launcher_directory,
+               "Game language token: " + utf8(language) +
+                   "; bootstrap uses the official -lan pair.");
     const std::vector<std::wstring> arguments = {
         L"-region", region,
         L"-lan", language,

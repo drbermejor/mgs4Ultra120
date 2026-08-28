@@ -48,3 +48,13 @@ continues to use the physical output aspect.
 
 The configurator displays the calculated internal resolution and requires an
 explicit warning confirmation whenever supersampling is enabled.
+
+## Native Windows validation
+
+The initial `cc3c060` candidate was validated on native Windows at physical
+3440x1440, `RenderScale=1.50` (5160x2160 internal), windowed presentation and
+`FOVMultiplier=1.150`. Runtime verification reported a 3440x1440 client and
+5160x2160 internal render state, 472 synchronized camera/frustum updates and no
+late 16:9 fallback. The user confirmed the rendered result was correct. This is
+an initial configuration test, not a full-playthrough or broad GPU-validation
+claim; the feature therefore remains experimental and disabled by default.

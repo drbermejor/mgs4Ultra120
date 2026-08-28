@@ -1,8 +1,10 @@
 # Linux / Proton installation
 
 Linux is a separate release line. Use
-`MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz` for the current core patch. Do not
-run the Windows setup EXE or CMD under Proton.
+`MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz` for the established core patch. The
+alpha.6 release also provides a separate Linux tarball for voluntary
+supersampling testing; it was not validated under Proton in this release cycle.
+Do not run the Windows setup EXE or CMD under Proton.
 
 The current Linux core provides ultrawide/Hor+ rendering, FOV adjustment, the
 controller-profile correction and the optional direct-launch wrapper. It uses
@@ -57,6 +59,20 @@ without a GUI:
 ```bash
 ./scripts/linux/configure.sh stable
 ```
+
+For alpha.6 supersampling, first run the normal configurator, then close the
+game and edit `mgs4_ultrawide.ini` in the MGS4 directory:
+
+```ini
+[Supersampling]
+SupersamplingEnabled=1
+RenderScale=1.15
+```
+
+Keep `Width` and `Height` at the physical output resolution. Internal width
+must remain below 4096 to avoid the known crosshair instability; no hard limit
+is enforced. Set `SupersamplingEnabled=0` if Proton startup or presentation
+fails.
 
 ## KDE / Wayland panel remains visible
 

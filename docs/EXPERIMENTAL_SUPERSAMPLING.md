@@ -1,8 +1,10 @@
 # Experimental supersampling
 
 This feature is developed on the `experimental/supersampling` branch and is
-published separately as the Windows-only alpha.6 prerelease. It is disabled by
-default and is not part of the recommended alpha.5 release.
+published separately as the alpha.6 prerelease. It is disabled by default and
+is not part of the recommended alpha.5 release. Windows received the native
+validation below; the Linux/Proton alpha.6 package is supplied for voluntary
+testing and is not validated in this session.
 
 Supersampling keeps the configured `Width` and `Height` as the physical Windows
 output and game-window size, while a uniform `RenderScale` raises the internal
@@ -60,10 +62,13 @@ explicit warning confirmation whenever supersampling is enabled.
 The initial `cc3c060` candidate was validated on native Windows at physical
 3440x1440, `RenderScale=1.50` (5160x2160 internal), windowed presentation and
 `FOVMultiplier=1.150`. Runtime verification reported a 3440x1440 client and
-5160x2160 internal render state, 472 synchronized camera/frustum updates and no
-late 16:9 fallback. The user confirmed the rendered result was correct. This is
-an initial configuration test, not a full-playthrough or broad GPU-validation
-claim; the feature therefore remains experimental and disabled by default.
+5160x2160 internal render state. The first candidate also enabled an early
+camera/frustum rewrite. A later alpha.6 report and direct alpha.5/alpha.6 A/B
+test showed that rewrite distorted character proportions even when
+supersampling was disabled. It has been removed. The final renderer-level path
+was validated at 3440x1440 with supersampling off, natural character
+proportions and FOV 1.150 active. Supersampling itself remains experimental and
+disabled by default.
 
 Subsequent same-session near/far tests isolated a depth-aware crosshair defect
 to the internal-width boundary. At 3956x1656 the reticle remained visible while

@@ -46,9 +46,14 @@ unlock implementation.
 - The unfinished UI/safe-area experiment is not part of the release binary.
   Menus, HUD and full-screen effects retain the game's original behavior.
 - Pre-rendered Bink video is unchanged.
-- Main now corrects the primary camera projection before rebuilding its
-  view-projection matrices and CPU visibility planes. This synchronizes the
-  wider rendered FOV with culling instead of exposing the former side pop-in.
+- The released renderer-level hook accepts the game's original 16:9 and native
+  ultrawide projection states, then applies the configured FOV once. An early
+  camera/frustum rewrite tested during alpha.6 was withdrawn because it made
+  characters unnaturally tall and thin even with supersampling disabled.
+- CPU culling is therefore not currently expanded with FOV. Values above
+  `1.000` can still reveal side pop-in, and very tight in-engine close-ups may
+  briefly use the original framing. These limitations are preferable to
+  shipping the confirmed aspect-ratio regression.
 - Native 3440x1440 testing at `1.150` has correct proportions and a working
   aiming crosshair. Experimental supersampling tests isolate a separate
   internal-width boundary: the reticle is stable at 3956x1656, flickers at
@@ -79,8 +84,10 @@ instructions are public and can be reviewed or built independently.
 
 The separate
 [v0.3.1-alpha.6 experimental supersampling preview](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6)
-is Windows-only, disabled by default and intended for users who explicitly want
-to render above their physical output resolution. See
+is disabled by default and intended for users who explicitly want to render
+above their physical output resolution. Windows is validated as described;
+the separate Linux/Proton alpha.6 package is experimental and unvalidated in
+this cycle. See
 [experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
 ### Brief manual installation
@@ -134,23 +141,21 @@ command. See [Linux installation](docs/INSTALL_LINUX.md).
 
 ## Technical outline
 
-The port normally supplies a 16:9 perspective matrix even when the output is
-ultrawide. MGS4Ultra120 recognizes the central camera projection and applies the
-configured aspect/FOV before rebuilding the combined matrices and six CPU
-visibility planes:
+The renderer can receive either an original 16:9 projection or one already
+matching the selected ultrawide output. MGS4Ultra120 recognizes both states and
+applies the configured aspect/FOV in the final renderer projection setter:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
 ```
 
-This keeps rendered framing and world culling synchronized. A renderer-level
-hook remains only as a fallback for untouched 16:9 projection paths and rejects
-already corrected target-aspect matrices to prevent double application.
-The known central camera path is validated by its full perspective-matrix
-structure rather than a fixed zoom ceiling. This keeps the configured FOV
-active during tight in-engine close-ups instead of briefly reverting to the
-uncorrected framing.
+The first alpha.6 package also rewrote projections in the central camera builder.
+Native testing after a user report confirmed that this caused an additional
+horizontal transformation and distorted character proportions with
+supersampling both on and off. That path is disabled. The renderer correction
+now matches the visually validated alpha.5 download; synchronized CPU culling
+and uninterrupted FOV through extreme close-ups are not currently claimed.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
 `Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and

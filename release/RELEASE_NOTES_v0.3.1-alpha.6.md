@@ -1,6 +1,6 @@
 # MGS4 Ultra120 v0.3.1-alpha.6 - experimental supersampling preview
 
-> **Experimental Windows prerelease.** Supersampling is disabled by default.
+> **Experimental prerelease.** Supersampling is disabled by default.
 > Use [v0.3.1-alpha.5](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5)
 > if you want the validated ultrawide/FOV/120 FPS release without this preview.
 
@@ -9,6 +9,19 @@ This preview adds optional resolution-independent supersampling. `Width` and
 raises the internal render resolution before DXGI presents the complete frame
 at the physical size. It does not require AMD VSR, NVIDIA DSR or a Windows
 desktop-resolution change.
+
+## Aspect-ratio regression fixed
+
+The first alpha.6 package enabled an early camera/frustum rewrite that was not
+present in the alpha.5 ASI actually distributed. A user correctly reported that
+it made characters look unnaturally tall and thin with supersampling both on
+and off. Native Windows A/B testing reproduced the difference. The early hook
+has been removed and the visually validated alpha.5 renderer projection path is
+restored. FOV 1.150 and natural character proportions were confirmed in game.
+
+This correction also fixes the release record: synchronized CPU culling and
+continuous FOV through extreme close-ups are not claimed by the current binary.
+Values above FOV 1.000 may still reveal side pop-in.
 
 Examples:
 
@@ -20,9 +33,8 @@ Examples:
 | 3440x1440 | 2.00 | 6880x2880 |
 
 Native-Windows testing confirms that supersampling keeps a real 3440x1440
-window while rendering the world internally at 5160x2160, with synchronized
-camera/frustum updates and no late 16:9 fallback. Aiming-crosshair behaviour at
-high internal resolutions is still under investigation. It remains stable at
+window while requesting a 5160x2160 internal render. Aiming-crosshair behaviour
+at high internal resolutions is still under investigation. It remains stable at
 3956x1656. At exactly 4096 pixels wide it begins to flicker; at 4128x1728 it
 appears or disappears depending on the depth of the aimed point, and it was
 also captured missing at 5160x2160. This points to the high-width
@@ -30,9 +42,9 @@ projection/update path of the depth-aware reticle rather than FOV, world
 culling or the physical monitor. Keep internal width below 4096 for normal
 gameplay until the targeted UI defect is fixed.
 
-Alpha.6 also contains the public alpha.5 fixes, including synchronized FOV and
-world culling, continuous FOV through tight in-engine close-ups, the controller
-profile fix, optional corrected 120 FPS setup and the Unity-launcher bypass.
+Alpha.6 also contains the visually validated alpha.5 renderer-level FOV path,
+the controller profile fix, optional corrected 120 FPS setup and the
+Unity-launcher bypass.
 
 ## Downloads
 
@@ -44,9 +56,12 @@ profile fix, optional corrected 120 FPS setup and the Unity-launcher bypass.
   no script is executed.
 - `MGS4Ultra120-v0.3.1-alpha.6-windows-complete.zip` - portable setup, manual
   tree, documentation and notices together.
+- `MGS4Ultra120-v0.3.1-alpha.6-linux.tar.gz` - separate Linux/Proton package;
+  supersampling is disabled by default and unvalidated on Linux in this cycle.
 
-There is no alpha.6 Linux package because supersampling has not been validated
-under Proton. Linux users should remain on the separate alpha.5 package.
+Linux users who want the established path should remain on alpha.5. Alpha.6 is
+provided only for voluntary supersampling testing and retains the normal Linux
+configuration scripts.
 
 ## Guided use
 

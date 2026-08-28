@@ -2,12 +2,20 @@
 
 ## v0.3.1-alpha.6 - experimental supersampling preview
 
+- Removed the early central-camera/frustum rewrite after reproducing a native
+  Windows aspect-ratio regression: characters became unnaturally tall and thin
+  with supersampling both on and off. Restored the renderer projection behavior
+  of the alpha.5 binary actually published and validated FOV 1.150 visually.
+- Corrected the release history: the downloadable alpha.5 ASI used the
+  renderer-only path despite later source/release notes claiming synchronized
+  culling. Side-pop-in and extreme close-up continuity are again documented as
+  open limitations rather than shipped fixes.
 - Added optional internal-resolution supersampling while keeping the Windows
   output and game window at the configured physical resolution.
 - Added a disabled-by-default configurator control with a live internal-size
   preview and an explicit performance, VRAM, stability and UI-size warning.
-- Kept the stable path unchanged when supersampling is disabled and retained
-  all alpha.5 FOV/culling and close-up camera continuity fixes.
+- Supersampling disabled now follows the published alpha.5 projection path;
+  supersampling changes only internal/output resolution handling.
 - Validated 3440x1440 physical output with 1.50x/5160x2160 internal rendering,
   windowed presentation and FOV 1.150 on native Windows.
 - Isolated the depth-aware aiming-reticle boundary through same-session tests:
@@ -15,10 +23,15 @@
   absent above it. The configurator and runtime log now advise keeping internal
   width below 4096 without enforcing a hard limit.
 - Added render-extent unit tests, update/configuration smoke coverage and a
-  simple manual INI fallback. This is a Windows-only prerelease; alpha.5
-  remains the recommended stable package.
+  simple manual INI fallback. Alpha.6 now includes a separate unvalidated
+  Linux/Proton test package; alpha.5 remains the recommended stable package.
 
 ## v0.3.1-alpha.5 - synchronized FOV/culling refresh
+
+> Packaging correction: the downloadable alpha.5 ASI did not contain the
+> central camera/frustum hook described below. It retained the earlier
+> renderer-only correction. These entries describe the attempted source change,
+> not a capability that should be claimed for the published alpha.5 binary.
 
 - Moved the primary ultrawide/FOV correction into the central camera builder at
   RVA `0x0b9bb0`, before combined view-projection matrices and CPU frustum

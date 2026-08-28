@@ -574,10 +574,15 @@ extern "C" DWORD WINAPI mgs4_timeGetTime() {
 }
 #endif
 
-// Late renderer-level fallback. Main camera projections are corrected earlier,
-// before their combined matrices and visibility frustum are built. Accept only
-// untouched 16:9 matrices here so an upstream-corrected target-aspect matrix is
-// never widened a second time.
+// Renderer-level projection correction used by the published alpha.5 binary.
+// Depending on the engine path, this setter receives either a canonical 16:9
+// matrix or one whose X scale already matches the output aspect. Both are
+// original, unmodified camera states here and must receive the configured FOV.
+//
+// Do not move this rewrite back into the central camera builder without a new
+// native-Windows visual gate. The first alpha.6 package did so and applied an
+// additional horizontal transform later in the engine, making characters look
+// unnaturally tall and thin even when supersampling was disabled.
 static void __fastcall hooked_set_projection(const float* matrix) {
     if (!matrix) {
         g_original_set_projection(matrix);
@@ -587,7 +592,7 @@ static void __fastcall hooked_set_projection(const float* matrix) {
     float copy[16];
     std::memcpy(copy, matrix, sizeof(copy));
     if (mgs4_projection::adjust_projection(copy, g_target_aspect,
-                                           g_fov_multiplier, false)) {
+                                           g_fov_multiplier, true)) {
         InterlockedIncrement(&g_projection_patches);
     }
     g_original_set_projection(copy);
@@ -1013,8 +1018,8 @@ static DWORD WINAPI patch_thread(void*) {
         install_resolution_hook(base);
     }
     if (enable_ultrawide) {
-        install_camera_hook(base);
         install_engine_hook(base);
+        log_line("Central camera/frustum rewrite disabled after the alpha.6 aspect-ratio regression; published alpha.5 renderer projection path active.");
     }
     if (controller_profile_fix)
         install_controller_profile_fix(base);
@@ -1022,11 +1027,9 @@ static DWORD WINAPI patch_thread(void*) {
     // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);
     if (enable_supersampling) log_presentation_window_size();
-    char projection_message[256] = {};
+    char projection_message[192] = {};
     std::snprintf(projection_message, sizeof(projection_message),
-                  "Projection activity after startup: camera builds=%ld, synchronized frustums=%ld, late 16:9 fallbacks=%ld.",
-                  InterlockedCompareExchange(&g_camera_projection_patches, 0, 0),
-                  InterlockedCompareExchange(&g_frustum_rebuilds, 0, 0),
+                  "Renderer projection adjustments after startup: %ld. Central camera/frustum rewrite is disabled.",
                   InterlockedCompareExchange(&g_projection_patches, 0, 0));
     log_line(projection_message);
     log_line("Initial state applied; patch thread finished without a polling loop.");

@@ -45,10 +45,10 @@ UsePrimaryPhysicalResolution=1
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
 - `FOVMultiplier` accepts `0.500`–`2.000`. `1.150` is the recommended 21:9
   framing and adds roughly 5 degrees of vertical view to the narrow gameplay
-  camera. `1.000` preserves the game's original vertical FOV. Projection and
-  CPU visibility planes are rebuilt together, so the former side-pop-in
-  mismatch above `1.000` is no longer expected. Both `.` and `,` decimal
-  separators are accepted by the ASI.
+  camera. `1.000` preserves the game's original vertical FOV. The current
+  renderer-level correction does not rebuild CPU visibility planes, so values
+  above `1.000` can reveal side pop-in. Both `.` and `,` decimal separators are
+  accepted by the ASI.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build

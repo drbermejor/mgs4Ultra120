@@ -1,92 +1,13 @@
-[b]MGS4 Ultra120 alpha.5 - important FOV/culling update[/b]
+[b]MGS4 Ultra120 alpha.5 - recommended release[/b]
 
-First, I apologize for publishing the first Windows builds before testing them as thoroughly on native Windows as I should have. The current alpha.5 has now been rebuilt and validated on Windows. The same release link is retained, but older alpha.5 downloads are obsolete: [b]please download your chosen file again[/b].
+Alpha.5 is the recommended version for normal ultrawide play. It provides native ultrawide/Hor+ rendering, configurable FOV, controller-profile correction, optional corrected 120 FPS support and an optional Unity-launcher bypass.
 
-[b]What is MGS4 Ultra120?[/b]
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5]Download alpha.5[/url]
 
-MGS4 Ultra120 is an open-source patch for the Steam PC version of [i]METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version[/i]. It provides:
+[b]Correction to the previous description[/b]
 
-[list]
-[*]Native ultrawide/Hor+ rendering without stretching.
-[*]Configurable FOV with synchronized world culling.
-[*]A recommended 21:9 FOV profile of 1.150; 1.000 preserves the original vertical FOV.
-[*]30/60 FPS using the game's normal behaviour, plus optional corrected 120 FPS through cipherxof's MGSFPSUnlock 0.1.0.
-[*]A controller-profile correction that prevents unwanted keyboard-prompt switching.
-[*]Native-size windowed or exclusive-fullscreen presentation.
-[*]An optional reversible Unity-launcher bypass while still launching through Steam.
-[/list]
+The alpha.5 ASI actually distributed uses the validated renderer-level FOV correction. Previous notes incorrectly stated that the downloadable package also synchronized the game's CPU culling frustum. It did not.
 
-The patch does not modify [i]mgs4.exe[/i] and contains no game files.
+FOV values above 1.000 can still reveal side pop-in, and extreme close-ups can briefly return to the original framing. These remain open limitations.
 
-[b]What changed in the latest alpha.5 refresh?[/b]
-
-The earlier FOV adjustment widened the rendered camera but did not rebuild the game's CPU visibility bounds. This could cause objects to appear or disappear at the sides when using FOV values above 1.000.
-
-The correction is now applied in the central camera builder before the combined view-projection matrices and all six visibility planes are consumed. This keeps the rendered FOV and culling frustum synchronized and prevents the correction from being applied twice.
-
-The latest rebuild also fixes a momentary narrowing during some tight in-engine close-ups. These shots can produce valid camera projection scales above the generic renderer safety range. The central camera is now validated by its complete projection structure instead of an arbitrary zoom ceiling, so FOV 1.150 remains active throughout the transition. The stricter generic fallback is unchanged.
-
-At 3440x1440, FOV 1.150 has been tested with hundreds of synchronized camera/frustum updates, no late fallback or startup crash, correct proportions, a visible aiming crosshair and the exact saved in-engine close-up that exposed the framing discontinuity. An external report concerning the crosshair at exactly 5120x2160 remains open until that exact case is reproduced; it is not being claimed as fixed yet.
-
-[b]Official release[/b]
-
-[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5]MGS4 Ultra120 v0.3.1-alpha.5[/url]
-
-[b]Choose one Windows installation method[/b]
-
-[b]1. Setup EXE - easiest[/b]
-
-Download [i]MGS4Ultra120-v0.3.1-alpha.5-windows-setup.exe[/i]. It detects Steam, installs the patch, creates shortcuts, opens the configurator and supports reversible removal.
-
-The installer is not digitally signed, so Chrome or SmartScreen may display an unknown-publisher or reputation warning. The project is fully open source: anyone can inspect the source and build the ASI and installer independently. Keep antivirus enabled and download only from the official GitHub release.
-
-[b]2. Portable ZIP/CMD[/b]
-
-Download [i]MGS4Ultra120-v0.3.1-alpha.5-windows-portable.zip[/i], select [b]Extract All[/b], open the extracted folder and run [i]MGS4Ultra120-Setup.cmd[/i]. Do not run it from inside the ZIP. Choose [b]Install / update and configure[/b], save the settings and launch normally through Steam.
-
-[b]3. Manual ZIP - no installer or setup scripts[/b]
-
-This is the simplest inspectable route for users who do not trust an unsigned installer.
-
-[list]
-[*]Download [i]MGS4Ultra120-v0.3.1-alpha.5-windows-manual.zip[/i].
-[*]Close the game and extract the ZIP.
-[*]Copy everything inside the extracted folder into the game folder containing [i]mgs4.exe[/i], normally:
-[/list]
-
-[code]...\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4[/code]
-
-The final files must be:
-
-[code]MGS4\winmm.dll
-MGS4\mgs4_ultrawide.ini
-MGS4\scripts\MGS4Ultra120.asi[/code]
-
-Launch normally through Steam. With the game closed, edit [i]mgs4_ultrawide.ini[/i] in a text editor to change the resolution, FOV and optional modules.
-
-[b]4. Complete ZIP[/b]
-
-[i]MGS4Ultra120-v0.3.1-alpha.5-windows-complete.zip[/i] contains the portable setup, a ready-to-copy [i]Manual-Install[/i] folder, documentation, licences and source-related notices. Choose one installation route, not several at once.
-
-[b]Optional corrected 120 FPS[/b]
-
-The guided Windows setup can download and verify [url=https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0]cipherxof's MGSFPSUnlock 0.1.0[/url]. Thank you to cipherxof for the improved FPS unlock and its camera, character, cutscene, physics, ragdoll, cloth, hair and wind timing corrections.
-
-For a manual installation, download that upstream ZIP separately and copy only:
-
-[code]MGS4\scripts\MGSFPSUnlock.asi
-MGS4\scripts\MGSFPSUnlock.ini[/code]
-
-Do not copy its [i]d3d11.dll[/i], [i]winhttp.dll[/i] or [i]wininet.dll[/i]; MGS4 Ultra120 already supplies Ultimate ASI Loader as [i]winmm.dll[/i].
-
-[b]Linux[/b]
-
-Linux/Proton remains a separate route. Download [i]MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz[/i] and follow [i]docs/INSTALL_LINUX.md[/i]. The corrected external 120 FPS component remains Windows-only until it is validated under Proton.
-
-[b]Please include these details in bug reports[/b]
-
-[list]
-[*]Exact downloaded filename and whether you redownloaded the refreshed alpha.5.
-[*]Resolution, FOV, presentation mode and GPU.
-[*][i]mgs4_ultrawide.log[/i] and, when using corrected 120 FPS, [i]MGSFPSUnlock.log[/i].
-[/list]
+The installer is open source but unsigned. Use the portable or manual ZIP if you prefer not to run the EXE.

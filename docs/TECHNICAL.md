@@ -8,47 +8,35 @@ Relevant code-hook sites still verify expected bytes after protected code has
 initialized. The override cannot validate known data RVAs and therefore remains
 unsafe rather than silently claiming compatibility.
 
-## World rendering and synchronized visibility
+## World rendering and FOV
 
-The central camera builder at RVA `0x0b9bb0` is intercepted. The original
-function first creates three projection variants, a view matrix, two combined
-view-projection matrices and six normalized CPU visibility planes. Before its
-caller consumes those results, MGS4Ultra120 adjusts each positively identified
-16:9 or target-aspect perspective projection:
+The common renderer projection setter at RVA `0x0e3410` is intercepted. The
+game can submit either a canonical 16:9 perspective matrix or one whose X scale
+already matches the selected output aspect. Both are accepted and corrected:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 m00 = sign(m00) * abs(adjusted_m11) / (width / height)
 ```
 
-Non-perspective and unknown-aspect matrices are untouched. Resolution getters
-at RVAs `0x65c040` and `0x65c030` return configured dimensions; the central
-setter at `0x65f050` substitutes them when resolution state changes. This is
-event-driven and replaces an early diagnostic prototype that rewrote globals
-periodically.
+Non-perspective, malformed and unknown-aspect matrices are untouched.
+Resolution getters at RVAs `0x65c040` and `0x65c030` return configured internal
+dimensions; the central setter at `0x65f050` substitutes them when resolution
+state changes. This is event-driven and uses no polling loop.
 
-The central camera's projection variants are validated by their complete
-perspective structure, finite scales and known 16:9 or configured aspect. They
-do not use the conservative `m00 <= 8` / `m11 <= 12` limits retained by the
-generic renderer fallback. A captured in-engine close-up reached
-`m00=5.6216335`, `m11=-13.4294577` while remaining at exactly 3440:1440. The
-old generic ceiling rejected those frames and momentarily dropped the 1.150 FOV
-correction, producing a visible narrowing. Camera-specific structural
-validation keeps the FOV continuous while still rejecting malformed,
-non-finite and unknown-aspect matrices.
+An attempted hook at the central camera builder (`0x0b9bb0`) rewrote three
+camera projections plus combined matrices and visibility planes. Although it
+removed a measured render/culling mismatch, native Windows A/B testing after an
+alpha.6 report confirmed an unacceptable aspect regression: Snake became
+unnaturally tall and thin with supersampling both enabled and disabled. The
+hook is therefore not installed. Runtime logs explicitly report the active
+renderer-only path.
 
-The corrected primary projection is recombined with the view matrix through
-the game's matrix routine at RVA `0x0bacc0`. All six planes are then extracted
-in the engine's original left/right/bottom/top/near/far order and normalized.
-The secondary combined matrix is also refreshed, while the third projection is
-corrected for its later consumer. Rendered FOV and CPU culling therefore use
-the same projection instead of producing the former side pop-in.
-
-The common renderer projection setter at RVA `0x0e3410` remains hooked only as
-a fallback for untouched 16:9 paths. It rejects target-aspect matrices, which
-prevents the upstream camera correction and FOV multiplier from being applied
-twice. Runtime logs report camera builds, synchronized frustum rebuilds and
-late fallbacks separately.
+Consequently, synchronized CPU culling and continuous FOV during extreme
+close-ups are not release claims. `FOVMultiplier=1.150` is visually validated
+at 3440x1440, but it can expose side pop-in and a very tight camera transition
+can briefly fall outside the conservative renderer filter. Fixing those cases
+requires a targeted redesign that preserves the validated projection path.
 
 At 3440x1440, `FOVMultiplier=1.150` adds roughly 5 degrees of vertical view to
 the narrow gameplay camera, preserves object proportions and closely follows

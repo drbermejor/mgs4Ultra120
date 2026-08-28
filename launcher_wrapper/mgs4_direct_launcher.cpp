@@ -61,7 +61,8 @@ std::wstring read_token(const std::wstring& ini, const wchar_t* key,
     return safe_token(value) ? value : std::wstring(fallback);
 }
 
-bool write_launcher_parameters(const std::vector<std::wstring>& arguments) {
+bool write_launcher_parameters(const std::wstring& launcher_directory,
+                               const std::vector<std::wstring>& arguments) {
     std::string serialized;
     for (std::size_t index = 0; index < arguments.size(); ++index) {
         if (index) serialized.push_back('\x08');
@@ -131,9 +132,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     const std::wstring self_region = read_token(ini_path, L"SelfRegion", L"EU");
     const std::wstring language = read_token(ini_path, L"Language", L"en");
     const std::wstring controller = read_token(ini_path, L"ControllerType", L"XBOX");
-    append_log(launcher_directory, "Wrapper started; region=" + utf8(region) +
-                                   " language=" + utf8(language) +
-                                   " controller=" + utf8(controller));
+    // WindowMode lives in the official launcher_sv settings. Native tracing
+    // proved that the Unity launcher still emits "-resolution 0" when
+    // WindowMode=1 and the game creates its windowed surface. Do not reinterpret
+    // this token as a fullscreen boolean: it is an independent resolution slot.
+    const std::wstring display_mode = read_token(
+        ini_path, L"DisplayMode", L"Fullscreen");
     const std::vector<std::wstring> arguments = {
         L"-region", region,
         L"-lan", language,
@@ -143,14 +147,23 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
         L"-ctrltype", controller,
         L"-launcherroot", launcher_directory,
     };
-    if (!write_launcher_parameters(arguments)) {
+    if (!write_launcher_parameters(launcher_directory, arguments)) {
         show_error(L"Could not write the mgs4_param bootstrap file.", GetLastError());
         return 3;
     }
 
+    append_log(launcher_directory,
+               _wcsicmp(display_mode.c_str(), L"Windowed") == 0
+                   ? "Presentation profile: windowed/native; official resolution slot 0."
+                   : "Presentation profile: exclusive; official resolution slot 0.");
+
+    // The game consumes these values from the launcher's official mgs4_param
+    // bootstrap file. Repeating them on the mgs4.exe command line makes some
+    // Steam clients treat the child process as a custom app launch, return to
+    // launcher.exe after confirmation, and create an endless prompt loop.
+    // Starting the child without visible custom arguments retains Steam as the
+    // parent path while leaving the bootstrap as the single source of tokens.
     std::wstring command_line = L"\"" + game_executable + L"\"";
-    for (const std::wstring& argument : arguments)
-        command_line += L" \"" + argument + L"\"";
     SetEnvironmentVariableW(kMarker, L"1");
 
     STARTUPINFOW startup{};
@@ -168,7 +181,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
         return 4;
     }
 
-    append_log(launcher_directory, "Steam-path direct launch; mgs4.exe PID=" +
+    append_log(launcher_directory,
+               "Steam-path direct launch from mgs4_param; no child command-line arguments; mgs4.exe PID=" +
                                    std::to_string(process.dwProcessId));
     CloseHandle(process.hThread);
     WaitForSingleObject(process.hProcess, INFINITE);

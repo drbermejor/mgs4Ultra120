@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.3.1-alpha.3
+
+- Replaced the two-export WinMM shim with a complete 181-export x64 proxy, so
+  native Steam can resolve `waveOutGetDevCapsW` and all other WinMM imports.
+- Fixed a native-Windows `0xc0000005` crash caused by restoring a transient
+  non-executable protection after installing hooks in decrypted game code.
+- Ignored unavailable/stale Steam library drives during automatic detection.
+- Preserved supported user INI values across install/update operations.
+- Enabled the reversible Unity-launcher bypass in the stable default profile
+  and stopped duplicating bootstrap tokens on the child command line, avoiding
+  Steam's repeated custom-arguments/launcher loop on affected clients.
+- Added an unsigned persistent Windows setup EXE with Start-menu/desktop
+  shortcuts and safe uninstall; retained the portable ZIP/CMD route.
+- Simplified the Windows flow into one validated **Install/update and
+  configure** action, added clear game-path status, recommended/default and
+  save-and-close actions, using consistent English-only UI text to avoid
+  locale-dependent encoding problems.
+- Added a documented manual DLL+INI route compatible with the graphical
+  configurator.
+- Added separate Windows presentation profiles: a primary-monitor physical-size
+  window is the stable default, while exclusive fullscreen is an explicitly
+  warned advanced option.
+- Synchronized the official launcher's full/window dimensions and mode before
+  launch, with conditional restoration during uninstall so later user changes
+  are preserved.
+- Corrected the wrapper after native tracing showed that `-resolution` is a
+  resolution slot, not the `WindowMode` flag; both stock presentation modes use
+  slot `0` while `launcher_sv` controls windowed/fullscreen state.
+- Isolated the moving red band/flicker to the G-SYNC/VRR presentation path on
+  the tested mixed-refresh NVIDIA dual-monitor system. Auto HDR and windowed
+  optimizations did not prevent recurrence, Windows recorded display WATCHDOG
+  events, and ten focus transitions passed with G-SYNC disabled, including the
+  final physical 3440x1440 test with every stable module enabled.
+- Added explicit Auto HDR and NVIDIA multi-monitor warnings; the configurator
+  documents the relevant settings but never changes Windows or driver state.
+- Read the primary monitor's current physical mode through Win32 instead of
+  DPI-scaled desktop bounds, so 3440x1440 at 125% is no longer saved as
+  2752x1152.
+- Added an installed-DLL hash marker so package updates retain the true
+  pre-install backup and clean uninstall never restores an older project DLL.
+- Added native proxy export/smoke checks and recorded the Windows failures as
+  mandatory release gates for future CachyOS development.
+
 ## v0.3.1-alpha.2
 
 - Fixed the Windows configurator crashing while initializing render widths

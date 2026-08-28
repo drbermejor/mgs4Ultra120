@@ -4,13 +4,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 VERSION="${1:-}"
+PLATFORM="${2:-all}"
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-946684800}"
 [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]] || {
-  echo "Usage: $0 vX.Y.Z-alpha.N" >&2
+  echo "Usage: $0 vX.Y.Z-alpha.N [windows|linux|all]" >&2
   exit 1
 }
-DLL="$REPO_DIR/build-mingw/bin/winmm.dll"
-WRAPPER="$REPO_DIR/build-mingw/bin/launcher.exe"
+[[ "$PLATFORM" == windows || "$PLATFORM" == linux || "$PLATFORM" == all ]] || {
+  echo "Platform must be windows, linux, or all." >&2
+  exit 1
+}
+BIN_DIR="${MGS4ULTRA120_BIN_DIR:-$REPO_DIR/build-mingw/bin}"
+DLL="$BIN_DIR/winmm.dll"
+WRAPPER="$BIN_DIR/launcher.exe"
 [[ -f "$DLL" ]] || { echo "Build the release DLL first: $DLL" >&2; exit 1; }
 [[ -f "$WRAPPER" ]] || { echo "Build the direct-launch wrapper first: $WRAPPER" >&2; exit 1; }
 
@@ -25,7 +31,11 @@ make_tree() {
   mkdir -p -- "$root/bin" "$root/config" "$root/docs" "$root/scripts/$platform"
   install -m0644 "$DLL" "$root/bin/winmm.dll"
   install -m0755 "$WRAPPER" "$root/bin/launcher.exe"
-  install -m0644 "$REPO_DIR/config/mgs4_ultrawide.ini" "$root/config/mgs4_ultrawide.ini"
+  local config_source="$REPO_DIR/config/mgs4_ultrawide.ini"
+  if [[ "$platform" == windows ]]; then
+    config_source="$REPO_DIR/config/windows/mgs4_ultrawide.ini"
+  fi
+  install -m0644 "$config_source" "$root/config/mgs4_ultrawide.ini"
   for name in "${COMMON[@]}"; do install -m0644 "$REPO_DIR/$name" "$root/$name"; done
   if [[ "$platform" == windows ]]; then
     install -m0644 "$REPO_DIR/MGS4Ultra120-Setup.cmd" "$root/MGS4Ultra120-Setup.cmd"
@@ -38,19 +48,37 @@ make_tree() {
 }
 
 mkdir -p -- "$DIST"
-windows_root="$(make_tree windows)"
-linux_root="$(make_tree linux)"
-chmod +x "$linux_root/scripts/linux/"*.sh "$linux_root/scripts/linux/"*.py
-find "$windows_root" "$linux_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+if [[ "$PLATFORM" == windows || "$PLATFORM" == all ]]; then
+  windows_root="$(make_tree windows)"
+  find "$windows_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+  windows_asset="$DIST/MGS4Ultra120-$VERSION-windows.zip"
+  rm -f -- "$windows_asset" "$windows_asset.sha256"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$STAGE" && find "$(basename "$windows_root")" -print | LC_ALL=C sort |
+      TZ=UTC zip -X -q "$windows_asset" -@)
+  elif command -v powershell.exe >/dev/null 2>&1 &&
+       command -v cygpath >/dev/null 2>&1; then
+    windows_root_native="$(cygpath -w "$windows_root")"
+    windows_asset_native="$(cygpath -w "$windows_asset")"
+    powershell.exe -NoLogo -NoProfile -Command \
+      "Compress-Archive -LiteralPath '$windows_root_native' -DestinationPath '$windows_asset_native' -CompressionLevel Optimal"
+  else
+    echo "Creating a Windows ZIP requires zip or PowerShell under Git Bash." >&2
+    exit 1
+  fi
+  (cd "$DIST" && sha256sum "$(basename "$windows_asset")" >"$(basename "$windows_asset").sha256")
+  printf 'Created:\n%s\n' "$windows_asset"
+fi
 
-windows_asset="$DIST/MGS4Ultra120-$VERSION-windows.zip"
-linux_asset="$DIST/MGS4Ultra120-$VERSION-linux.tar.gz"
-rm -f -- "$windows_asset" "$linux_asset" "$windows_asset.sha256" "$linux_asset.sha256"
-(cd "$STAGE" && find "$(basename "$windows_root")" -print | LC_ALL=C sort |
-  TZ=UTC zip -X -q "$windows_asset" -@)
-tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
-  --pax-option=delete=atime,delete=ctime -C "$STAGE" -czf "$linux_asset" \
-  "$(basename "$linux_root")"
-(cd "$DIST" && sha256sum "$(basename "$windows_asset")" >"$(basename "$windows_asset").sha256")
-(cd "$DIST" && sha256sum "$(basename "$linux_asset")" >"$(basename "$linux_asset").sha256")
-printf 'Created:\n%s\n%s\n' "$windows_asset" "$linux_asset"
+if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
+  linux_root="$(make_tree linux)"
+  chmod +x "$linux_root/scripts/linux/"*.sh "$linux_root/scripts/linux/"*.py
+  find "$linux_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+  linux_asset="$DIST/MGS4Ultra120-$VERSION-linux.tar.gz"
+  rm -f -- "$linux_asset" "$linux_asset.sha256"
+  tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
+    --pax-option=delete=atime,delete=ctime -C "$STAGE" -czf "$linux_asset" \
+    "$(basename "$linux_root")"
+  (cd "$DIST" && sha256sum "$(basename "$linux_asset")" >"$(basename "$linux_asset").sha256")
+  printf 'Created:\n%s\n' "$linux_asset"
+fi

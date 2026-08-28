@@ -1,5 +1,9 @@
 # Linux / Proton installation
 
+> **Separate release line:** use the `v0.3.1-alpha.2` Linux tarball. The
+> `v0.3.1-alpha.3` release is a native-Windows repair and intentionally contains
+> no Linux assets. Do not run its Windows setup/ZIP under Proton.
+
 The tested path is Steam, GE-Proton10-34, the original Unity launcher, and the
 DirectX 12 renderer. Keeping the launcher preserves the normal Steam/Cloud
 workflow.

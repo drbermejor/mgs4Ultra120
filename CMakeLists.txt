@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MGS4Ultra120 VERSION 0.3.0 LANGUAGES C CXX)
+project(MGS4Ultra120 VERSION 0.3.1 LANGUAGES C CXX)
+
+include(CTest)
+
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 include(FetchContent)
 
@@ -14,7 +20,36 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(minhook)
 
-add_library(mgs4_ultrawide SHARED src/mgs4_ultrawide.cpp)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(WINMM_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated/winmm")
+if(MSVC)
+    enable_language(ASM_MASM)
+    set(WINMM_ASSEMBLY_FORMAT masm)
+    set(WINMM_ASSEMBLY "${WINMM_GENERATED_DIR}/winmm_trampolines.asm")
+else()
+    enable_language(ASM)
+    set(WINMM_ASSEMBLY_FORMAT gnu)
+    set(WINMM_ASSEMBLY "${WINMM_GENERATED_DIR}/winmm_trampolines.S")
+endif()
+set(WINMM_DEFINITION "${WINMM_GENERATED_DIR}/winmm.def")
+set(WINMM_INCLUDE "${WINMM_GENERATED_DIR}/winmm_exports.inc")
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/generate_winmm_proxy.py"
+        --exports "${CMAKE_SOURCE_DIR}/cmake/winmm_exports.txt"
+        --definition "${WINMM_DEFINITION}"
+        --include "${WINMM_INCLUDE}"
+        --assembly "${WINMM_ASSEMBLY}"
+        --format "${WINMM_ASSEMBLY_FORMAT}"
+    COMMAND_ERROR_IS_FATAL ANY
+)
+
+add_library(mgs4_ultrawide SHARED
+    src/mgs4_ultrawide.cpp
+    src/winmm_proxy.cpp
+    "${WINMM_ASSEMBLY}"
+    "${WINMM_DEFINITION}"
+)
 set_target_properties(mgs4_ultrawide PROPERTIES
     OUTPUT_NAME winmm
     PREFIX ""
@@ -22,8 +57,9 @@ set_target_properties(mgs4_ultrawide PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 target_compile_features(mgs4_ultrawide PRIVATE cxx_std_17)
-target_compile_definitions(mgs4_ultrawide PRIVATE _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN)
-target_link_libraries(mgs4_ultrawide PRIVATE minhook winmm)
+target_compile_definitions(mgs4_ultrawide PRIVATE _WIN32_WINNT=0x0A00)
+target_include_directories(mgs4_ultrawide PRIVATE "${WINMM_GENERATED_DIR}")
+target_link_libraries(mgs4_ultrawide PRIVATE minhook)
 
 add_executable(mgs4_direct_launcher WIN32
     launcher_wrapper/mgs4_direct_launcher.cpp
@@ -34,8 +70,31 @@ set_target_properties(mgs4_direct_launcher PROPERTIES
 )
 target_compile_features(mgs4_direct_launcher PRIVATE cxx_std_17)
 target_compile_definitions(mgs4_direct_launcher PRIVATE
-    _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN
+    _WIN32_WINNT=0x0A00
 )
+
+add_executable(winmm_proxy_smoke tests/winmm_proxy_smoke.cpp)
+target_compile_features(winmm_proxy_smoke PRIVATE cxx_std_17)
+target_compile_definitions(winmm_proxy_smoke PRIVATE _WIN32_WINNT=0x0A00)
+target_link_libraries(winmm_proxy_smoke PRIVATE mgs4_ultrawide)
+set_target_properties(winmm_proxy_smoke PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
+    add_test(NAME winmm_proxy_smoke COMMAND winmm_proxy_smoke)
+    add_executable(launcher_args_probe tests/launcher_args_probe.cpp)
+    target_compile_features(launcher_args_probe PRIVATE cxx_std_17)
+    set_target_properties(launcher_args_probe PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+    add_test(NAME launcher_wrapper_smoke
+        COMMAND powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_SOURCE_DIR}/tests/launcher_wrapper_smoke.ps1"
+            -Wrapper "$<TARGET_FILE:mgs4_direct_launcher>"
+            -Probe "$<TARGET_FILE:launcher_args_probe>"
+    )
+endif()
 
 if(MINGW)
     target_link_options(mgs4_ultrawide PRIVATE -static -static-libgcc -static-libstdc++)

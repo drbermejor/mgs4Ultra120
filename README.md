@@ -6,7 +6,7 @@ user can enable ultrawide only, 120 FPS only, the controller fix only, any
 combination of them, or all modules together.
 
 > **Public alpha.** Back up your saves and read the limitations. Version
-> `v0.3.1-alpha.2` is verified against one Steam executable. Other builds are
+> `v0.3.1-alpha.3` is verified against one Steam executable. Other builds are
 > blocked by default but can be attempted with an explicit unsafe override.
 
 ## Modules
@@ -17,7 +17,8 @@ combination of them, or all modules together.
 | FPS override | On at 60 | 30/60/experimental 120 FPS, independently switchable |
 | FPS hotkey | F10 | Toggles the active FPS override between 60 and 120 |
 | Controller profile fix | On | Prevents a connected native gamepad from being spuriously reclassified as keyboard input |
-| Direct-launch wrapper | Off | Skips the Unity launcher while Steam remains the parent launch path |
+| Windows presentation | Native window | Uses the primary monitor's physical size without an exclusive mode switch |
+| Direct-launch wrapper | On | Skips the Unity launcher while Steam remains the parent launch path |
 | Centered 16:9 UI | Off | Experimental D3D12 safe-area prototype |
 
 The controller module does not emulate an Xbox pad, inject inputs or install a
@@ -37,18 +38,8 @@ the game and releases that state after all controllers disconnect.
   centered 16:9 D3D12 experiment can also affect full-screen effects and is
   therefore disabled by default.
 - Pre-rendered Bink video is not cropped or expanded by this alpha. A dedicated
-  native-aspect compositor path is still under investigation; real-time engine
+  forced-16:9 compositor path is still under investigation; real-time engine
   cinematics already use the corrected projection.
-
-## Screenshots
-
-[![3440x1440 ultrawide gameplay](https://i.imgur.com/LTIi1EJ.png)](https://imgur.com/LTIi1EJ)
-
-[![3440x1440 ultrawide gameplay and UI](https://i.imgur.com/tmhkhzc.jpg)](https://imgur.com/tmhkhzc)
-
-These 3440x1440 captures show the stable Hor+ world-rendering mode. They use
-the game's original UI behavior; they do **not** show the unfinished
-proportional/anchored UI prototype.
 
 ## Important limitations
 
@@ -66,18 +57,40 @@ proportional/anchored UI prototype.
   crashes remain possible and the override is off by default.
 - A full playthrough and save compatibility are not yet certified.
 
-## Easy installation
+## Platform downloads
 
-Download the Windows ZIP or Linux tarball from
+Windows and Linux/Proton are maintained as separate validated release lines:
+
+| Platform | Validated release | Download |
+|---|---|---|
+| Native Windows | `v0.3.1-alpha.3` | Unsigned setup EXE (recommended) or portable Windows ZIP |
+| Linux / Proton | `v0.3.1-alpha.2` | Linux tarball from the previous release |
+
+The alpha.3 release intentionally contains only Windows assets. Linux users
+should keep the separately tested alpha.2 Linux package; do not substitute the
+Windows setup/ZIP or infer Linux validation from the Windows fixes.
+
+Download only from
 [Releases](https://github.com/drbermejor/mgs4Ultra120/releases).
 
-**Windows:** extract the ZIP, exit the game, and double-click
-`MGS4Ultra120-Setup.cmd`. It detects Steam automatically, installs reversibly,
-and opens the graphical configurator. No PowerShell commands or manual file
-copying are required for the normal path.
+**Native Windows:** the recommended download is the setup EXE. It installs a setup
+manager for the current user, creates Start-menu and desktop shortcuts, detects
+Steam automatically and supports reversible removal. It is not digitally
+signed; verify its published SHA-256 and do not disable SmartScreen or antivirus
+globally. The portable ZIP and `MGS4Ultra120-Setup.cmd` route remain available.
+
+The Windows stable profile detects the primary monitor's physical resolution
+and requests a native-size window. In the tested 3440x1440 setup this occupied
+the complete monitor without a title bar while avoiding an exclusive display
+mode switch. Exclusive fullscreen remains available as an advanced option.
+
+**Linux / Proton:** use only the Linux tarball and follow the separate Linux
+guide. Its shell installer, Steam launch options and Gamescope path are not used
+by the native-Windows installer.
 
 - [Windows installation](docs/INSTALL_WINDOWS.md)
-- [Troubleshooting and log files](docs/TROUBLESHOOTING.md)
+- [Manual DLL and INI installation](docs/MANUAL_INI.md)
+- [Windows troubleshooting](docs/TROUBLESHOOTING_WINDOWS.md)
 - [Linux / Proton installation](docs/INSTALL_LINUX.md)
 - [Configuration and independent combinations](docs/CONFIGURATION.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
@@ -88,6 +101,22 @@ The patch never edits `mgs4.exe`. It loads through a reversible `winmm.dll`
 proxy beside the executable. The optional direct-launch feature temporarily
 replaces `Launcher/launcher.exe`, retains a private backup and restores it only
 after verifying that the active file is our wrapper.
+
+The alpha.3 wrapper uses the game's official `mgs4_param` bootstrap without
+duplicating its tokens on the child command line. This removes the repeated
+Steam custom-arguments loop seen with older wrappers on some clients. Cancel
+and report any unexpected argument prompt instead of approving it repeatedly.
+
+On the tested mixed-scaling, mixed-refresh HDR dual-monitor system, switching
+focus reproduced a moving red band/flicker. A light occurrence was also seen in
+a native-size window with all patch modules disabled. Auto HDR and windowed-game
+optimizations did not eliminate it; Windows recorded display `WATCHDOG`
+`LiveKernelEvent` reports. With **G-SYNC/VRR disabled**, ten focus transitions
+were clean, including the final 3440x1440 test with every stable module enabled.
+The configurator warns on NVIDIA multi-monitor systems but never alters driver
+settings. If a display remains affected after closing the game,
+`Win+Ctrl+Shift+B` resets the Windows graphics pipeline. See the troubleshooting
+guide before playing on mixed-DPI/HDR/VRR displays.
 
 ## How the world fix works
 

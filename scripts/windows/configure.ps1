@@ -1,19 +1,37 @@
 param(
     [ValidateSet("stable", "ui-safe", "120", "120-ui", "fps-only-120", "ultrawide-only", "controller-fix-only")]
     [string]$Profile,
+    [ValidateSet("Windowed", "Fullscreen")]
+    [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
+if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
+    throw "The selected MGS4 folder is unavailable. Reconnect its drive or choose it again from Easy setup."
+}
 $Ini = Join-Path $GameDir "mgs4_ultrawide.ini"
 $Exe = Join-Path $GameDir "mgs4.exe"
 $PackageDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+. (Join-Path $PSScriptRoot "common.ps1")
 $InstallDir = Split-Path -Parent $GameDir
 $LauncherDir = Join-Path $InstallDir "Launcher"
 $LauncherTarget = Join-Path $LauncherDir "launcher.exe"
 $BackupDir = Join-Path $GameDir ".mgs4ultra120-backup"
 $LauncherBackup = Join-Path $BackupDir "launcher.exe.preinstall"
+$LauncherHashMarker = Join-Path $BackupDir "launcher-wrapper-installed.sha256"
 $WrapperSource = Join-Path $PackageDir "bin\launcher.exe"
+
+function Test-Mgs4Ultra120AutoHdrEnabled {
+    try {
+        $GlobalSettings = [string](Get-ItemProperty -LiteralPath `
+            "HKCU:\Software\Microsoft\DirectX\UserGpuPreferences" `
+            -Name DirectXUserGlobalSettings -ErrorAction Stop).DirectXUserGlobalSettings
+        return $GlobalSettings -match '(?:^|;)AutoHDREnable=1(?:;|$)'
+    } catch {
+        return $false
+    }
+}
 
 if (-not (Test-Path -LiteralPath $Ini)) { throw "mgs4_ultrawide.ini not found in: $GameDir" }
 if (-not (Test-Path -LiteralPath $Exe)) { throw "mgs4.exe not found in: $GameDir" }
@@ -29,7 +47,9 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
                            [int]$Fps, [int]$Ui, [int]$UltrawideEnabled,
                            [int]$FpsOverrideEnabled, [int]$ControllerFixEnabled,
                            [int]$SkipUnityLauncher, [string]$Language,
-                           [string]$ToggleHotkey, [int]$AllowUnsupported) {
+                           [string]$ToggleHotkey, [int]$AllowUnsupported,
+                           [string]$DisplayMode,
+                           [int]$UsePrimaryPhysicalResolution) {
     if ($Width -lt 640 -or $Width -gt 16384 -or $Height -lt 480 -or $Height -gt 16384) {
         throw "Width/height are outside the allowed range."
     }
@@ -37,6 +57,7 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
     if ($Fps -notin @(30, 60, 120)) { throw "FPS must be 30, 60, or 120." }
     if ($Language -notin @("en", "sp", "fr", "it", "ge", "jp")) { throw "Unsupported direct-launch language." }
     if ($ToggleHotkey -notin @("Off", "F6", "F7", "F8", "F9", "F10", "F11", "F12")) { throw "Unsupported FPS toggle hotkey." }
+    if ($DisplayMode -notin @("Windowed", "Fullscreen")) { throw "Unsupported Windows display mode." }
     $Values = [ordered]@{
         UltrawideEnabled = $UltrawideEnabled
         FPSOverrideEnabled = $FpsOverrideEnabled
@@ -48,6 +69,8 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
         Language = $Language
         ToggleHotkey = $ToggleHotkey
         AllowUnsupportedExecutable = $AllowUnsupported
+        DisplayMode = $DisplayMode
+        UsePrimaryPhysicalResolution = $UsePrimaryPhysicalResolution
     }
     $Text = Get-Content -Raw -LiteralPath $Ini
     foreach ($Entry in $Values.GetEnumerator()) {
@@ -67,23 +90,43 @@ function Set-LauncherWrapper([bool]$Enabled) {
         if (-not (Test-Path -LiteralPath $WrapperSource)) { throw "Direct-launch wrapper not found in: $PackageDir\bin" }
         $SourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $WrapperSource).Hash
         $TargetHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $LauncherTarget).Hash
-        if ($SourceHash -eq $TargetHash) { return }
+        if ($SourceHash -eq $TargetHash) {
+            [IO.File]::WriteAllText($LauncherHashMarker, $SourceHash,
+                [Text.Encoding]::ASCII)
+            return
+        }
         if (-not (Test-Path -LiteralPath $LauncherBackup)) {
             Copy-Item -LiteralPath $LauncherTarget -Destination $LauncherBackup
         } else {
+            # A managed backup is the original Unity launcher and must never be
+            # replaced by an older MGS4 Ultra120 wrapper during package update.
+            # Keep the displaced active file as an audit copy instead.
             $Timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
-            Copy-Item -LiteralPath $LauncherBackup -Destination "$LauncherBackup.$Timestamp"
-            Copy-Item -Force -LiteralPath $LauncherTarget -Destination $LauncherBackup
+            Copy-Item -LiteralPath $LauncherTarget -Destination `
+                (Join-Path $BackupDir "launcher.exe.displaced.$Timestamp")
         }
         Copy-Item -Force -LiteralPath $WrapperSource -Destination $LauncherTarget
+        [IO.File]::WriteAllText($LauncherHashMarker, $SourceHash,
+            [Text.Encoding]::ASCII)
     } elseif (Test-Path -LiteralPath $LauncherBackup) {
-        if (-not (Test-Path -LiteralPath $WrapperSource)) {
-            throw "Direct-launch wrapper is missing; refusing an ambiguous launcher restore."
+        $ManagedHashes = [Collections.Generic.HashSet[string]]::new(
+            [StringComparer]::OrdinalIgnoreCase)
+        if (Test-Path -LiteralPath $WrapperSource) {
+            [void]$ManagedHashes.Add((Get-FileHash -Algorithm SHA256 `
+                -LiteralPath $WrapperSource).Hash)
         }
-        $SourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $WrapperSource).Hash
+        if (Test-Path -LiteralPath $LauncherHashMarker) {
+            $RecordedHash = (Get-Content -Raw -LiteralPath `
+                $LauncherHashMarker).Trim()
+            if ($RecordedHash -match '^[0-9a-fA-F]{64}$') {
+                [void]$ManagedHashes.Add($RecordedHash)
+            }
+        }
         $TargetHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $LauncherTarget).Hash
-        if ($SourceHash -eq $TargetHash) {
+        if ($ManagedHashes.Contains($TargetHash)) {
             Move-Item -Force -LiteralPath $LauncherBackup -Destination $LauncherTarget
+            Remove-Item -Force -LiteralPath $LauncherHashMarker `
+                -ErrorAction SilentlyContinue
         } else {
             [Windows.Forms.MessageBox]::Show(
                 "The launcher changed outside MGS4 Ultra120. It and the backup were left untouched.",
@@ -93,36 +136,131 @@ function Set-LauncherWrapper([bool]$Enabled) {
 }
 
 if ($PSBoundParameters.ContainsKey("Profile")) {
+    if (Test-Mgs4Ultra120AutoHdrEnabled) {
+        Write-Warning "Windows Auto HDR is enabled. Native multi-monitor testing reproduced a red sweep/flicker during focus changes; disable Auto HDR before launching MGS4."
+    }
     $CurrentSkip = [int](Get-IniValue "SkipUnityLauncher")
     $CurrentLanguage = Get-IniValue "Language"
     $CurrentHotkey = Get-IniValue "ToggleHotkey"
     $CurrentAllowUnsupported = [int](Get-IniValue "AllowUnsupportedExecutable")
-    switch ($Profile) {
-        "stable" { Set-PatchSettings 3440 1440 1.000 60 0 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
-        "ui-safe" { Set-PatchSettings 3440 1440 1.000 60 1 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
-        "120" { Set-PatchSettings 3440 1440 1.000 120 0 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
-        "120-ui" { Set-PatchSettings 3440 1440 1.000 120 1 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
-        "fps-only-120" { Set-PatchSettings 3440 1440 1.000 120 0 0 1 0 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
-        "ultrawide-only" { Set-PatchSettings 3440 1440 1.000 60 0 1 0 0 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
-        "controller-fix-only" { Set-PatchSettings 3440 1440 1.000 60 0 0 0 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported }
+    $CurrentDisplayMode = Get-IniValue "DisplayMode"
+    $CurrentAutoResolution = [int](Get-IniValue "UsePrimaryPhysicalResolution")
+    $CurrentWidth = [int](Get-IniValue "Width")
+    $CurrentHeight = [int](Get-IniValue "Height")
+    $RequestedDisplayMode = if ($PSBoundParameters.ContainsKey("WindowsDisplayMode")) {
+        $WindowsDisplayMode
+    } elseif ($Profile -eq "stable") {
+        "Windowed"
+    } else {
+        $CurrentDisplayMode
     }
+    switch ($Profile) {
+        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 60 0 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode 1 }
+        "ui-safe" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 60 1 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 120 0 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "120-ui" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 120 1 1 1 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 120 0 0 1 0 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 60 0 1 0 0 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 60 0 0 0 1 $CurrentSkip $CurrentLanguage $CurrentHotkey $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+    }
+    Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
+        ([int](Get-IniValue "Width")) ([int](Get-IniValue "Height")) `
+        (Get-IniValue "DisplayMode")
+    Set-LauncherWrapper ((Get-IniValue "SkipUnityLauncher") -eq "1")
     Write-Host "Applied profile: $Profile"
     exit 0
 }
 
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class Mgs4DpiAwareness {
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct DEVMODE {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string dmDeviceName;
+        public ushort dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra;
+        public uint dmFields;
+        public int dmPositionX, dmPositionY;
+        public uint dmDisplayOrientation, dmDisplayFixedOutput;
+        public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string dmFormName;
+        public ushort dmLogPixels;
+        public uint dmBitsPerPel, dmPelsWidth, dmPelsHeight;
+        public uint dmDisplayFlags, dmDisplayFrequency;
+        public uint dmICMMethod, dmICMIntent, dmMediaType, dmDitherType;
+        public uint dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool EnumDisplaySettings(
+        string deviceName, int modeNumber, ref DEVMODE mode);
+
+    public static int[] GetCurrentPhysicalMode(string deviceName) {
+        var mode = new DEVMODE();
+        mode.dmDeviceName = new string('\0', 32);
+        mode.dmFormName = new string('\0', 32);
+        mode.dmSize = (ushort)Marshal.SizeOf(typeof(DEVMODE));
+        if (!EnumDisplaySettings(deviceName, -1, ref mode)) {
+            throw new InvalidOperationException(
+                "Cannot read the physical display mode for " + deviceName);
+        }
+        return new int[] { (int)mode.dmPelsWidth, (int)mode.dmPelsHeight };
+    }
+}
+'@
+[void][Mgs4DpiAwareness]::SetProcessDpiAwarenessContext([IntPtr](-4))
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
+$Ui = @{
+        Form = "MGS4 Ultra120 Configurator"
+        Title = "Recommended configuration: save without changing anything"
+        Ultrawide = "Enable ultrawide rendering and FOV correction"
+        FpsOverride = "Enable independent FPS override"
+        Width = "Render width"; Height = "Render height"
+        AutoSize = "Primary monitor physical size"
+        Fov = "FOV multiplier (1.00 = original)"
+        Presentation = "Windows presentation"
+        DisplayItems = @("Windowed at native size (recommended)", "Exclusive fullscreen (advanced)")
+        FrameRate = "Frame-rate limit"
+        FpsItems = @("60 - stable", "120 - experimental", "30")
+        UiSafe = "Center identified UI draws in 16:9 (experimental)"
+        Hotkey = "60/120 FPS toggle hotkey"
+        Controller = "Fix controller profile switching (recommended)"
+        Skip = "Skip Unity launcher while keeping the Steam launch path"
+        Language = "Direct-launch language"
+        Supported = "Executable: supported and verified"
+        UnsupportedStatus = "Executable: UNVERIFIED - unsafe override required"
+        Unsupported = "Attempt unsupported executable (unsafe)"
+        Defaults = "Use recommended settings"
+        Save = "Save and close"; Close = "Cancel"
+        Saved = "Settings saved. Start the game normally from Steam."
+        AutoHdrTitle = "Auto HDR warning"
+        NvidiaTitle = "NVIDIA multi-monitor warning"
+        FullscreenTitle = "Exclusive fullscreen"
+        FpsTitle = "Experimental 120 FPS"
+        UnsupportedTitle = "Unsupported executable"
+        AutoHdrMessage = "Auto HDR is enabled. The multi-monitor test reproduced a red sweep during focus changes. It was not the final cause, but disabling it is recommended while testing. Save anyway?"
+        NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
+        UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
+        FpsMessage = "120 FPS has stalled a scripted scene. Enable it anyway?"
+        FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
+}
 
 $Form = [Windows.Forms.Form]@{
-    Text = "MGS4 Ultra120 Configurator"
+    Text = $Ui.Form
     StartPosition = "CenterScreen"
-    ClientSize = [Drawing.Size]::new(620, 765)
+    ClientSize = [Drawing.Size]::new(620, 802)
     FormBorderStyle = "FixedDialog"
     MaximizeBox = $false
 }
 $Title = [Windows.Forms.Label]@{
-    Text = "Ultrawide rendering and launch profile"
+    Text = $Ui.Title
     Location = [Drawing.Point]::new(24, 18); Size = [Drawing.Size]::new(560, 32)
     Font = [Drawing.Font]::new("Segoe UI", 15, [Drawing.FontStyle]::Bold)
 }
@@ -150,55 +288,90 @@ function Add-Numeric([int]$Y, [decimal]$Minimum, [decimal]$Maximum, [decimal]$Va
 }
 
 $UltrawideBox = [Windows.Forms.CheckBox]@{
-    Text = "Enable ultrawide rendering and FOV module"
+    Text = $Ui.Ultrawide
     Location = [Drawing.Point]::new(30, 62); Size = [Drawing.Size]::new(530, 25)
     Checked = (Get-IniValue "UltrawideEnabled") -eq "1"
 }
 $FpsOverrideBox = [Windows.Forms.CheckBox]@{
-    Text = "Enable independent FPS override"
+    Text = $Ui.FpsOverride
     Location = [Drawing.Point]::new(30, 90); Size = [Drawing.Size]::new(530, 25)
     Checked = (Get-IniValue "FPSOverrideEnabled") -eq "1"
 }
 $Form.Controls.AddRange(@($UltrawideBox, $FpsOverrideBox))
 
-Add-Label "Render width" 130; $WidthBox = Add-Numeric 130 640 16384 ([decimal](Get-IniValue "Width"))
-Add-Label "Render height" 167; $HeightBox = Add-Numeric 167 480 16384 ([decimal](Get-IniValue "Height"))
-Add-Label "FOV multiplier (1.00 = original)" 204; $FovBox = Add-Numeric 204 0.50 2.00 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
+Add-Label $Ui.Width 130; $WidthBox = Add-Numeric 130 640 16384 ([decimal](Get-IniValue "Width"))
+Add-Label $Ui.Height 167; $HeightBox = Add-Numeric 167 480 16384 ([decimal](Get-IniValue "Height"))
+$PrimaryScreen = [Windows.Forms.Screen]::PrimaryScreen
+$PrimaryPhysicalMode = [Mgs4DpiAwareness]::GetCurrentPhysicalMode(
+    $PrimaryScreen.DeviceName)
+$PrimaryWidth = [decimal]$PrimaryPhysicalMode[0]
+$PrimaryHeight = [decimal]$PrimaryPhysicalMode[1]
+$NvidiaMultiDisplay = $false
+try {
+    $NvidiaMultiDisplay = [Windows.Forms.Screen]::AllScreens.Count -gt 1 -and
+        [bool](Get-CimInstance Win32_VideoController -ErrorAction Stop |
+            Where-Object Name -Match 'NVIDIA')
+} catch {}
+$AutoResolutionBox = [Windows.Forms.CheckBox]@{
+    Text = "$($Ui.AutoSize)`n($PrimaryWidth x $PrimaryHeight)"
+    Location = [Drawing.Point]::new(435, 126); Size = [Drawing.Size]::new(165, 58)
+    Checked = (Get-IniValue "UsePrimaryPhysicalResolution") -eq "1"
+}
+$AutoResolutionBox.Add_CheckedChanged({
+    $WidthBox.Enabled = -not $AutoResolutionBox.Checked
+    $HeightBox.Enabled = -not $AutoResolutionBox.Checked
+    if ($AutoResolutionBox.Checked) {
+        $WidthBox.Value = $PrimaryWidth
+        $HeightBox.Value = $PrimaryHeight
+    }
+})
+$Form.Controls.Add($AutoResolutionBox)
+if ($AutoResolutionBox.Checked) {
+    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight
+    $WidthBox.Enabled = $false; $HeightBox.Enabled = $false
+}
+Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 2.00 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
 
-Add-Label "Frame-rate limit" 241
-$FpsBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 238); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
-[void]$FpsBox.Items.AddRange(@("60 - stable", "120 - experimental", "30"))
+Add-Label $Ui.Presentation 241
+$DisplayModeBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 238); Size = [Drawing.Size]::new(300, 28); DropDownStyle = "DropDownList" }
+[void]$DisplayModeBox.Items.AddRange($Ui.DisplayItems)
+$DisplayModeBox.SelectedIndex = if ((Get-IniValue "DisplayMode") -eq "Fullscreen") { 1 } else { 0 }
+$Form.Controls.Add($DisplayModeBox)
+
+Add-Label $Ui.FrameRate 278
+$FpsBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 275); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
+[void]$FpsBox.Items.AddRange($Ui.FpsItems)
 $CurrentFps = Get-IniValue "Limit"; $FpsBox.SelectedIndex = if ($CurrentFps -eq "120") { 1 } elseif ($CurrentFps -eq "30") { 2 } else { 0 }
 $Form.Controls.Add($FpsBox)
 
 $UiBox = [Windows.Forms.CheckBox]@{
-    Text = "Center identified UI draws in 16:9 (experimental)"
-    Location = [Drawing.Point]::new(30, 285); Size = [Drawing.Size]::new(530, 28)
+    Text = $Ui.UiSafe
+    Location = [Drawing.Point]::new(30, 322); Size = [Drawing.Size]::new(530, 28)
     Checked = (Get-IniValue "ConstrainUITo16x9") -eq "1"
 }
 $Form.Controls.Add($UiBox)
 
-Add-Label "60/120 FPS toggle hotkey" 327
-$HotkeyBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 324); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
+Add-Label $Ui.Hotkey 364
+$HotkeyBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 361); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
 [void]$HotkeyBox.Items.AddRange(@("F10", "Off", "F6", "F7", "F8", "F9", "F11", "F12"))
 $HotkeyBox.SelectedItem = Get-IniValue "ToggleHotkey"
 if ($HotkeyBox.SelectedIndex -lt 0) { $HotkeyBox.SelectedItem = "F10" }
 $Form.Controls.Add($HotkeyBox)
 
 $ControllerFixBox = [Windows.Forms.CheckBox]@{
-    Text = "Fix controller profile switching (recommended)"
-    Location = [Drawing.Point]::new(30, 365); Size = [Drawing.Size]::new(550, 27)
+    Text = $Ui.Controller
+    Location = [Drawing.Point]::new(30, 402); Size = [Drawing.Size]::new(550, 27)
     Checked = (Get-IniValue "ControllerProfileFixEnabled") -eq "1"
 }
 $SkipLauncherBox = [Windows.Forms.CheckBox]@{
-    Text = "Skip the Unity launcher (recommended if Steam launch loops)"
-    Location = [Drawing.Point]::new(30, 397); Size = [Drawing.Size]::new(560, 27)
+    Text = $Ui.Skip
+    Location = [Drawing.Point]::new(30, 434); Size = [Drawing.Size]::new(560, 27)
     Checked = (Get-IniValue "SkipUnityLauncher") -eq "1"
 }
 $Form.Controls.AddRange(@($ControllerFixBox, $SkipLauncherBox))
 
-Add-Label "Direct-launch language" 438
-$LanguageBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 435); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
+Add-Label $Ui.Language 475
+$LanguageBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 472); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
 [void]$LanguageBox.Items.AddRange(@("en", "sp", "fr", "it", "ge", "jp"))
 $LanguageBox.SelectedItem = Get-IniValue "Language"
 if ($LanguageBox.SelectedIndex -lt 0) { $LanguageBox.SelectedItem = "en" }
@@ -207,53 +380,84 @@ $Form.Controls.Add($LanguageBox)
 $Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Exe).Hash.ToLowerInvariant()
 $Supported = $Hash -eq $KnownExeSha256
 $Status = [Windows.Forms.Label]@{
-    Text = if ($Supported) { "Executable: supported" } else { "Executable: UNVERIFIED - blocked unless unsafe override is enabled" }
-    Location = [Drawing.Point]::new(30, 485); Size = [Drawing.Size]::new(550, 28)
+    Text = if ($Supported) { $Ui.Supported } else { $Ui.UnsupportedStatus }
+    Location = [Drawing.Point]::new(30, 522); Size = [Drawing.Size]::new(550, 28)
     ForeColor = if ($Supported) { [Drawing.Color]::DarkGreen } else { [Drawing.Color]::DarkRed }
     Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold)
 }
 $Warning = [Windows.Forms.Label]@{
-    Text = "All checkboxes are independent. 120 FPS can stall scripted scenes. If Steam repeatedly returns to the Unity launcher, enable Skip the Unity launcher. The controller fix preserves the native pad profile. UI safe area remains experimental."
-    Location = [Drawing.Point]::new(30, 519); Size = [Drawing.Size]::new(550, 82)
+    Text = if (Test-Mgs4Ultra120AutoHdrEnabled) {
+        "WARNING: Auto HDR is enabled. On NVIDIA multi-monitor systems, also disable G-SYNC/VRR for MGS4. Native-size windowed is recommended."
+    } elseif ($NvidiaMultiDisplay) {
+        "NVIDIA MULTI-MONITOR WARNING: the 240/144 Hz test required G-SYNC/VRR off to prevent red sweeps and WATCHDOG events. The configurator never changes the driver."
+    } else {
+        "Native-size windowed is recommended. 120 FPS and the 16:9 UI mode remain experimental."
+    }
+    Location = [Drawing.Point]::new(30, 556); Size = [Drawing.Size]::new(550, 82)
+    ForeColor = if ((Test-Mgs4Ultra120AutoHdrEnabled) -or $NvidiaMultiDisplay) { [Drawing.Color]::DarkRed } else { [Drawing.Color]::Black }
 }
 $Form.Controls.AddRange(@($Status, $Warning))
 
 $UnsupportedBox = [Windows.Forms.CheckBox]@{
-    Text = "Attempt unsupported executable (unsafe; signatures still checked)"
-    Location = [Drawing.Point]::new(30, 605); Size = [Drawing.Size]::new(560, 27)
+    Text = $Ui.Unsupported
+    Location = [Drawing.Point]::new(30, 642); Size = [Drawing.Size]::new(560, 27)
     Checked = (Get-IniValue "AllowUnsupportedExecutable") -eq "1"
 }
 $Form.Controls.Add($UnsupportedBox)
 
-$StableButton = [Windows.Forms.Button]@{ Text = "Restore stable defaults"; Location = [Drawing.Point]::new(30, 695); Size = [Drawing.Size]::new(170, 38) }
-$SaveButton = [Windows.Forms.Button]@{ Text = "Save settings"; Location = [Drawing.Point]::new(325, 695); Size = [Drawing.Size]::new(125, 38) }
-$CloseButton = [Windows.Forms.Button]@{ Text = "Close"; Location = [Drawing.Point]::new(465, 695); Size = [Drawing.Size]::new(105, 38) }
+$StableButton = [Windows.Forms.Button]@{ Text = $Ui.Defaults; Location = [Drawing.Point]::new(30, 732); Size = [Drawing.Size]::new(200, 38) }
+$SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Point]::new(300, 732); Size = [Drawing.Size]::new(150, 38); BackColor = [Drawing.Color]::RoyalBlue; ForeColor = [Drawing.Color]::White; Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold) }
+$CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 732); Size = [Drawing.Size]::new(105, 38) }
 $StableButton.Add_Click({
-    $WidthBox.Value = 3440; $HeightBox.Value = 1440; $FovBox.Value = 1.00
+    $AutoResolutionBox.Checked = $true
+    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.00
+    $DisplayModeBox.SelectedIndex = 0
     $FpsBox.SelectedIndex = 0; $UiBox.Checked = $false
     $UltrawideBox.Checked = $true; $FpsOverrideBox.Checked = $true
-    $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $false
+    $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
     $HotkeyBox.SelectedItem = "F10"; $LanguageBox.SelectedItem = "en"
     $UnsupportedBox.Checked = $false
 })
 $SaveButton.Add_Click({
+    if (Test-Mgs4Ultra120AutoHdrEnabled) {
+        $Answer = [Windows.Forms.MessageBox]::Show(
+            $Ui.AutoHdrMessage, $Ui.AutoHdrTitle, "YesNo", "Warning")
+        if ($Answer -ne "Yes") { return }
+    }
+    if ($NvidiaMultiDisplay -and -not (Test-Mgs4Ultra120AutoHdrEnabled)) {
+        $Answer = [Windows.Forms.MessageBox]::Show(
+            $Ui.NvidiaMessage, $Ui.NvidiaTitle, "YesNo", "Warning")
+        if ($Answer -ne "Yes") { return }
+    }
     if ($UnsupportedBox.Checked) {
         $Answer = [Windows.Forms.MessageBox]::Show(
-            "Known code and data offsets will be attempted on an unverified executable. This may crash the game or corrupt its process state. Continue under your responsibility?",
-            "Unsupported executable override", "YesNo", "Warning")
+            $Ui.UnsupportedMessage, $Ui.UnsupportedTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
     if ($FpsOverrideBox.Checked -and $FpsBox.SelectedIndex -eq 1) {
         $Answer = [Windows.Forms.MessageBox]::Show(
-            "120 FPS has reproduced a scripted-scene stall. Enable it anyway?",
-            "Experimental 120 FPS", "YesNo", "Warning")
+            $Ui.FpsMessage, $Ui.FpsTitle, "YesNo", "Warning")
+        if ($Answer -ne "Yes") { return }
+    }
+    if ($DisplayModeBox.SelectedIndex -eq 1) {
+        $Answer = [Windows.Forms.MessageBox]::Show(
+            $Ui.FullscreenMessage, $Ui.FullscreenTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
     $Fps = if ($FpsBox.SelectedIndex -eq 1) { 120 } elseif ($FpsBox.SelectedIndex -eq 2) { 30 } else { 60 }
+    if ($AutoResolutionBox.Checked) {
+        $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight
+    }
+    $DisplayMode = if ($DisplayModeBox.SelectedIndex -eq 1) { "Fullscreen" } else { "Windowed" }
+    Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
+        ([int]$WidthBox.Value) ([int]$HeightBox.Value) $DisplayMode
     Set-LauncherWrapper $SkipLauncherBox.Checked
-    Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) $FovBox.Value $Fps ([int]$UiBox.Checked) ([int]$UltrawideBox.Checked) ([int]$FpsOverrideBox.Checked) ([int]$ControllerFixBox.Checked) ([int]$SkipLauncherBox.Checked) ([string]$LanguageBox.SelectedItem) ([string]$HotkeyBox.SelectedItem) ([int]$UnsupportedBox.Checked)
-    [Windows.Forms.MessageBox]::Show("Settings saved. Restart the game to apply them.", "MGS4 Ultra120", "OK", "Information") | Out-Null
+    Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) $FovBox.Value $Fps ([int]$UiBox.Checked) ([int]$UltrawideBox.Checked) ([int]$FpsOverrideBox.Checked) ([int]$ControllerFixBox.Checked) ([int]$SkipLauncherBox.Checked) ([string]$LanguageBox.SelectedItem) ([string]$HotkeyBox.SelectedItem) ([int]$UnsupportedBox.Checked) $DisplayMode ([int]$AutoResolutionBox.Checked)
+    [Windows.Forms.MessageBox]::Show($Ui.Saved, "MGS4 Ultra120", "OK", "Information") | Out-Null
+    $Form.Close()
 })
 $CloseButton.Add_Click({ $Form.Close() })
 $Form.Controls.AddRange(@($StableButton, $SaveButton, $CloseButton))
+$Form.AcceptButton = $SaveButton
+$Form.CancelButton = $CloseButton
 [void]$Form.ShowDialog()

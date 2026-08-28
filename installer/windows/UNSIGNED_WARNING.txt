@@ -1,0 +1,25 @@
+MGS4 ULTRA120 - UNSIGNED COMMUNITY INSTALLER
+
+This installer is not digitally signed. Windows SmartScreen may identify it as
+an unrecognized app or show "Unknown publisher". That warning is expected for
+this release, but it must not be ignored blindly.
+
+Continue only when all of the following are true:
+
+  1. You downloaded the EXE from the official release page:
+     https://github.com/drbermejor/mgs4Ultra120/releases
+
+  2. Its SHA-256 matches the .sha256 file published beside it. In PowerShell:
+
+     Get-FileHash .\MGS4Ultra120-vX.Y.Z-alpha.N-windows-setup.exe -Algorithm SHA256
+
+  3. You understand that this is an unofficial public alpha which loads a
+     winmm.dll proxy into the game process.
+
+Do not disable SmartScreen or antivirus protection globally. If the source is
+different, the hash does not match, or the warning is unexpected, cancel and
+delete the file.
+
+This installer does not request administrator rights and does not modify
+mgs4.exe. It installs the setup manager for the current user and creates
+shortcuts so configuration and reversible removal remain available.

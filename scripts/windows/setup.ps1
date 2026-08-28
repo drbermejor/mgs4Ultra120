@@ -4,9 +4,33 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
+$Ui = @{
+        Form = "MGS4 Ultra120 - Easy setup"
+        Title = "Install and configure MGS4 Ultra120"
+        Help = "Recommended path: verify the detected folder and click the blue button. The game must be closed. You do not need to copy files or use PowerShell."
+        Path = "Game folder (must contain mgs4.exe):"
+        Found = "Game detected correctly"
+        Missing = "mgs4.exe was not found: correct the folder before continuing"
+        NotFound = "The MGS4 folder was not found automatically"
+        Browse = "Browse..."
+        BrowseHelp = "Select the METAL GEAR SOLID 4\MGS4 folder containing mgs4.exe"
+        Install = "1. Install / update and configure"
+        Configure = "Open configurator only"
+        Uninstall = "Uninstall and restore originals"
+        Instructions = "Instructions"
+        Close = "Close"
+        Done = "Setup is complete. You can now start the game normally from Steam."
+        InstallFailed = "Installation could not be completed"
+        ConfigureFailed = "The configurator could not be opened"
+        RemoveQuestion = "Remove MGS4 Ultra120 and restore the backed-up original files?"
+        RemoveTitle = "Uninstall MGS4 Ultra120"
+        Removed = "Uninstall complete; original files were restored."
+        RemoveFailed = "Uninstall could not be completed"
+}
 
 $PackageDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $GameRelative = "steamapps\common\METAL GEAR SOLID 4\MGS4"
+. (Join-Path $PSScriptRoot "common.ps1")
 
 function Find-Mgs4Directories {
     $Roots = [Collections.Generic.List[string]]::new()
@@ -41,8 +65,10 @@ function Find-Mgs4Directories {
     }
 
     $Found = foreach ($Library in ($Libraries | Select-Object -Unique)) {
-        $Candidate = Join-Path $Library $GameRelative
-        if (Test-Path -LiteralPath (Join-Path $Candidate "mgs4.exe")) {
+        if (-not $Library) { continue }
+        $Candidate = [IO.Path]::Combine($Library, $GameRelative)
+        $Executable = [IO.Path]::Combine($Candidate, "mgs4.exe")
+        if ([IO.File]::Exists($Executable)) {
             (Resolve-Path -LiteralPath $Candidate).Path
         }
     }
@@ -50,99 +76,121 @@ function Find-Mgs4Directories {
 }
 
 function Install-Patch([string]$Target) {
-    if (Get-Process mgs4 -ErrorAction SilentlyContinue) {
-        throw "Exit the game before installing or updating the patch."
-    }
-    if (-not (Test-Path -LiteralPath (Join-Path $Target "mgs4.exe"))) {
-        throw "mgs4.exe was not found in the selected MGS4 folder."
-    }
-    $BackupDir = Join-Path $Target ".mgs4ultra120-backup"
-    New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
-    foreach ($Name in @("winmm.dll", "mgs4_ultrawide.ini")) {
-        $Destination = Join-Path $Target $Name
-        $Backup = Join-Path $BackupDir "$Name.preinstall"
-        if ((Test-Path -LiteralPath $Destination) -and
-            -not (Test-Path -LiteralPath $Backup)) {
-            Copy-Item -LiteralPath $Destination -Destination $Backup
-        }
-    }
-    Copy-Item -Force -LiteralPath (Join-Path $PackageDir "bin\winmm.dll") `
-        -Destination (Join-Path $Target "winmm.dll")
-    Copy-Item -Force -LiteralPath (Join-Path $PackageDir "config\mgs4_ultrawide.ini") `
-        -Destination (Join-Path $Target "mgs4_ultrawide.ini")
+    Install-Mgs4Ultra120Patch $Target $PackageDir
 }
 
 $Detected = @(Find-Mgs4Directories)
-if (-not $GameDir -and $Detected.Count -gt 0) { $GameDir = $Detected[0] }
-if (-not $GameDir) { $GameDir = "MGS4 folder was not found automatically" }
+if (-not $GameDir) {
+    $SavedGameDir = Get-Mgs4Ultra120GameDir
+    if ($SavedGameDir -and
+        [IO.File]::Exists([IO.Path]::Combine($SavedGameDir, "mgs4.exe"))) {
+        $GameDir = $SavedGameDir
+    } elseif ($Detected.Count -gt 0) {
+        $GameDir = $Detected[0]
+    }
+}
+if (-not $GameDir) { $GameDir = $Ui.NotFound }
 
 $Form = [Windows.Forms.Form]@{
-    Text = "MGS4 Ultra120 - Easy setup"
+    Text = $Ui.Form
     StartPosition = "CenterScreen"
-    ClientSize = [Drawing.Size]::new(720, 265)
+    ClientSize = [Drawing.Size]::new(720, 335)
     FormBorderStyle = "FixedDialog"
     MaximizeBox = $false
 }
 $Title = [Windows.Forms.Label]@{
-    Text = "Install and configure MGS4 Ultra120"
+    Text = $Ui.Title
     Location = [Drawing.Point]::new(24, 18)
     Size = [Drawing.Size]::new(660, 34)
     Font = [Drawing.Font]::new("Segoe UI", 15, [Drawing.FontStyle]::Bold)
 }
 $Help = [Windows.Forms.Label]@{
-    Text = "The Steam installation is detected automatically. Select the MGS4 folder manually only if the path below is wrong. Close the game before continuing."
+    Text = $Ui.Help
     Location = [Drawing.Point]::new(26, 58)
-    Size = [Drawing.Size]::new(660, 45)
+    Size = [Drawing.Size]::new(660, 54)
+}
+$PathLabel = [Windows.Forms.Label]@{
+    Text = $Ui.Path
+    Location = [Drawing.Point]::new(26, 116)
+    Size = [Drawing.Size]::new(660, 22)
 }
 $PathBox = [Windows.Forms.TextBox]@{
     Text = $GameDir
-    Location = [Drawing.Point]::new(26, 112)
+    Location = [Drawing.Point]::new(26, 140)
     Size = [Drawing.Size]::new(555, 27)
 }
 $Browse = [Windows.Forms.Button]@{
-    Text = "Browse..."
-    Location = [Drawing.Point]::new(594, 109)
+    Text = $Ui.Browse
+    Location = [Drawing.Point]::new(594, 137)
     Size = [Drawing.Size]::new(98, 32)
 }
-$Install = [Windows.Forms.Button]@{
-    Text = "Install / update"
+$PathStatus = [Windows.Forms.Label]@{
     Location = [Drawing.Point]::new(26, 174)
-    Size = [Drawing.Size]::new(145, 42)
+    Size = [Drawing.Size]::new(660, 24)
+    Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold)
+}
+$Install = [Windows.Forms.Button]@{
+    Text = $Ui.Install
+    Location = [Drawing.Point]::new(26, 208)
+    Size = [Drawing.Size]::new(320, 48)
+    BackColor = [Drawing.Color]::RoyalBlue
+    ForeColor = [Drawing.Color]::White
+    Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold)
 }
 $Configure = [Windows.Forms.Button]@{
-    Text = "Open configurator"
-    Location = [Drawing.Point]::new(184, 174)
-    Size = [Drawing.Size]::new(155, 42)
+    Text = $Ui.Configure
+    Location = [Drawing.Point]::new(360, 208)
+    Size = [Drawing.Size]::new(200, 48)
 }
 $Uninstall = [Windows.Forms.Button]@{
-    Text = "Uninstall"
-    Location = [Drawing.Point]::new(438, 174)
-    Size = [Drawing.Size]::new(112, 42)
+    Text = $Ui.Uninstall
+    Location = [Drawing.Point]::new(26, 274)
+    Size = [Drawing.Size]::new(250, 40)
+}
+$Instructions = [Windows.Forms.Button]@{
+    Text = $Ui.Instructions
+    Location = [Drawing.Point]::new(290, 274)
+    Size = [Drawing.Size]::new(130, 40)
 }
 $Close = [Windows.Forms.Button]@{
-    Text = "Close"
-    Location = [Drawing.Point]::new(566, 174)
-    Size = [Drawing.Size]::new(126, 42)
+    Text = $Ui.Close
+    Location = [Drawing.Point]::new(566, 274)
+    Size = [Drawing.Size]::new(126, 40)
 }
-$Form.Controls.AddRange(@($Title, $Help, $PathBox, $Browse, $Install,
-                          $Configure, $Uninstall, $Close))
+$Form.Controls.AddRange(@($Title, $Help, $PathLabel, $PathBox, $Browse,
+                          $PathStatus, $Install, $Configure, $Uninstall,
+                          $Instructions, $Close))
+$Form.AcceptButton = $Install
+
+function Update-PathStatus {
+    $Valid = [IO.File]::Exists([IO.Path]::Combine($PathBox.Text, "mgs4.exe"))
+    $PathStatus.Text = if ($Valid) { "OK - " + $Ui.Found } else { $Ui.Missing }
+    $PathStatus.ForeColor = if ($Valid) { [Drawing.Color]::DarkGreen } else { [Drawing.Color]::DarkRed }
+    $Install.Enabled = $Valid
+    $Configure.Enabled = $Valid
+    $Uninstall.Enabled = $Valid
+}
+Update-PathStatus
 
 $Browse.Add_Click({
     $Picker = [Windows.Forms.FolderBrowserDialog]::new()
-    $Picker.Description = "Select the METAL GEAR SOLID 4\MGS4 folder containing mgs4.exe"
+    $Picker.Description = $Ui.BrowseHelp
     if (Test-Path -LiteralPath $PathBox.Text) { $Picker.SelectedPath = $PathBox.Text }
-    if ($Picker.ShowDialog() -eq "OK") { $PathBox.Text = $Picker.SelectedPath }
+    if ($Picker.ShowDialog() -eq "OK") {
+        $PathBox.Text = $Picker.SelectedPath
+        Update-PathStatus
+    }
 })
+$PathBox.Add_TextChanged({ Update-PathStatus })
 $Install.Add_Click({
     try {
         Install-Patch $PathBox.Text
-        [Windows.Forms.MessageBox]::Show(
-            "Installation complete. The configurator will now open. Choose any combination of fixes and click Save settings.",
-            "MGS4 Ultra120", "OK", "Information") | Out-Null
         & (Join-Path $PSScriptRoot "configure.ps1") -GameDir $PathBox.Text
+        [Windows.Forms.MessageBox]::Show($Ui.Done,
+            "MGS4 Ultra120", "OK", "Information") | Out-Null
     } catch {
         [Windows.Forms.MessageBox]::Show($_.Exception.Message,
-            "Installation failed", "OK", "Error") | Out-Null
+            $Ui.InstallFailed, "OK", "Error") | Out-Null
     }
 })
 $Configure.Add_Click({
@@ -150,22 +198,24 @@ $Configure.Add_Click({
         & (Join-Path $PSScriptRoot "configure.ps1") -GameDir $PathBox.Text
     } catch {
         [Windows.Forms.MessageBox]::Show($_.Exception.Message,
-            "Could not open configurator", "OK", "Error") | Out-Null
+            $Ui.ConfigureFailed, "OK", "Error") | Out-Null
     }
 })
 $Uninstall.Add_Click({
     $Answer = [Windows.Forms.MessageBox]::Show(
-        "Remove MGS4 Ultra120 and restore files backed up before installation?",
-        "Uninstall MGS4 Ultra120", "YesNo", "Question")
+        $Ui.RemoveQuestion, $Ui.RemoveTitle, "YesNo", "Question")
     if ($Answer -ne "Yes") { return }
     try {
         & (Join-Path $PSScriptRoot "uninstall.ps1") -GameDir $PathBox.Text
-        [Windows.Forms.MessageBox]::Show("Uninstall complete.",
+        [Windows.Forms.MessageBox]::Show($Ui.Removed,
             "MGS4 Ultra120", "OK", "Information") | Out-Null
     } catch {
         [Windows.Forms.MessageBox]::Show($_.Exception.Message,
-            "Uninstall failed", "OK", "Error") | Out-Null
+            $Ui.RemoveFailed, "OK", "Error") | Out-Null
     }
+})
+$Instructions.Add_Click({
+    Start-Process "https://github.com/drbermejor/mgs4Ultra120/blob/main/docs/INSTALL_WINDOWS.md"
 })
 $Close.Add_Click({ $Form.Close() })
 [void]$Form.ShowDialog()

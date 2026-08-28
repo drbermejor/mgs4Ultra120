@@ -63,10 +63,24 @@ tokens into the temporary `mgs4_param` bootstrap file, starts `MGS4/mgs4.exe`,
 waits for the child and forwards its exit code. An inherited marker prevents a
 nested return-to-launcher request from creating a loop.
 
+The official launcher's `-resolution 0` token is a resolution slot, not its
+window/fullscreen flag. Presentation is stored separately as `WindowMode` in
+`launcher_sv`; a traced stock windowed launch retained `-resolution 0`.
+
 ## Proxy safeguards
 
-`winmm.dll` forwards the WinMM exports required by the game and uses a pinned
-MinHook revision. Each major module has a separate enable flag. Disabling
+`winmm.dll` mirrors the complete 64-bit system WinMM export table, not only the
+two imports visible in `mgs4.exe`. This is required because native Steam's
+`steamclient64.dll` also resolves audio/mixer entry points from the local proxy.
+The table and forwarding release gate are documented in
+[WINMM_PROXY.md](WINMM_PROXY.md).
+
+The protected executable can reveal decrypted signatures while a page still
+has a transient non-executable protection. Successful hooks keep that code
+executable; restoring the transient value caused a native-Windows execute
+violation at projection RVA `0x0e3410` while Proton had tolerated it.
+
+The proxy uses a pinned MinHook revision. Each major module has a separate enable flag. Disabling
 ultrawide avoids all resolution/projection/UI hooks; disabling FPS avoids the
 frame field and hotkey; disabling the controller fix avoids its profile hook.
 

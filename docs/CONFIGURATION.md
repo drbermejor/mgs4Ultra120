@@ -42,11 +42,15 @@ ToggleHotkeyModifiers=None
 ControllerProfileFixEnabled=1
 
 [Launcher]
-SkipUnityLauncher=0
+SkipUnityLauncher=1
 Region=eu
 SelfRegion=EU
 Language=en
 ControllerType=XBOX
+
+; Present in the Windows package only
+DisplayMode=Windowed
+UsePrimaryPhysicalResolution=1
 ```
 
 ### Ultrawide
@@ -96,6 +100,18 @@ support for that build.
 installs or restores the actual wrapper; editing this key alone does not move
 files. `Language` supports `en`, `sp`, `fr`, `it`, `ge` and `jp`. See
 [Direct-launch wrapper](LAUNCHER_WRAPPER.md).
+
+On Windows, `DisplayMode=Windowed` requests the game's windowed path at the
+configured native dimensions and is the stable default. `Fullscreen` requests
+exclusive fullscreen and is intended as an advanced fallback. On the tested
+mixed-refresh NVIDIA system, changing focus reproduced a red sweep/flicker in
+both presentation paths until G-SYNC/VRR was disabled; see the Windows
+troubleshooting guide.
+`UsePrimaryPhysicalResolution=1` makes the configurator refresh `Width` and
+`Height` from the Win32 physical primary-monitor mode rather than DPI-scaled
+desktop bounds; it is consumed by the
+Windows configurator, not by the injected DLL. These two Windows-only keys are
+deliberately absent from the Linux template.
 
 ## Example combinations
 

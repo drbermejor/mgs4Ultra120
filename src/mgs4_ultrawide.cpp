@@ -12,7 +12,7 @@
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 
-static HMODULE g_real_winmm;
+extern "C" FARPROC winmm_proxy_resolve_by_name(const char* name);
 static float g_target_aspect = 43.0f / 18.0f;
 static volatile LONG g_projection_patches;
 static std::uintptr_t g_executable_base;
@@ -45,6 +45,22 @@ static SetDetectedProfileFn g_original_set_detected_profile;
 static void apply_resolution_state();
 static bool initialize_minhook();
 static void log_line(const char* message);
+
+// The protected executable decrypts code before changing the page from RW to
+// RX. On native Windows a signature can therefore be visible while
+// VirtualProtect still reports PAGE_READWRITE. Restoring that transient value
+// after installing a hook makes the first jump back into the game fault with
+// STATUS_ACCESS_VIOLATION (execute). Proton tolerated this timing, which hid
+// the bug during the original Linux validation. Once code has been patched or
+// hooked, keep it executable and read-only unless it already had a stricter
+// executable protection.
+static DWORD final_code_protection(DWORD previous) {
+    const DWORD base = previous & 0xff;
+    if (base == PAGE_EXECUTE || base == PAGE_EXECUTE_READ ||
+        base == PAGE_EXECUTE_READWRITE || base == PAGE_EXECUTE_WRITECOPY)
+        return previous;
+    return PAGE_EXECUTE_READ;
+}
 
 static UINT parse_hotkey_key(const char* text) {
     if (!text || !text[0] || _stricmp(text, "Off") == 0 ||
@@ -511,22 +527,22 @@ static bool ui_hook_requested_from_config() {
     return requested;
 }
 
-extern "C" __declspec(dllexport) MMRESULT WINAPI timeBeginPeriod(UINT period) {
+extern "C" MMRESULT WINAPI mgs4_timeBeginPeriod(UINT period) {
     // This synchronous path is early enough to catch renderer creation when the
     // optional UI module is requested. FPS-only and ordinary ultrawide profiles
     // never load or hook D3D12 here.
     if (ui_hook_requested_from_config())
         ensure_d3d12_export_hook();
-    if (!g_real_winmm) g_real_winmm = LoadLibraryW(L"C:\\windows\\system32\\winmm.dll");
-    auto fn = reinterpret_cast<TimeBeginPeriodFn>(GetProcAddress(g_real_winmm, "timeBeginPeriod"));
+    auto fn = reinterpret_cast<TimeBeginPeriodFn>(
+        winmm_proxy_resolve_by_name("timeBeginPeriod"));
     return fn ? fn(period) : TIMERR_NOERROR;
 }
 
-extern "C" __declspec(dllexport) DWORD WINAPI timeGetTime() {
+extern "C" DWORD WINAPI mgs4_timeGetTime() {
     if (ui_hook_requested_from_config())
         ensure_d3d12_export_hook();
-    if (!g_real_winmm) g_real_winmm = LoadLibraryW(L"C:\\windows\\system32\\winmm.dll");
-    auto fn = reinterpret_cast<TimeGetTimeFn>(GetProcAddress(g_real_winmm, "timeGetTime"));
+    auto fn = reinterpret_cast<TimeGetTimeFn>(
+        winmm_proxy_resolve_by_name("timeGetTime"));
     return fn ? fn() : GetTickCount();
 }
 
@@ -636,7 +652,8 @@ static bool force_resolution_getters(std::uintptr_t base,
         std::memcpy(target, replacement, sizeof(replacement));
         FlushInstructionCache(GetCurrentProcess(), target, sizeof(replacement));
         DWORD ignored = 0;
-        VirtualProtect(target, sizeof(replacement), old_protection, &ignored);
+        VirtualProtect(target, sizeof(replacement),
+                       final_code_protection(old_protection), &ignored);
     }
     log_line("Resolution getters fixed before surface initialization.");
     return true;
@@ -682,7 +699,9 @@ static bool install_controller_profile_fix(std::uintptr_t base) {
         reinterpret_cast<void**>(&g_original_set_detected_profile),
         "controller profile fix");
     DWORD ignored = 0;
-    VirtualProtect(target, 32, old_protection, &ignored);
+    VirtualProtect(target, 32,
+                   okay ? final_code_protection(old_protection) : old_protection,
+                   &ignored);
     if (okay)
         log_line("Controller-profile fix installed; connected pad family is preserved.");
     return okay;
@@ -714,8 +733,11 @@ static bool install_resolution_hook(std::uintptr_t base) {
         : MH_UNKNOWN;
     const MH_STATUS enable = create == MH_OK ? MH_EnableHook(target) : MH_UNKNOWN;
     DWORD ignored = 0;
-    VirtualProtect(target, 32, old_protection, &ignored);
-    if (!initialized || create != MH_OK || enable != MH_OK) {
+    const bool okay = initialized && create == MH_OK && enable == MH_OK;
+    VirtualProtect(target, 32,
+                   okay ? final_code_protection(old_protection) : old_protection,
+                   &ignored);
+    if (!okay) {
         char message[256] = {};
         std::snprintf(message, sizeof(message),
                       "ERROR resolution hook: create=%s enable=%s target=%p",
@@ -756,8 +778,11 @@ static bool install_engine_hook(std::uintptr_t base) {
         : MH_UNKNOWN;
     const MH_STATUS enable = create == MH_OK ? MH_EnableHook(target) : MH_UNKNOWN;
     DWORD ignored = 0;
-    VirtualProtect(target, 32, old_protection, &ignored);
-    if (!initialized || create != MH_OK || enable != MH_OK) {
+    const bool okay = initialized && create == MH_OK && enable == MH_OK;
+    VirtualProtect(target, 32,
+                   okay ? final_code_protection(old_protection) : old_protection,
+                   &ignored);
+    if (!okay) {
         char message[256] = {};
         std::snprintf(message, sizeof(message),
                       "ERROR engine hook: create=%s enable=%s target=%p",

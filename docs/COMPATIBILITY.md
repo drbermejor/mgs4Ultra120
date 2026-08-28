@@ -16,9 +16,13 @@ compatible and crashes remain possible.
 | PE image size | `0x241be000` |
 | Internal version ID | `Pela_[MPA]_x64_BGFX_0.0.3_Release_ww_[Code]a84606af_[DataNew]d06ab525_2026_0825` |
 
-The primary tested setup is 3440x1440, DirectX 12, GE-Proton10-34 on Linux.
-World projection and output-resolution hooks are common engine code and also
-apply to DirectX 11; the selective UI safe area is D3D12-only in this alpha.
+The native-Windows alpha.3 acceptance setup is an RTX 4090, a 3440x1440 240 Hz
+primary monitor at 125% scaling, a 2560x1440 144 Hz secondary monitor at 150%,
+DirectX 12, Auto HDR disabled and G-SYNC disabled. The separately maintained
+Linux/Proton line was tested at 3440x1440
+with GE-Proton10-34. World projection and output-resolution hooks are common
+engine code and also apply to DirectX 11; the selective UI safe area is
+D3D12-only in this alpha.
 
 ## Test status
 
@@ -37,7 +41,16 @@ apply to DirectX 11; the selective UI safe area is D3D12-only in this alpha.
   continuing was reproduced. Not certified for gameplay.
 - Controller profile fix: native controller profile, full disconnect and
   reconnection were exercised under Proton without a virtual controller layer.
-- Direct-launch wrapper: exercised through Steam on Linux/Proton; broader
-  Windows and Steam Cloud transfer validation is still requested.
+- Native Windows: clean install through the unsigned EXE, Steam launch with no
+  visible child arguments, all stable modules at physical 3440x1440/60 FPS,
+  repeated dual-monitor focus changes and setup-manager update/uninstall smoke
+  paths passed. The test is not a full playthrough.
+- Multi-monitor focus: ten transitions passed with G-SYNC disabled, including
+  five at physical 3440x1440 with all stable modules active. Earlier runs with
+  G-SYNC active produced a red sweep and Windows display WATCHDOG reports even
+  after Auto HDR/windowed optimizations were disabled.
+- Direct-launch wrapper: exercised through Steam on native Windows and
+  Linux/Proton. The native child command line remained clean while launch data
+  was consumed from the official bootstrap file.
 - A full playthrough is not yet certified; back up saves and treat the project
   as alpha software.

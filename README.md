@@ -42,9 +42,11 @@ unlock implementation.
 - The unfinished UI/safe-area experiment is not part of the release binary.
   Menus, HUD and full-screen effects retain the game's original behavior.
 - Pre-rendered Bink video is unchanged.
-- Main now corrects the primary camera projection before rebuilding its
-  view-projection matrices and CPU visibility planes. This synchronizes the
-  wider rendered FOV with culling instead of exposing the former side pop-in.
+- The published alpha.5 renderer-level correction is the validated path. The
+  attempted central camera/frustum rewrite was withdrawn after alpha.6 A/B
+  testing reproduced distorted tall/thin character proportions.
+- CPU culling is not expanded with FOV. Values above `1.000` can reveal side
+  pop-in, and extreme close-ups can briefly return to the original framing.
 - Native 3440x1440 testing at `1.150` has correct proportions and a working
   aiming crosshair. The external 5120x2160 crosshair report remains open until
   that exact resolution is reproduced; it is not yet claimed fixed.
@@ -123,22 +125,17 @@ command. See [Linux installation](docs/INSTALL_LINUX.md).
 ## Technical outline
 
 The port normally supplies a 16:9 perspective matrix even when the output is
-ultrawide. MGS4Ultra120 recognizes the central camera projection and applies the
-configured aspect/FOV before rebuilding the combined matrices and six CPU
-visibility planes:
+ultrawide. MGS4Ultra120 recognizes 16:9 and target-aspect renderer projections
+and applies the configured aspect/FOV in the final projection setter:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
 ```
 
-This keeps rendered framing and world culling synchronized. A renderer-level
-hook remains only as a fallback for untouched 16:9 projection paths and rejects
-already corrected target-aspect matrices to prevent double application.
-The known central camera path is validated by its full perspective-matrix
-structure rather than a fixed zoom ceiling. This keeps the configured FOV
-active during tight in-engine close-ups instead of briefly reverting to the
-uncorrected framing.
+The early central-camera rewrite is not installed because native Windows
+testing reproduced an aspect-ratio regression. Synchronized CPU culling and
+uninterrupted FOV through extreme close-ups are not currently claimed.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
 `Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and

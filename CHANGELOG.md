@@ -1,56 +1,28 @@
 # Changelog
 
-## v0.3.1-alpha.5 - synchronized FOV/culling refresh
+## v0.3.1-alpha.5 - FOV and package refresh
 
-- Moved the primary ultrawide/FOV correction into the central camera builder at
-  RVA `0x0b9bb0`, before combined view-projection matrices and CPU frustum
-  planes are consumed.
-- Rebuilt the primary and secondary combined matrices and all six normalized
-  visibility planes from the corrected projection, eliminating the known
-  render-FOV/culling mismatch that caused side pop-in above `1.000`.
-- Retained the renderer projection hook only as a 16:9 fallback and prevented
-  target-aspect camera matrices from receiving the FOV multiplier twice.
-- Added projection/frustum unit coverage and runtime counters. Native Windows
-  testing at 3440x1440 completed hundreds of synchronized camera builds without
-  a crash or late fallback.
-- Changed the recommended 21:9 framing to `FOVMultiplier=1.150`. `1.000` remains
-  available as the original vertical-FOV option; `1.150` is visually wider and
-  closely matches the established RPCS3 21:9 framing.
-- Kept the reported 5120x2160 aiming-crosshair case open until that exact
-  resolution and controller transition are reproduced.
-
-- Refreshed the existing tag/assets in place while preserving the core/normal-
-  FPS route and making corrected 120 FPS an optional additive installation.
-- Delegated high-FPS timing to `cipherxof/MGSFPSUnlock` 0.1.0, thanked and
-  credited upstream, disabled the old single-field writer and added direct
-  upstream download plus pinned archive/ASI verification.
-- Removed the unverified UI safe-area experiment from release builds and the
-  configurator; original UI/effect behavior remains active.
-- Fixed stale Steam libraries on disconnected drive letters aborting Windows
-  discovery, and added locale-independent FOV parsing with actionable logs.
-- Removed unconditional `gamemoderun` from generated Linux Gamescope commands,
-  added a Gamescope availability check and published a separate Linux core
-  package using the game's normal FPS behavior.
-- Replaced the earlier projection-only FOV path that could reveal side
-  pop-in/culling above `1.000`; projection and visibility bounds are now rebuilt
-  together, and `1.150` is the recommended 21:9 framing.
-- Removed standalone checksum files from GitHub release assets to keep the
-  download list simple; local build checksums remain available to developers.
-- Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
-- Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
-  unchanged.
-- Added a ready-to-drag `Manual-Install` directory to the Windows ZIP, with
-  matching loader, configuration and `scripts/MGS4Ultra120.asi` payloads.
-- Simplified unsigned-binary guidance and documented source inspection, local
-  compilation, ZIP/CMD setup and copy-only installation as equal choices.
-- Recorded the user's successful manual focus-change validation.
-- Accepted official `launcher_sv` variants that omit the redundant
-  `WindowSizeW`/`WindowSizeH` fields when `ResolutionWindowW`/`H` are present.
-- Synchronized every available official display field without inventing absent
-  keys and retained strict requirements for exclusive fullscreen.
-- Caught configurator save errors inside the GUI and stopped Easy Setup from
-  reporting success when settings were not saved.
-- Split Windows downloads into minimal manual, portable and complete ZIPs.
+- Uses the visually validated renderer-level ultrawide/FOV correction.
+- Recommends `FOVMultiplier=1.150` for 21:9; `1.000` preserves the original
+  vertical FOV. CPU culling is not expanded, so values above `1.000` can still
+  reveal side pop-in and some extreme close-ups can briefly use original
+  framing.
+- Corrects the source and release record: a later central camera/frustum
+  experiment never reached the downloadable alpha.5 ASI and was withdrawn after
+  alpha.6 native testing reproduced distorted character proportions.
+- Adds optional corrected 120 FPS support through
+  `cipherxof/MGSFPSUnlock` 0.1.0 while retaining normal 30/60 FPS operation.
+- Removes the unverified UI safe-area experiment; original HUD/menu/effect
+  behavior remains active.
+- Fixes Steam discovery when stale libraries point to disconnected drives,
+  locale-independent FOV parsing and official launcher settings that omit
+  redundant `WindowSizeW`/`WindowSizeH` fields.
+- Keeps the validated Ultimate ASI Loader architecture, controller-profile fix
+  and reversible launcher bypass.
+- Provides unsigned setup EXE, portable, manual, complete and separate Linux
+  packages with short installation guidance.
+- Removes standalone checksum assets from GitHub releases; local developer
+  builds still generate them.
 
 ## v0.3.1-alpha.4 - Native Windows ASI release
 

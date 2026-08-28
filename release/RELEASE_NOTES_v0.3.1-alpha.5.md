@@ -1,136 +1,43 @@
-# MGS4 Ultra120 v0.3.1-alpha.5 - refreshed Windows and Linux release
+# MGS4 Ultra120 v0.3.1-alpha.5
 
-This release was refreshed in place so previously shared alpha.5 links remain
-valid. **Redownload the asset you use because older alpha.5 downloads were
-replaced.** Linux remains a separate Proton release line; use the alpha.5 Linux
-tarball for the corrected current scripts.
+Alpha.5 is the recommended release for normal ultrawide play. It provides:
 
-The latest refresh synchronizes the expanded FOV with the game's CPU visibility
-frustum. Earlier alpha.5 downloads used a projection-only adjustment and are
-obsolete even though the filenames are unchanged.
+- Native ultrawide/Hor+ rendering and configurable FOV.
+- Recommended `FOVMultiplier=1.150` for 21:9; `1.000` preserves the original
+  vertical FOV.
+- Controller-profile correction and optional Unity-launcher bypass.
+- Normal 30/60 FPS operation and optional corrected 120 FPS setup through
+  [cipherxof/MGSFPSUnlock 0.1.0](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
+- Separate Windows and Linux/Proton packages.
 
-## What it does
+## Release-record correction
 
-MGS4 Ultra120 provides native ultrawide/Hor+ rendering, configurable FOV, a
-controller-profile correction and an optional reversible Unity-launcher bypass
-for the Steam PC version of *METAL GEAR SOLID 4*.
+The downloadable alpha.5 Windows ASI uses the visually validated renderer-level
+projection correction. A later source revision and previous release notes
+incorrectly claimed that the published package also contained a central
+camera/frustum rewrite with synchronized CPU culling. It did not.
 
-Corrected 120 FPS support is now available as an optional additive component
-through [cipherxof/MGSFPSUnlock 0.1.0](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
-Thank you to cipherxof for the substantially improved FPS unlock and its
-camera, character, cutscene, physics, ragdoll, cloth, hair and wind timing work.
-MGS4 Ultra120's old single-value FPS writer is disabled so the two plugins do
-not compete.
+That early rewrite first reached users in the original alpha.6 package and was
+withdrawn after native Windows testing reproduced distorted tall/thin character
+proportions. Alpha.5 itself remains the known-good normal release.
 
-## Keep-it-simple installation choices
+FOV values above `1.000` can still expose side pop-in because CPU visibility
+bounds are not expanded, and extreme in-engine close-ups may briefly use the
+original framing. These are open limitations, not fixed alpha.5 features.
 
-### Setup EXE
+## Windows downloads
 
-Automatic game detection, configuration, shortcuts and reversible uninstall.
-The optional **Install / update improved 120 FPS support** box is checked by
-default. It downloads the official MGSFPSUnlock ZIP and requires pinned archive
-and ASI SHA-256 values to match. Uncheck it for the offline core/normal-FPS
-route. Unchecking only skips installation/update; it does not remove an
-existing copy.
+- `windows-setup.exe`: guided install, configuration, shortcuts and uninstall.
+- `windows-portable.zip`: extract and run `MGS4Ultra120-Setup.cmd`.
+- `windows-manual.zip`: copy-only `winmm.dll`, INI and `scripts` folder.
+- `windows-complete.zip`: portable and manual layouts plus documentation.
 
-The EXE is unsigned and may receive a browser or SmartScreen reputation warning.
-It is optional; the complete source and build instructions are public.
+The installer is open source but unsigned. The EXE is optional; use the manual
+ZIP if preferred.
 
-### Portable ZIP
+## Linux
 
-Extract it and run `MGS4Ultra120-Setup.cmd`. It exposes the same core-versus-120
-choice without registering a persistent Windows application. Keep the folder
-for later configuration or uninstall.
+Use the separate alpha.5 Linux tarball for the established Proton path. It uses
+the game's normal FPS behavior and does not require `gamemoderun`.
 
-### Manual ZIP - no installer or scripts
-
-Extract it and copy everything into the `MGS4` folder containing `mgs4.exe`:
-
-```text
-MGS4\winmm.dll
-MGS4\mgs4_ultrawide.ini
-MGS4\scripts\MGS4Ultra120.asi
-```
-
-For corrected 120 FPS, separately download the official
-[MGSFPSUnlock 0.1.0 ZIP](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0)
-and copy only these files from its `MGSFPSUnlock\scripts` folder:
-
-```text
-MGS4\scripts\MGSFPSUnlock.asi
-MGS4\scripts\MGSFPSUnlock.ini
-```
-
-Do not copy its `d3d11.dll`, `winhttp.dll` or `wininet.dll`; this release already
-provides Ultimate ASI Loader as `winmm.dll`. Confirm the external INI contains
-`TargetFrameRate = 120`.
-
-### Complete ZIP
-
-Contains the portable route, a ready-to-copy `Manual-Install` folder and all
-documentation, licences and notices. Choose one installation route.
-
-### Linux core tarball
-
-`MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz` is the current separate Proton
-package. It fixes the unconditional `gamemoderun` launch failure and does not
-write Gamescope options when Gamescope is missing. It provides ultrawide/FOV,
-controller correction and launcher choice using the game's normal FPS behavior.
-The external corrected-120 ASI route remains Windows-only until tested under
-Proton.
-
-## Fixes in this refresh
-
-- Applies the ultrawide/FOV correction in the central camera builder and
-  rebuilds both view-projection matrices and all six normalized visibility
-  planes. This fixes the former render-FOV/culling mismatch and side pop-in
-  caused by the earlier projection-only path.
-- Uses `FOVMultiplier=1.150` as the recommended 21:9 framing. `1.000` remains
-  available for users who prefer the original vertical FOV.
-- Prevents the renderer fallback from applying the FOV multiplier twice to an
-  already corrected target-aspect matrix.
-- Keeps the configured FOV active through tight in-engine close-ups. Previous
-  alpha.5 assets could briefly revert to unadjusted framing when a valid camera
-  projection exceeded the generic renderer's conservative scale ceiling. The
-  central camera now uses full structural validation while the stricter global
-  fallback remains unchanged.
-- Adds projection/frustum unit tests and runtime counters. Native 3440x1440
-  testing completed hundreds of synchronized camera/frustum builds without a
-  late fallback or crash, the aiming crosshair remained visible, and the exact
-  saved in-engine close-up that exposed the discontinuity passed with FOV 1.150.
-- Preserves the working core/normal-FPS route; improved 120 is additive and
-  optional rather than a hard dependency.
-- Removes the unverified UI/safe-area experiment from the release binary and
-  configurator. Original HUD/menu/effect behavior is retained.
-- Ignores stale Steam libraries on disconnected drives instead of aborting with
-  `Cannot find drive E:`/`H:`.
-- Parses manual FOV values independently of Windows locale and records the exact
-  INI path/values if configuration is rejected.
-- Accepts official launcher settings that omit redundant `WindowSizeW/H`
-  fields and reports GUI save failures accurately.
-- Keeps the validated x64 Ultimate ASI Loader v9.7.4 layout and safe ownership
-  backups/uninstall.
-- Keeps the post-alpha.2 direct-launch wrapper enabled by default. It addresses
-  the repeated Steam custom-arguments loop reported in
-  [Issue #2](https://github.com/drbermejor/mgs4Ultra120/issues/2) by passing
-  launch data through `mgs4_param`; the issue itself was closed at alpha.3
-  without a final reporter confirmation, so this refresh relies on local and
-  automated wrapper validation rather than claiming their confirmation.
-
-## Known limitations
-
-- 3440x1440 with FOV 1.150 is the validated ultrawide target. The synchronized
-  camera/frustum logic is resolution-independent, but an external 5120x2160
-  report of a missing aiming crosshair has not yet been reproduced at that exact
-  resolution and therefore is not claimed fixed.
-- A full playthrough at corrected 120 FPS has not yet been certified by this
-  project. Include both plugin logs when reporting timing issues.
-- On one mixed-refresh NVIDIA multi-monitor Windows setup, G-SYNC/VRR focus
-  changes caused red sweep/flicker; the configurator warns but changes no system
-  setting.
-- The refreshed Linux scripts have not yet received an end-to-end CachyOS
-  retest. KDE/Wayland users can try `Super+F` when the desktop panel remains
-  visible or return to the native launch option.
-
-Download only from this official release, keep antivirus enabled and avoid
-copies reuploaded by third parties.
+The patch does not modify `mgs4.exe` and contains no game files.

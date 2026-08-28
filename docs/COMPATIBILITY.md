@@ -46,14 +46,12 @@ driver/display setup.
 - FOV 1.000 and 1.150: visually compared from the same saved camera position;
   1.150 shows more vertical/horizontal scene content without changing object
   proportions.
-- Synchronized FOV/culling build at 3440x1440 and FOV 1.150: hundreds of camera
-  projections and frustums rebuilt one-for-one without a late fallback or
-  startup crash; aiming crosshair confirmed visible by the user.
-- Tight in-engine close-up from the same saved sequence at 3440x1440 and FOV
-  1.150: reproduced the former momentary narrowing, captured its projection
-  scale crossing the generic safety ceiling, then passed twice after the
-  camera-specific continuity fix (first with a bounded diagnostic candidate and
-  again with the final structural validation).
+- Renderer-level FOV correction at 3440x1440 and FOV 1.150: visually validated
+  with correct character proportions and a visible aiming crosshair.
+- A central camera/frustum candidate was tested and withdrawn after it produced
+  distorted tall/thin proportions. The release makes no synchronized CPU
+  culling claim. Values above 1.000 can reveal side pop-in, and extreme
+  in-engine close-ups can briefly return to the original framing.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - 60 FPS/core: previously validated Windows path remains available without the
   optional high-FPS component.

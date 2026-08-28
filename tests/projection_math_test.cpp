@@ -28,13 +28,24 @@ int main() {
     if (mgs4_projection::classify_aspect(projection, target_aspect) !=
         mgs4_projection::AspectKind::target) return 4;
 
-    // The late fallback must reject an already corrected target-aspect matrix.
+    // Optional strict mode rejects an already corrected target-aspect matrix.
     float fallback_copy[16];
     std::memcpy(fallback_copy, projection, sizeof(fallback_copy));
     if (mgs4_projection::adjust_projection(fallback_copy, target_aspect, 1.15f,
                                            false)) return 5;
     if (!close_enough(fallback_copy[0], projection[0]) ||
         !close_enough(fallback_copy[5], projection[5])) return 6;
+
+    float native_target_projection[16] = {
+        3.5555556f / target_aspect, 0.0f, 0.0f, 0.0f,
+        0.0f, -3.5555556f, 0.0f, 0.0f,
+        0.0f, 0.0f, -0.0000381f, 1.0f,
+        0.0f, 0.0f, 50.0019f, 0.0f,
+    };
+    if (!mgs4_projection::adjust_projection(
+            native_target_projection, target_aspect, 1.15f, true)) return 21;
+    if (!close_enough(native_target_projection[5], -3.0917876f) ||
+        !close_enough(native_target_projection[0], 1.2942367f)) return 22;
 
     // A close-up animation observed in the supported executable reaches this
     // target-aspect scale. It must remain outside the global renderer filter

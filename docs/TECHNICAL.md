@@ -27,6 +27,16 @@ setter at `0x65f050` substitutes them when resolution state changes. This is
 event-driven and replaces an early diagnostic prototype that rewrote globals
 periodically.
 
+The central camera's projection variants are validated by their complete
+perspective structure, finite scales and known 16:9 or configured aspect. They
+do not use the conservative `m00 <= 8` / `m11 <= 12` limits retained by the
+generic renderer fallback. A captured in-engine close-up reached
+`m00=5.6216335`, `m11=-13.4294577` while remaining at exactly 3440:1440. The
+old generic ceiling rejected those frames and momentarily dropped the 1.150 FOV
+correction, producing a visible narrowing. Camera-specific structural
+validation keeps the FOV continuous while still rejecting malformed,
+non-finite and unknown-aspect matrices.
+
 The corrected primary projection is recombined with the view matrix through
 the game's matrix routine at RVA `0x0bacc0`. All six planes are then extracted
 in the engine's original left/right/bottom/top/near/far order and normalized.

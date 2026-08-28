@@ -562,12 +562,12 @@ static void __fastcall hooked_build_camera(void* camera, const void* source,
     auto* tertiary_projection = reinterpret_cast<float*>(bytes + 0x1c0);
     auto* planes = reinterpret_cast<float*>(bytes + 0x2c0);
 
-    const bool primary_changed = mgs4_projection::adjust_projection(
-        primary_projection, g_target_aspect, g_fov_multiplier, true);
-    const bool secondary_changed = mgs4_projection::adjust_projection(
-        secondary_projection, g_target_aspect, g_fov_multiplier, true);
-    const bool tertiary_changed = mgs4_projection::adjust_projection(
-        tertiary_projection, g_target_aspect, g_fov_multiplier, true);
+    const bool primary_changed = mgs4_projection::adjust_camera_projection(
+        primary_projection, g_target_aspect, g_fov_multiplier);
+    const bool secondary_changed = mgs4_projection::adjust_camera_projection(
+        secondary_projection, g_target_aspect, g_fov_multiplier);
+    const bool tertiary_changed = mgs4_projection::adjust_camera_projection(
+        tertiary_projection, g_target_aspect, g_fov_multiplier);
 
     if (primary_changed) {
         g_multiply_matrix(primary_combined, primary_projection, view);

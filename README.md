@@ -135,6 +135,10 @@ new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
 This keeps rendered framing and world culling synchronized. A renderer-level
 hook remains only as a fallback for untouched 16:9 projection paths and rejects
 already corrected target-aspect matrices to prevent double application.
+The known central camera path is validated by its full perspective-matrix
+structure rather than a fixed zoom ceiling. This keeps the configured FOV
+active during tight in-engine close-ups instead of briefly reverting to the
+uncorrected framing.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
 `Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and

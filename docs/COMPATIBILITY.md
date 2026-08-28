@@ -49,6 +49,11 @@ driver/display setup.
 - Synchronized FOV/culling build at 3440x1440 and FOV 1.150: hundreds of camera
   projections and frustums rebuilt one-for-one without a late fallback or
   startup crash; aiming crosshair confirmed visible by the user.
+- Tight in-engine close-up from the same saved sequence at 3440x1440 and FOV
+  1.150: reproduced the former momentary narrowing, captured its projection
+  scale crossing the generic safety ceiling, then passed twice after the
+  camera-specific continuity fix (first with a bounded diagnostic candidate and
+  again with the final structural validation).
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - 60 FPS/core: previously validated Windows path remains available without the
   optional high-FPS component.

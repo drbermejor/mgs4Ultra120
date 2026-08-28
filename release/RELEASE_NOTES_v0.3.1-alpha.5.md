@@ -89,9 +89,15 @@ Proton.
   available for users who prefer the original vertical FOV.
 - Prevents the renderer fallback from applying the FOV multiplier twice to an
   already corrected target-aspect matrix.
+- Keeps the configured FOV active through tight in-engine close-ups. Previous
+  alpha.5 assets could briefly revert to unadjusted framing when a valid camera
+  projection exceeded the generic renderer's conservative scale ceiling. The
+  central camera now uses full structural validation while the stricter global
+  fallback remains unchanged.
 - Adds projection/frustum unit tests and runtime counters. Native 3440x1440
   testing completed hundreds of synchronized camera/frustum builds without a
-  late fallback or crash, and the aiming crosshair remained visible.
+  late fallback or crash, the aiming crosshair remained visible, and the exact
+  saved in-engine close-up that exposed the discontinuity passed with FOV 1.150.
 - Preserves the working core/normal-FPS route; improved 120 is additive and
   optional rather than a hard dependency.
 - Removes the unverified UI/safe-area experiment from the release binary and

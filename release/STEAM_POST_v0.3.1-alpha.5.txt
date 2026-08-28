@@ -24,7 +24,9 @@ The earlier FOV adjustment widened the rendered camera but did not rebuild the g
 
 The correction is now applied in the central camera builder before the combined view-projection matrices and all six visibility planes are consumed. This keeps the rendered FOV and culling frustum synchronized and prevents the correction from being applied twice.
 
-At 3440x1440, FOV 1.150 has been tested with hundreds of synchronized camera/frustum updates, no late fallback or startup crash, correct proportions and a visible aiming crosshair. An external report concerning the crosshair at exactly 5120x2160 remains open until that exact case is reproduced; it is not being claimed as fixed yet.
+The latest rebuild also fixes a momentary narrowing during some tight in-engine close-ups. These shots can produce valid camera projection scales above the generic renderer safety range. The central camera is now validated by its complete projection structure instead of an arbitrary zoom ceiling, so FOV 1.150 remains active throughout the transition. The stricter generic fallback is unchanged.
+
+At 3440x1440, FOV 1.150 has been tested with hundreds of synchronized camera/frustum updates, no late fallback or startup crash, correct proportions, a visible aiming crosshair and the exact saved in-engine close-up that exposed the framing discontinuity. An external report concerning the crosshair at exactly 5120x2160 remains open until that exact case is reproduced; it is not being claimed as fixed yet.
 
 [b]Official release[/b]
 

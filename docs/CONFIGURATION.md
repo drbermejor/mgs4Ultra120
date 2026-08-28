@@ -54,10 +54,8 @@ UsePrimaryPhysicalResolution=1
 - `FOVMultiplier` accepts `0.500`–`1.200`. `1.200` is the tested 21:9 setting
   and supported maximum with the corrected single-owner camera route; `1.000`
   preserves the game's original vertical FOV but frames Snake more tightly in
-  the tested view. Any value above `1.000` may reveal actors, geometry or transitions at cinematic
-  edges before the original direction intended them to enter the shot. Native
-  camera ownership keeps projection and visibility data synchronized. Both `.`
-  and `,` decimal separators are accepted.
+  the tested view. Native camera ownership keeps projection and visibility data
+  synchronized. Both `.` and `,` decimal separators are accepted.
 - `FOVModelVersion=2` records the single-owner model. Managed Windows updates
   migrate the old repeated-route default `1.050` to `1.200` once; later manual
   choices are preserved.

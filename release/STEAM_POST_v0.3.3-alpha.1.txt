@@ -1,39 +1,54 @@
-[b]MGS4 Ultra120 v0.3.3-alpha.1 - experimental FOV correction[/b]
+[b]MGS4 Ultra120 v0.3.3-alpha.1[/b]
 
-This alpha fixes the WeaponWindow distortion reported after the previous FOV change. The multiplier is now applied once, only on the primary native camera route, instead of being repeated during downstream camera rebuilds.
+This is the recommended current alpha for Windows and Linux/Proton. It fixes the FOV distortion seen in the weapon menu and includes ultrawide rendering, corrected high-frame-rate support, controller fixes and the optional launcher bypass.
 
-Windows testing at 3440x1440 and FOV 1.200 passed gameplay, the weapon menu and the previously problematic in-engine cinematics. 1.200 is the tested 21:9 recommendation and maximum under the corrected model; 1.000 keeps the original vertical FOV.
+The final Windows package was tested at 3440x1440 in gameplay, the weapon menu and the previously problematic in-engine cinematics.
 
-[b]The native FOV option is still experimental.[/b] If you see instability or a scene-specific regression, disable [i]Experimental native FOV[/i] in the configurator. Ultrawide aspect correction remains active; only the expanded FOV is removed.
+[b]Recommended settings[/b]
 
-[b]Legacy fallback[/b]
-
-v0.3.1-alpha.5 remains available as the previously validated renderer-only fallback. Try disabling [i]Experimental native FOV[/i] in this release first. If you return to alpha.5, completely remove the current build before installing it; never mix files from both releases.
-
-Values above 1.000 can reveal actors, geometry or animation transitions near the edges before the original shot intended them to enter. This can happen even when projection and culling are correct.
+[list]
+[*][b]Most stable:[/b] leave [i]Experimental native FOV[/i] disabled. Ultrawide correction still works with the original vertical FOV.
+[*][b]Expanded 21:9 FOV:[/b] enable it and use 1.200. Do not exceed 1.200 at 21:9. Disable it again if a scene behaves incorrectly.
+[*][b]Supersampling:[/b] experimental and disabled by default. Keep internal width below 4096 to avoid aiming-reticle problems.
+[/list]
 
 [b]Important: remove old builds first[/b]
 
-Do not mix files from different releases. Use the old package's uninstaller, or remove old MGS4 Ultra120/ASI-loader copies after backing up files owned by other mods. A correct manual layout has only:
+Do not mix files from different versions. Uninstall or completely remove the previous MGS4 Ultra120 build before installing this one. Guided setup detects known duplicate ASI loaders and old project ASIs.
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1][b]Download v0.3.3-alpha.1[/b][/url]
+
+[list]
+[*][b]Setup EXE:[/b] easiest guided installation, configurator and uninstall. Unsigned.
+[*][b]Portable ZIP:[/b] extract it and run MGS4Ultra120-Setup.cmd.
+[*][b]Manual ZIP:[/b] copy-only installation without running the installer or scripts.
+[*][b]Complete ZIP:[/b] portable setup, manual files and documentation.
+[*][b]Linux package:[/b] installer and configurator for Linux/Proton.
+[/list]
+
+[b]Brief manual installation[/b]
+
+1. Close the game and remove the previous patch.
+2. Extract the Manual ZIP.
+3. Copy everything into the folder containing [i]mgs4.exe[/i].
+4. Keep the included [i]scripts[/i] folder and launch through Steam.
 
 [code]MGS4\winmm.dll
 MGS4\mgs4_ultrawide.ini
 MGS4\scripts\MGS4Ultra120.asi[/code]
 
-Do not leave a second Ultimate ASI Loader under names such as dinput8.dll, d3d11.dll, wininet.dll or winhttp.dll, and do not keep renamed old MGS4 Ultra120 ASIs. Guided setup now detects known duplicates and stops with the exact file list; it never deletes unknown third-party DLLs automatically.
+For corrected 120 FPS, manual users must also copy [i]MGSFPSUnlock.asi[/i] and [i]MGSFPSUnlock.ini[/i] from the official release into [i]MGS4\scripts[/i]:
 
-The language fix is also included. Spanish was verified in game. The manual ZIP does not install the launcher bypass, so manual users choose their language in the official Unity launcher.
+[url=https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0]MGSFPSUnlock 0.1.0[/url]
 
-[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1]Download v0.3.3-alpha.1[/url]
+[b]Unsigned installer[/b]
 
-[list]
-[*][b]Setup EXE[/b]: guided install, configurator and uninstall. Unsigned.
-[*][b]Portable ZIP[/b]: extract, then run MGS4Ultra120-Setup.cmd.
-[*][b]Manual ZIP[/b]: transparent copy-only option.
-[*][b]Complete ZIP[/b]: portable setup, manual folder and documentation.
-[*][b]Linux package[/b]: same route policy; broader Proton scene testing is still requested.
-[/list]
+The Setup EXE is not digitally signed, so Windows or a browser may show an unknown-publisher warning. The EXE is optional: use the Portable or Manual ZIP if preferred. The project is open source, contains no game files and never modifies [i]mgs4.exe[/i].
 
-Supersampling remains experimental and off by default. Keep internal width below 4096 for a stable aiming reticle.
+[b]Legacy fallback[/b]
 
-The project is open source, contains no game files and never modifies mgs4.exe. For reports, include the exact release, resolution, FOV, supersampling settings and mgs4_ultrawide.log.
+v0.3.1-alpha.5 remains available as the previously validated renderer-only fallback. Remove the current build completely before returning to it.
+
+[url=https://github.com/drbermejor/mgs4Ultra120/blob/main/docs/images/v0.3.3-alpha.1-gameplay-3440x1440.png]Gameplay screenshot[/url] | [url=https://github.com/drbermejor/mgs4Ultra120/blob/main/docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png]Weapon-menu screenshot[/url]
+
+For bug reports, include the exact release, resolution, enabled options and [i]mgs4_ultrawide.log[/i].

@@ -273,14 +273,14 @@ $Ui = @{
         AutoHdrTitle = "Auto HDR warning"
         NvidiaTitle = "NVIDIA multi-monitor warning"
         FullscreenTitle = "Exclusive fullscreen"
-        AggressiveFovTitle = "Expanded FOV"
+        AggressiveFovTitle = "Experimental native FOV"
         SupersamplingTitle = "Experimental supersampling"
         UnsupportedTitle = "Unsupported executable"
         AutoHdrMessage = "Auto HDR is enabled. The multi-monitor test reproduced a red sweep during focus changes. It was not the final cause, but disabling it is recommended while testing. Save anyway?"
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
-        AggressiveFovMessage = "FOV 1.200 is recommended for the corrected single-owner 21:9 framing, but values above 1.000 expose more than the original shot. Some cutscenes may show actors, geometry or animation transitions near the edges before they were meant to enter the frame. Continue?"
+        AggressiveFovMessage = "Native FOV is experimental. For 21:9, 1.200 is the tested recommendation and maximum. For the most stable configuration, disable this option. Continue?"
 }
 
 $Form = [Windows.Forms.Form]@{
@@ -534,7 +534,7 @@ $SaveButton.Add_Click({
             $Ui.SupersamplingTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
-    if ($NativeFovBox.Checked -and $FovBox.Value -gt [decimal]1.000) {
+    if ($NativeFovBox.Checked) {
         $Answer = [Windows.Forms.MessageBox]::Show(
             $Ui.AggressiveFovMessage, $Ui.AggressiveFovTitle,
             "YesNo", "Warning")

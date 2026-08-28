@@ -266,13 +266,9 @@ PY
     --text="Internal render size will be ${internal}. Widths of 4096 or more can make the aiming reticle flicker or disappear. Continue?" || exit 0
 fi
 
-if [[ "$native_fov_value" == 1 ]] && python3 - "$new_fov" <<'PY'
-import sys
-raise SystemExit(0 if float(sys.argv[1].replace(',', '.')) > 1.000 else 1)
-PY
-then
-  zenity --question --title='Expanded FOV' \
-    --text='FOV 1.200 is recommended for the corrected single-owner 21:9 framing, but values above 1.000 expose more than the original shot. Some cutscenes may show actors, geometry or transitions near the edges before they were meant to enter the frame. Continue?' || exit 0
+if [[ "$native_fov_value" == 1 ]]; then
+  zenity --question --title='Experimental native FOV' \
+    --text='Native FOV is experimental. For 21:9, 1.200 is the tested recommendation and maximum. For the most stable configuration, disable this option. Continue?' || exit 0
 fi
 
 set_launcher_wrapper "$launcher_value"

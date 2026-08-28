@@ -51,9 +51,8 @@ driver/display setup.
 - The game now builds projection and CPU visibility planes from the same
   adjusted input. The withdrawn tall/thin alpha.6 regression came from editing
   already-produced camera state; that code is absent.
-- Any FOV above `1.000` can expose authored off-camera actors, geometry or transitions
-  before a cinematic intended them to enter the frame. This is distinct from a
-  render/culling mismatch and is explicitly warned by both configurators.
+- Native FOV remains experimental. Leave it disabled for the most stable
+  configuration; at 21:9, `1.200` is the tested recommendation and maximum.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - Optional experimental supersampling at 3440x1440 output,
   1.50x/5160x2160 render resolution and windowed presentation passed the

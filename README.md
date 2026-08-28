@@ -56,10 +56,8 @@ unlock implementation.
 - Native Windows validation at 3440x1440 completed with native mode active, no
   fallback, natural object proportions, an undistorted WeaponWindow and clean
   problematic cinematics. The public range ends at `1.200`.
-- Any value above `1.000` can reveal authored off-camera content: actors,
-  geometry or animation transitions may appear at the edges before the scene
-  was directed to introduce them. That is a content-staging limitation, not a
-  projection or frustum desynchronization.
+- Native FOV remains experimental. For maximum stability, leave it disabled;
+  when enabled at 21:9, do not exceed the tested `1.200` recommendation.
 - Native 3440x1440 testing has correct proportions and a working aiming
   crosshair. Experimental supersampling tests isolate a separate
   internal-width boundary: the reticle is stable at 3956x1656, flickers at

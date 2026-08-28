@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory)]
-    [string]$PackageDir
+    [string]$PackageDir,
+
+    [switch]$Portable
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,10 +11,6 @@ $RequiredFiles = @(
     "MGS4Ultra120-Setup.cmd",
     "bin\winmm.dll",
     "bin\MGS4Ultra120.asi",
-    "Manual-Install\winmm.dll",
-    "Manual-Install\scripts\MGS4Ultra120.asi",
-    "Manual-Install\mgs4_ultrawide.ini",
-    "Manual-Install\README.txt",
     "bin\launcher.exe",
     "config\mgs4_ultrawide.ini",
     "scripts\windows\setup.ps1",
@@ -24,6 +22,14 @@ $RequiredFiles = @(
     "third_party\ultimate_asi_loader\LICENSE.txt",
     "third_party\ultimate_asi_loader\README.md"
 )
+if (-not $Portable) {
+    $RequiredFiles += @(
+        "Manual-Install\winmm.dll",
+        "Manual-Install\scripts\MGS4Ultra120.asi",
+        "Manual-Install\mgs4_ultrawide.ini",
+        "Manual-Install\README.txt"
+    )
+}
 
 foreach ($RelativePath in $RequiredFiles) {
     $Path = Join-Path $PackageDir $RelativePath
@@ -56,17 +62,19 @@ foreach ($RelativePath in @("bin\winmm.dll", "bin\MGS4Ultra120.asi")) {
         throw "$RelativePath is not an x86-64 PE image."
     }
 }
-foreach ($Pair in @(
-    @("bin\winmm.dll", "Manual-Install\winmm.dll"),
-    @("bin\MGS4Ultra120.asi", "Manual-Install\scripts\MGS4Ultra120.asi"),
-    @("config\mgs4_ultrawide.ini", "Manual-Install\mgs4_ultrawide.ini")
-)) {
-    $SourceHash = (Get-FileHash -Algorithm SHA256 `
-        -LiteralPath (Join-Path $PackageDir $Pair[0])).Hash
-    $ManualHash = (Get-FileHash -Algorithm SHA256 `
-        -LiteralPath (Join-Path $PackageDir $Pair[1])).Hash
-    if ($SourceHash -ne $ManualHash) {
-        throw "Manual-install payload does not match $($Pair[0])."
+if (-not $Portable) {
+    foreach ($Pair in @(
+        @("bin\winmm.dll", "Manual-Install\winmm.dll"),
+        @("bin\MGS4Ultra120.asi", "Manual-Install\scripts\MGS4Ultra120.asi"),
+        @("config\mgs4_ultrawide.ini", "Manual-Install\mgs4_ultrawide.ini")
+    )) {
+        $SourceHash = (Get-FileHash -Algorithm SHA256 `
+            -LiteralPath (Join-Path $PackageDir $Pair[0])).Hash
+        $ManualHash = (Get-FileHash -Algorithm SHA256 `
+            -LiteralPath (Join-Path $PackageDir $Pair[1])).Hash
+        if ($SourceHash -ne $ManualHash) {
+            throw "Manual-install payload does not match $($Pair[0])."
+        }
     }
 }
 
@@ -379,6 +387,39 @@ try {
         throw "Uninstall did not restore the incompatible pre-existing loader."
     }
     Remove-Item -Force -LiteralPath (Join-Path $GameDir "winmm.dll")
+
+    # Some official launcher_sv variants omit WindowSizeW/WindowSizeH while
+    # retaining the equivalent ResolutionWindowW/ResolutionWindowH fields.
+    # These redundant optional fields must never block saving patch settings.
+    $SettingsWithoutWindowSizeW = [pscustomobject]@{
+        keyList = @(
+            "ResolutionFullW", "ResolutionFullH",
+            "ResolutionWindowW", "ResolutionWindowH",
+            "WindowSizeH", "WindowMode", "UnrelatedSetting"
+        )
+        valueList = @("2560", "1440", "1280", "720", "720", "0", "keep-me")
+    }
+    [IO.File]::WriteAllText($LauncherSettingsPath,
+        ($SettingsWithoutWindowSizeW | ConvertTo-Json -Compress),
+        [Text.UTF8Encoding]::new($false))
+    . (Join-Path $PackageDir "scripts\windows\common.ps1")
+    Set-Mgs4Ultra120WindowsDisplaySettings $GameDir 3440 1440 "Windowed"
+    $OptionalFieldResult = Get-Content -Raw -LiteralPath `
+        $LauncherSettingsPath | ConvertFrom-Json
+    $OptionalFieldMap = Get-Mgs4Ultra120LauncherSettingMap $OptionalFieldResult
+    foreach ($Expected in @(
+        "ResolutionWindowW=3440", "ResolutionWindowH=1440",
+        "WindowSizeH=1440", "WindowMode=1", "UnrelatedSetting=keep-me"
+    )) {
+        $Parts = $Expected.Split('=')
+        if ([string]$OptionalFieldResult.valueList[
+            $OptionalFieldMap[$Parts[0]]] -ne $Parts[1]) {
+            throw "Optional launcher field compatibility failed: $Expected"
+        }
+    }
+    if ($OptionalFieldMap.ContainsKey("WindowSizeW")) {
+        throw "Display synchronization invented a missing optional launcher field."
+    }
 
     Write-Host "Windows package smoke test passed."
 } finally {

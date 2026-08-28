@@ -240,6 +240,7 @@ $Ui = @{
         Defaults = "Use recommended settings"
         Save = "Save and close"; Close = "Cancel"
         Saved = "Settings saved. Start the game normally from Steam."
+        SaveFailed = "Settings were not saved"
         AutoHdrTitle = "Auto HDR warning"
         NvidiaTitle = "NVIDIA multi-monitor warning"
         FullscreenTitle = "Exclusive fullscreen"
@@ -418,7 +419,9 @@ $StableButton.Add_Click({
     $HotkeyBox.SelectedItem = "F10"; $LanguageBox.SelectedItem = "en"
     $UnsupportedBox.Checked = $false
 })
+$script:Mgs4Ultra120SettingsSaved = $false
 $SaveButton.Add_Click({
+  try {
     if (Test-Mgs4Ultra120AutoHdrEnabled) {
         $Answer = [Windows.Forms.MessageBox]::Show(
             $Ui.AutoHdrMessage, $Ui.AutoHdrTitle, "YesNo", "Warning")
@@ -453,11 +456,17 @@ $SaveButton.Add_Click({
         ([int]$WidthBox.Value) ([int]$HeightBox.Value) $DisplayMode
     Set-LauncherWrapper $SkipLauncherBox.Checked
     Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) $FovBox.Value $Fps ([int]$UiBox.Checked) ([int]$UltrawideBox.Checked) ([int]$FpsOverrideBox.Checked) ([int]$ControllerFixBox.Checked) ([int]$SkipLauncherBox.Checked) ([string]$LanguageBox.SelectedItem) ([string]$HotkeyBox.SelectedItem) ([int]$UnsupportedBox.Checked) $DisplayMode ([int]$AutoResolutionBox.Checked)
+    $script:Mgs4Ultra120SettingsSaved = $true
     [Windows.Forms.MessageBox]::Show($Ui.Saved, "MGS4 Ultra120", "OK", "Information") | Out-Null
     $Form.Close()
+  } catch {
+    [Windows.Forms.MessageBox]::Show($_.Exception.Message, $Ui.SaveFailed,
+        "OK", "Error") | Out-Null
+  }
 })
 $CloseButton.Add_Click({ $Form.Close() })
 $Form.Controls.AddRange(@($StableButton, $SaveButton, $CloseButton))
 $Form.AcceptButton = $SaveButton
 $Form.CancelButton = $CloseButton
 [void]$Form.ShowDialog()
+Write-Output $script:Mgs4Ultra120SettingsSaved

@@ -73,26 +73,62 @@ make_tree() {
 }
 
 mkdir -p -- "$DIST"
-if [[ "$PLATFORM" == windows || "$PLATFORM" == all ]]; then
-  windows_root="$(make_tree windows)"
-  find "$windows_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-  windows_asset="$DIST/MGS4Ultra120-$VERSION-windows.zip"
-  rm -f -- "$windows_asset" "$windows_asset.sha256"
+
+make_windows_zip() {
+  local root="$1"
+  local asset="$2"
+  find "$root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+  rm -f -- "$asset" "$asset.sha256"
   if command -v zip >/dev/null 2>&1; then
-    (cd "$STAGE" && find "$(basename "$windows_root")" -print | LC_ALL=C sort |
-      TZ=UTC zip -X -q "$windows_asset" -@)
+    (cd "$STAGE" && find "$(basename "$root")" -print | LC_ALL=C sort |
+      TZ=UTC zip -X -q "$asset" -@)
   elif command -v powershell.exe >/dev/null 2>&1 &&
-       command -v cygpath >/dev/null 2>&1; then
-    windows_root_native="$(cygpath -w "$windows_root")"
-    windows_asset_native="$(cygpath -w "$windows_asset")"
+       { command -v cygpath >/dev/null 2>&1 ||
+         command -v wslpath >/dev/null 2>&1; }; then
+    local root_native asset_native
+    if command -v cygpath >/dev/null 2>&1; then
+      root_native="$(cygpath -w "$root")"
+      asset_native="$(cygpath -w "$asset")"
+    else
+      root_native="$(wslpath -w "$root")"
+      asset_native="$(wslpath -w "$asset")"
+    fi
     powershell.exe -NoLogo -NoProfile -Command \
-      "Compress-Archive -LiteralPath '$windows_root_native' -DestinationPath '$windows_asset_native' -CompressionLevel Optimal"
+      "Compress-Archive -LiteralPath '$root_native' -DestinationPath '$asset_native' -CompressionLevel Optimal"
   else
-    echo "Creating a Windows ZIP requires zip or PowerShell under Git Bash." >&2
+    echo "Creating a Windows ZIP requires zip or Windows PowerShell interop." >&2
     exit 1
   fi
-  (cd "$DIST" && sha256sum "$(basename "$windows_asset")" >"$(basename "$windows_asset").sha256")
-  printf 'Created:\n%s\n' "$windows_asset"
+  (cd "$DIST" && sha256sum "$(basename "$asset")" >"$(basename "$asset").sha256")
+  printf 'Created:\n%s\n' "$asset"
+}
+
+if [[ "$PLATFORM" == windows || "$PLATFORM" == all ]]; then
+  windows_root="$(make_tree windows)"
+
+  manual_root="$STAGE/MGS4Ultra120-$VERSION-windows-manual"
+  mkdir -p -- "$manual_root"
+  cp -a -- "$windows_root/Manual-Install/." "$manual_root/"
+
+  portable_root="$STAGE/MGS4Ultra120-$VERSION-windows-portable"
+  mkdir -p -- "$portable_root/scripts" "$portable_root/third_party"
+  install -m0644 "$windows_root/MGS4Ultra120-Setup.cmd" \
+    "$portable_root/MGS4Ultra120-Setup.cmd"
+  for name in "${COMMON[@]}"; do
+    install -m0644 "$windows_root/$name" "$portable_root/$name"
+  done
+  cp -a -- "$windows_root/bin" "$portable_root/bin"
+  cp -a -- "$windows_root/config" "$portable_root/config"
+  cp -a -- "$windows_root/scripts/windows" "$portable_root/scripts/windows"
+  cp -a -- "$windows_root/third_party/ultimate_asi_loader" \
+    "$portable_root/third_party/ultimate_asi_loader"
+
+  make_windows_zip "$manual_root" \
+    "$DIST/MGS4Ultra120-$VERSION-windows-manual.zip"
+  make_windows_zip "$portable_root" \
+    "$DIST/MGS4Ultra120-$VERSION-windows-portable.zip"
+  make_windows_zip "$windows_root" \
+    "$DIST/MGS4Ultra120-$VERSION-windows-complete.zip"
 fi
 
 if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then

@@ -3,7 +3,7 @@
 ## `3440 is not a valid value`
 
 This was a Windows configurator bug in an older package. Delete the extracted
-old tool folder, download the newest asset whose name ends in `-windows.zip`
+old tool folder, download the newest `-windows-portable.zip`
 from [Releases](https://github.com/drbermejor/mgs4Ultra120/releases), extract
 it, and run `MGS4Ultra120-Setup.cmd`. Do not use GitHub's **Source code** ZIP.
 The fix is included in `v0.3.1-alpha.2` and later.

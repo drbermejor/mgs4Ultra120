@@ -5,7 +5,7 @@ MGS4 ULTRA120 - COPY-ONLY MANUAL INSTALL
 
    ...\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4
 
-3. Drag every item inside this Manual-Install folder into that MGS4 folder.
+3. Drag every item inside this extracted folder into that MGS4 folder.
    Keep the included scripts folder: MGS4Ultra120.asi must end up at:
 
    MGS4\scripts\MGS4Ultra120.asi

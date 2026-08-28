@@ -3,8 +3,9 @@
 ## Status
 
 The ASI layout introduced and validated in `v0.3.1-alpha.4` is the current
-native-Windows architecture. `v0.3.1-alpha.5` promotes it to `main` and adds a
-ready-to-drag manual package without changing the tested plugin or loader.
+native-Windows architecture. Alpha.5 promoted it to `main`, added dedicated
+manual/portable/complete packages and fixed compatibility with official
+launcher settings that omit redundant `WindowSizeW/WindowSizeH` fields.
 Linux and Proton remain on their separate prior release line.
 
 ## Layout

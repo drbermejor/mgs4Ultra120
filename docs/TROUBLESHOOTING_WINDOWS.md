@@ -11,6 +11,17 @@ It uses pinned Ultimate ASI Loader `v9.7.4` as the proxy and loads
 `scripts/MGS4Ultra120.asi`. If alpha.4 reports a loader problem, verify both
 files and their published hashes rather than copying an alpha.3 DLL over it.
 
+## Configurator says `WindowSizeW` is missing
+
+Download the refreshed alpha.5 package. Some valid official `launcher_sv` variants omit
+`WindowSizeW`/`WindowSizeH` and use `ResolutionWindowW`/`ResolutionWindowH`
+instead. Older configurators treated every field as mandatory, aborted the
+save and then allowed Easy Setup to display a false completion message.
+
+The refreshed alpha.5 accepts either complete window-size pair, updates all available
+official fields and saves the patch INI normally. It also handles save errors
+inside the GUI and only reports setup completion after a successful save.
+
 ## `Cannot find drive E:` during setup
 
 Alpha.3 and newer skip stale/offline Steam-library entries. If the game itself

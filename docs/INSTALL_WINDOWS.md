@@ -3,7 +3,39 @@
 > **Recommended release:** `v0.3.1-alpha.5` is the current native-Windows ASI
 > release. Linux/Proton remains on its separately validated release line.
 
-## Easy installation (recommended)
+## Manual ZIP (recommended for maximum transparency)
+
+This route runs no installer, CMD or PowerShell script.
+
+1. Download and extract
+   `MGS4Ultra120-v0.3.1-alpha.5-windows-manual.zip`.
+2. Close the game and open the folder that directly contains `mgs4.exe`.
+3. Copy everything inside the extracted manual folder into that `MGS4` folder.
+   Keep the included `scripts` folder.
+4. Confirm this layout and launch normally through Steam:
+
+   ```text
+   MGS4\winmm.dll
+   MGS4\mgs4_ultrawide.ini
+   MGS4\scripts\MGS4Ultra120.asi
+   ```
+
+Edit `mgs4_ultrawide.ini` while the game is closed. This route creates no
+shortcuts and does not install the optional Unity-launcher bypass. Back up any
+same-name file first; if another mod already provides Ultimate ASI Loader as
+`winmm.dll`, keep it and copy only the INI and ASI.
+
+## Portable ZIP
+
+1. Download and extract
+   `MGS4Ultra120-v0.3.1-alpha.5-windows-portable.zip`.
+2. Double-click `MGS4Ultra120-Setup.cmd`.
+3. Choose **Install / update and configure**, then **Save and close**.
+4. Keep the extracted folder to configure or uninstall later.
+
+This is the guided setup without a persistent Windows application.
+
+## Setup EXE
 
 1. Download the **Windows setup EXE** from Releases.
 2. Verify its SHA-256 against the `.sha256` file published beside it.
@@ -11,7 +43,7 @@
    user and creates Start-menu and desktop shortcuts by default.
 4. The setup normally finds the Steam game automatically. Click **Install / update**.
 5. In the configurator that opens, choose any combination of fixes and click
-   **Save settings**.
+   **Save and close**.
 6. Start the game normally from Steam and select DirectX 12.
 
 The stable Windows default is **Windowed at native size** with automatic
@@ -43,11 +75,13 @@ unknown-publisher/reputation notice. Verify the download against the SHA-256
 published on the official Releases page. The complete source is public and can
 be inspected and compiled independently; see [Development](DEVELOPMENT.md).
 
-Running the EXE is optional. The Windows ZIP provides two alternatives:
+Running the EXE is optional.
 
-1. Extract it and double-click **`MGS4Ultra120-Setup.cmd`** to open the same
-   readable PowerShell setup without the installer EXE.
-2. Use the copy-only `Manual-Install` folder described below.
+## Complete ZIP
+
+`MGS4Ultra120-v0.3.1-alpha.5-windows-complete.zip` contains the portable CMD
+route, a ready-to-copy `Manual-Install` folder and all documentation, licences
+and notices. Use either included installation route.
 
 The default stable profile enables the reversible Unity-launcher bypass. The
 Windows wrapper places the required tokens in the game's official `mgs4_param`
@@ -116,24 +150,6 @@ To uninstall, run `scripts\windows\uninstall.ps1` with the same `-GameDir`.
 Pre-existing files are restored from the installer's private backup directory.
 The launcher is restored only if its active hash still matches this package's
 wrapper; a launcher changed by Steam or another tool is preserved.
-
-### Copy-only manual installation
-
-Extract the Windows ZIP and open `Manual-Install`. Close the game, then drag
-everything inside that folder into the `MGS4` folder that directly contains
-`mgs4.exe`. Keep the included `scripts` folder. The final layout must be:
-
-```text
-MGS4\winmm.dll
-MGS4\mgs4_ultrawide.ini
-MGS4\scripts\MGS4Ultra120.asi
-```
-
-Start the game normally through Steam. This route installs no program,
-shortcuts or launcher bypass. Edit `mgs4_ultrawide.ini` with a text editor
-while the game is closed. Back up same-name files before replacing them; when
-another mod already supplies a compatible x64 Ultimate ASI Loader as
-`winmm.dll`, retain it and copy only the INI and ASI.
 
 See [Manual DLL and INI installation](MANUAL_INI.md) for configuration values
 and removal instructions.

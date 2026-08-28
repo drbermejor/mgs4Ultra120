@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.1-alpha.5 - Promote the Windows ASI release
+## v0.3.1-alpha.5 - Windows ASI release
 
 - Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
 - Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
@@ -10,6 +10,13 @@
 - Simplified unsigned-binary guidance and documented source inspection, local
   compilation, ZIP/CMD setup and copy-only installation as equal choices.
 - Recorded the user's successful manual focus-change validation.
+- Accepted official `launcher_sv` variants that omit the redundant
+  `WindowSizeW`/`WindowSizeH` fields when `ResolutionWindowW`/`H` are present.
+- Synchronized every available official display field without inventing absent
+  keys and retained strict requirements for exclusive fullscreen.
+- Caught configurator save errors inside the GUI and stopped Easy Setup from
+  reporting success when settings were not saved.
+- Split Windows downloads into minimal manual, portable and complete ZIPs.
 
 ## v0.3.1-alpha.4 - Native Windows ASI release
 

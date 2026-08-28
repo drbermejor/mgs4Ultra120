@@ -20,6 +20,7 @@ $Ui = @{
         Instructions = "Instructions"
         Close = "Close"
         Done = "Setup is complete. You can now start the game normally from Steam."
+        NotSaved = "The patch was installed, but the configurator closed without saving settings. Reopen the configurator to finish setup."
         InstallFailed = "Installation could not be completed"
         ConfigureFailed = "The configurator could not be opened"
         RemoveQuestion = "Remove MGS4 Ultra120 and restore the backed-up original files?"
@@ -185,9 +186,15 @@ $PathBox.Add_TextChanged({ Update-PathStatus })
 $Install.Add_Click({
     try {
         Install-Patch $PathBox.Text
-        & (Join-Path $PSScriptRoot "configure.ps1") -GameDir $PathBox.Text
-        [Windows.Forms.MessageBox]::Show($Ui.Done,
-            "MGS4 Ultra120", "OK", "Information") | Out-Null
+        $ConfigureResult = @(& (Join-Path $PSScriptRoot "configure.ps1") `
+            -GameDir $PathBox.Text)
+        if ($ConfigureResult -contains $true) {
+            [Windows.Forms.MessageBox]::Show($Ui.Done,
+                "MGS4 Ultra120", "OK", "Information") | Out-Null
+        } else {
+            [Windows.Forms.MessageBox]::Show($Ui.NotSaved,
+                "MGS4 Ultra120", "OK", "Warning") | Out-Null
+        }
     } catch {
         [Windows.Forms.MessageBox]::Show($_.Exception.Message,
             $Ui.InstallFailed, "OK", "Error") | Out-Null

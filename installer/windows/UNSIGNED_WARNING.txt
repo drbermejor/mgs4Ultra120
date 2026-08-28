@@ -12,9 +12,9 @@ the code, review the pinned dependencies and compile it independently:
 
 https://github.com/drbermejor/mgs4Ultra120
 
-The EXE is optional. The Windows ZIP offers two alternatives:
+The EXE is optional. The release offers two alternatives:
 
-  - Double-click MGS4Ultra120-Setup.cmd to run the readable PowerShell setup.
-  - Drag the contents of Manual-Install into the folder containing mgs4.exe.
+  - Extract the portable ZIP and run MGS4Ultra120-Setup.cmd.
+  - Extract the manual ZIP and copy its contents beside mgs4.exe.
 
 The installer does not request administrator rights or modify mgs4.exe.

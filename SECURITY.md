@@ -8,7 +8,7 @@ The project is fully open source. The installer, patch, setup scripts, build
 instructions and pinned third-party metadata can all be inspected before use,
 and the project can be compiled locally. The distributed EXE is not digitally
 signed, so an unknown-publisher or reputation notice is possible. Running the
-EXE is optional: the Windows ZIP includes the readable CMD/PowerShell setup and
+EXE is optional: the portable ZIP includes the readable CMD/PowerShell setup and
 also supports a copy-only manual installation documented in
 `docs/MANUAL_INI.md`.
 

@@ -64,30 +64,36 @@ Windows and Linux/Proton are maintained as separate validated release lines:
 
 | Platform | Validated release | Download |
 |---|---|---|
-| Native Windows (recommended) | `v0.3.1-alpha.5` | Setup EXE, portable ZIP/CMD or manual ASI installation |
-| Linux / Proton | `v0.3.1-alpha.2` | Linux tarball from the previous release |
+| Native Windows (recommended) | `v0.3.1-alpha.5` | Setup EXE, manual ZIP, portable ZIP or complete ZIP |
+| Linux / Proton | `v0.3.1-alpha.2` | Linux tarball attached to the alpha.5 page |
 
-The alpha.5 release intentionally contains only Windows assets. Linux users
-should keep the separately tested alpha.2 Linux package; do not substitute the
-Windows setup/ZIP or infer Linux validation from the Windows fixes.
+The alpha.5 release page also carries the separately validated alpha.2 Linux
+package for convenience. Do not run the Windows setup/ZIP under Proton or
+infer Linux validation from the native-Windows fixes.
 
 Download only from
 [Releases](https://github.com/drbermejor/mgs4Ultra120/releases).
 
-**Native Windows:** the setup EXE installs a manager for the current user,
-creates Start-menu and desktop shortcuts, detects Steam automatically and
-supports reversible removal. The EXE is not digitally signed, so Windows or a
-browser may show an unknown-publisher/reputation notice. The complete source is
-public: anyone can inspect it, review the pinned dependencies and build the
-same project locally. Users who prefer not to run the EXE can use the portable
-ZIP with `MGS4Ultra120-Setup.cmd`, or copy the loader, ASI and INI manually.
-See [Windows installation](docs/INSTALL_WINDOWS.md) for all three routes.
+**Native Windows — choose one download:**
 
-For the copy-only route, extract the ZIP, close the game and drag everything
-inside `Manual-Install` into the `MGS4` folder containing `mgs4.exe`. Keep the
-included `scripts` folder. The result is `MGS4\winmm.dll`,
-`MGS4\mgs4_ultrawide.ini` and `MGS4\scripts\MGS4Ultra120.asi`; then launch
-normally through Steam. This route installs no program or shortcuts.
+1. **Manual ZIP (most transparent):** extract
+   `MGS4Ultra120-v0.3.1-alpha.5-windows-manual.zip`, close the game and copy
+   everything inside the extracted folder into the `MGS4` folder containing
+   `mgs4.exe`. Keep the included `scripts` folder, then launch through Steam.
+   It runs no installer or setup script.
+2. **Portable ZIP:** extract
+   `MGS4Ultra120-v0.3.1-alpha.5-windows-portable.zip` and double-click
+   `MGS4Ultra120-Setup.cmd`. Keep the extracted folder for later configuration
+   or uninstall.
+3. **Setup EXE:** installs the same patch plus a setup manager and shortcuts.
+4. **Complete ZIP:** contains the portable route, the manual folder and all
+   project documentation and licences.
+
+The EXE is not digitally signed, so Windows or a browser may show an
+unknown-publisher/reputation notice. It is optional. The project is open
+source: anyone can inspect the scripts and source, verify the published
+SHA-256 files and build it independently. See
+[Windows installation](docs/INSTALL_WINDOWS.md) for details.
 
 The Windows stable profile detects the primary monitor's physical resolution
 and requests a native-size window. In the tested 3440x1440 setup this occupied

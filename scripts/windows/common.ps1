@@ -158,7 +158,7 @@ function Set-Mgs4Ultra120WindowsDisplaySettings(
 
     $Data = Get-Mgs4Ultra120LauncherSettingsObject $SettingsPath
     $Map = Get-Mgs4Ultra120LauncherSettingMap $Data
-    $Applied = [ordered]@{
+    $Desired = [ordered]@{
         ResolutionFullW = [string]$Width
         ResolutionFullH = [string]$Height
         ResolutionWindowW = [string]$Width
@@ -167,10 +167,39 @@ function Set-Mgs4Ultra120WindowsDisplaySettings(
         WindowSizeH = [string]$Height
         WindowMode = if ($DisplayMode -eq "Fullscreen") { "0" } else { "1" }
     }
-    foreach ($Key in $Applied.Keys) {
-        if (-not $Map.ContainsKey($Key)) {
-            throw "The official launcher settings are missing '$Key'; no display values were changed."
+    $HasWindowPair =
+        ($Map.ContainsKey("ResolutionWindowW") -and
+         $Map.ContainsKey("ResolutionWindowH")) -or
+        ($Map.ContainsKey("WindowSizeW") -and
+         $Map.ContainsKey("WindowSizeH"))
+    $HasFullscreenPair = $Map.ContainsKey("ResolutionFullW") -and
+        $Map.ContainsKey("ResolutionFullH")
+    $CanSynchronize = $Map.ContainsKey("WindowMode") -and
+        $(if ($DisplayMode -eq "Fullscreen") {
+            $HasFullscreenPair
+        } else {
+            $HasWindowPair
+        })
+    if (-not $CanSynchronize) {
+        $Message = "The official launcher settings do not contain the fields required for $DisplayMode mode; no official display values were changed."
+        if ($DisplayMode -eq "Fullscreen") { throw $Message }
+        Write-Warning "$Message The patch and direct launcher can still request windowed mode."
+        return
+    }
+
+    $Applied = [ordered]@{}
+    $MissingOptional = [Collections.Generic.List[string]]::new()
+    foreach ($Key in $Desired.Keys) {
+        if ($Map.ContainsKey($Key)) {
+            $Applied[$Key] = $Desired[$Key]
+        } else {
+            $MissingOptional.Add($Key)
         }
+    }
+    if ($MissingOptional.Count -gt 0) {
+        Write-Warning ("Official launcher settings omit optional fields: " +
+            ($MissingOptional -join ", ") +
+            ". All available display values will still be synchronized.")
     }
 
     $BackupDir = Join-Path $GameDir ".mgs4ultra120-backup"

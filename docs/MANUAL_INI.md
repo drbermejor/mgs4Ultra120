@@ -1,6 +1,7 @@
 # Manual DLL and INI installation
 
-The Windows ZIP contains a ready-to-drag `Manual-Install` folder with:
+The minimal `-windows-manual.zip` and the complete ZIP contain a ready-to-drag
+manual folder with:
 
 - `winmm.dll`
 - `mgs4_ultrawide.ini`
@@ -52,7 +53,7 @@ mouse users should set `ControllerProfileFixEnabled=0`.
 For manual Windows use, start from the INI shipped inside the Windows release
 ZIP. It already contains the two Windows presentation keys. Editing the INI
 alone cannot safely synchronize or back up the official `launcher_sv` values;
-open the configurator and click **Save settings** once when changing
+open the configurator and click **Save and close** once when changing
 presentation mode. Do not map `DisplayMode` to the wrapper's `-resolution`
 token: native tracing shows that token remains slot `0` in both modes.
 

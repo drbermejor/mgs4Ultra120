@@ -83,7 +83,7 @@ validated line. GitHub's generated archives remain the source packages.
 To generate the same setup EXE after packaging on Windows:
 
 ```powershell
-$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.1-alpha.5-windows.zip
+$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.1-alpha.5-windows-complete.zip
 $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash
 .\installer\windows\Build-Installer.ps1 `
   -Version v0.3.1-alpha.5 `

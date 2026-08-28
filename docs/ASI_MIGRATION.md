@@ -37,7 +37,8 @@ files contain the verified binary. Source control contains no upstream binary.
 
 The upstream binary has a timestamped self-signed `FusionFix` certificate, not
 a certificate rooted in the Windows trusted publisher store. Users must still
-expect reputation warnings and verify the release checksum.
+expect reputation warnings, download only from the official release and keep
+antivirus enabled.
 
 ## Migration and ownership rules
 

@@ -16,17 +16,16 @@ yet received an end-to-end CachyOS retest.
 
 ## Install
 
-1. Download the Linux tarball and its adjacent `.sha256` file.
-2. Verify the archive, then extract it.
-3. Exit Steam completely; do not merely close its window.
-4. In a terminal inside the extracted folder, run:
+1. Download the Linux tarball from the official release and extract it.
+2. Exit Steam completely; do not merely close its window.
+3. In a terminal inside the extracted folder, run:
 
    ```bash
    ./scripts/linux/install.sh
    ```
 
-5. Force `GE-Proton10-34` for the game if it is installed.
-6. Launch normally through Steam.
+4. Force `GE-Proton10-34` for the game if it is installed.
+5. Launch normally through Steam.
 
 The installer adds `WINEDLLOVERRIDES="winmm=n,b"` without discarding existing
 Steam launch options.

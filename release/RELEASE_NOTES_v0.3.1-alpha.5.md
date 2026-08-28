@@ -1,9 +1,9 @@
 # MGS4 Ultra120 v0.3.1-alpha.5 - refreshed Windows and Linux release
 
 This release was refreshed in place so previously shared alpha.5 links remain
-valid. **Redownload the Windows asset you use and verify its new adjacent
-SHA-256 file.** Linux remains a separate Proton release line; use the alpha.5
-Linux tarball for the corrected current scripts.
+valid. **Redownload the asset you use because older alpha.5 downloads were
+replaced.** Linux remains a separate Proton release line; use the alpha.5 Linux
+tarball for the corrected current scripts.
 
 ## What it does
 
@@ -113,5 +113,5 @@ legacy line.
   retest. KDE/Wayland users can try `Super+F` when the desktop panel remains
   visible or return to the native launch option.
 
-Download only from this official release and verify every asset with its
-adjacent `.sha256` file.
+Download only from this official release, keep antivirus enabled and avoid
+copies reuploaded by third parties.

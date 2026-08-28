@@ -16,6 +16,8 @@
   package using the game's normal FPS behavior.
 - Documented reported side pop-in/culling above `FOVMultiplier=1.000` and kept
   `1.000` as the recommended native value while visibility bounds are unknown.
+- Removed standalone checksum files from GitHub release assets to keep the
+  download list simple; local build checksums remain available to developers.
 - Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
 - Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
   unchanged.

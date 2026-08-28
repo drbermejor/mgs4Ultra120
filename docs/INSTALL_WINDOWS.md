@@ -8,14 +8,13 @@ an optional additive component supplied by
 
 ## Setup EXE
 
-1. Download the setup EXE and its adjacent `.sha256` file.
-2. Verify the checksum, close the game and run setup.
-3. Keep **Add improved 120 FPS support** checked for the recommended complete
+1. Download the setup EXE from the official release, close the game and run it.
+2. Keep **Install / update improved 120 FPS support** checked for the recommended complete
    setup, or uncheck it for the offline core/normal-FPS route.
-4. Confirm the detected folder directly contains `mgs4.exe`.
-5. Click **Install / update and configure**.
-6. Keep the recommended values and click **Save and close**.
-7. Launch normally through Steam.
+3. Confirm the detected folder directly contains `mgs4.exe`.
+4. Click **Install / update and configure**.
+5. Keep the recommended values and click **Save and close**.
+6. Launch normally through Steam.
 
 The 120 option downloads MGSFPSUnlock 0.1.0 from its official GitHub release
 and rejects it unless both pinned SHA-256 checks pass. If download fails, the
@@ -28,7 +27,7 @@ copy, or remove a manually installed copy manually.
 
 The EXE is unsigned and may trigger a browser or SmartScreen reputation notice.
 It is optional: source, scripts and build instructions are public. Do not turn
-off security tools globally. Use only the official release and verify hashes.
+off security tools globally. Use only the official release and avoid reuploads.
 
 ## Portable ZIP
 

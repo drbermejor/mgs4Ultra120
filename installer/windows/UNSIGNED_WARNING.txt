@@ -2,8 +2,8 @@ MGS4 ULTRA120 - COMMUNITY INSTALLER
 
 This EXE is not digitally signed, so Windows or a browser may identify it as
 an unknown publisher or show a reputation notice. Download it only from the
-official project release page and compare its SHA-256 with the file published
-beside it:
+official project release page, keep antivirus enabled and do not use copies
+reuploaded by third parties:
 
 https://github.com/drbermejor/mgs4Ultra120/releases
 

@@ -76,9 +76,10 @@ MGS4ULTRA120_ASI_LOADER="$PWD/build-third-party/ultimate-asi-loader/winmm.dll" \
 
 The script refuses to package a missing loader, ASI or direct-launch wrapper,
 copies only redistributable files, creates the ready-to-drag `Manual-Install`
-tree and emits a SHA-256 checksum beside each selected archive. Alpha.5 is the
-current native-Windows release; Linux users remain on the prior separately
-validated line. GitHub's generated archives remain the source packages.
+tree and emits local SHA-256 checksums for developer validation. Checksum files
+are intentionally not uploaded as release assets. Alpha.5 contains separate
+current Windows and Linux packages. GitHub's generated archives remain the
+source packages.
 
 To generate the same setup EXE after packaging on Windows:
 

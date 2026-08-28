@@ -67,9 +67,8 @@ and choose one package:
 
 The EXE is unsigned, so SmartScreen or a browser may show an
 unknown-publisher/reputation warning. The EXE is optional. Download only from
-the official release, verify its adjacent `.sha256` file and keep antivirus
-enabled. All project code and build instructions are public and can be reviewed
-or built independently.
+the official release and keep antivirus enabled. All project code and build
+instructions are public and can be reviewed or built independently.
 
 ### Brief manual installation
 

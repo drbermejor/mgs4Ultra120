@@ -80,7 +80,7 @@ def install(state_path: Path) -> None:
         line = f'{closing_indent}\t"LaunchOptions"\t\t"{encode_vdf(new_value)}"'
         new_block = block[:tail.start()] + "\n" + line + tail.group(0)
     updated = text[:start] + new_block + text[end:]
-    temporary = config.with_suffix(".vdf.uwmgs4.tmp")
+    temporary = config.with_suffix(".vdf.mgs4ultra120.tmp")
     temporary.write_text(updated)
     os.replace(temporary, config)
 
@@ -109,7 +109,7 @@ def uninstall(state_path: Path) -> None:
     else:
         line = f'{match.group(1)}"LaunchOptions"\t\t"{encode_vdf(previous)}"\n'
         new_block = pattern.sub(line, block, count=1)
-    temporary = config.with_suffix(".vdf.uwmgs4.tmp")
+    temporary = config.with_suffix(".vdf.mgs4ultra120.tmp")
     temporary.write_text(text[:start] + new_block + text[end:])
     os.replace(temporary, config)
     state_path.unlink()
@@ -151,7 +151,7 @@ def configure(state_path: Path, width: str, height: str, refresh: str, mode: str
         new_value = f"{PREFIX} %command%"
     line = f'{match.group(1)}"LaunchOptions"\t\t"{encode_vdf(new_value)}"'
     updated = text[:start] + pattern.sub(line, block, count=1) + text[end:]
-    temporary = config.with_suffix(".vdf.uwmgs4.tmp")
+    temporary = config.with_suffix(".vdf.mgs4ultra120.tmp")
     temporary.write_text(updated)
     os.replace(temporary, config)
     state["installed_launch_options"] = new_value

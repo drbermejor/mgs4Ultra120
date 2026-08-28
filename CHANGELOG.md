@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.0-alpha.1 - 2026-08-28
+
+- Added an independent controller-profile fix that preserves the game's native
+  connected pad family without emulation, polling or a system input layer.
+- Added an optional Steam-path direct-launch wrapper with reversible,
+  update-aware launcher backups.
+- Added a configurable event-driven hotkey to switch the FPS module between 60
+  and experimental 120 FPS.
+- Expanded both graphical configurators so ultrawide, FPS, controller fix,
+  launcher and UI choices can be combined independently.
+- Added a warned `AllowUnsupportedExecutable` override while retaining hook
+  signature checks and the safe blocked default.
+- Documented Bink video behavior, the planned anchored UI design, controller
+  behavior and all supported option combinations.
+
 ## v0.2.1-alpha.1 - 2026-08-27
 
 - Added engine-level Hor+ correction at arbitrary aspect ratios for the common

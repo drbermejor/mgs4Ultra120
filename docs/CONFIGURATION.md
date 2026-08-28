@@ -1,11 +1,31 @@
 # Configuration
 
-Edit `mgs4_ultrawide.ini` beside `mgs4.exe` while the game is closed.
+Run the graphical configurator while the game is closed:
+
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1
+```
+
+```bash
+# Linux
+./scripts/linux/configure.sh gui
+```
+
+Each checkbox is independent. Selecting the controller fix does not enable
+ultrawide or FPS changes; selecting 120 FPS does not enable the controller fix
+or alter resolution. Profiles are only convenient presets and can be changed
+afterwards.
+
+## INI reference
+
+`mgs4_ultrawide.ini` is stored beside `mgs4.exe`:
 
 ```ini
 [Patch]
 UltrawideEnabled=1
 FPSOverrideEnabled=1
+AllowUnsupportedExecutable=0
 
 [Ultrawide]
 Width=3440
@@ -15,57 +35,91 @@ ConstrainUITo16x9=0
 
 [FPS]
 Limit=60
+ToggleHotkey=F10
+ToggleHotkeyModifiers=None
+
+[Input]
+ControllerProfileFixEnabled=1
+
+[Launcher]
+SkipUnityLauncher=0
+Region=eu
+SelfRegion=EU
+Language=en
+ControllerType=XBOX
 ```
 
-- `UltrawideEnabled=1` enables only the resolution, projection/FOV and optional
-  UI hooks. Set it to `0` to leave the game's rendering path untouched.
-- `FPSOverrideEnabled=1` enables only the selected FPS override. Set it to `0`
-  to leave the game's original frame-rate behavior untouched.
-- `Width` and `Height` set the render resolution and projection aspect ratio.
-- `FOVMultiplier` scales the tangent of both FOV axes while preserving the
-  configured aspect ratio. `1.000` retains the original vertical FOV; `1.150`
-  is a visually validated wider comfort option. The accepted range is
-  `0.500`-`2.000`.
-- `Limit` accepts `30`, `60`, or `120`. Use 60 for gameplay. The 120 mode
-  reproduced a scripted-intro stall and is included only for investigation.
-- `ConstrainUITo16x9=0` leaves the game's original UI/full-screen-effect draws
-  alone and is the stable default. Setting it to `1` centers identified D3D12
-  UI draws in a 16:9 safe area, but is experimental because the same shader is
-  used by some full-screen effects.
+### Ultrawide
 
-The log is written as `mgs4_ultrawide.log` beside the executable. A successful
-D3D12 UI run contains messages for the projection hook, resolution hook,
-D3D12 device/command-list hooks, and recognized UI shader.
+- `UltrawideEnabled=0` leaves resolution, projection, FOV and UI hooks
+  uninstalled.
+- `Width` and `Height` define output resolution and target aspect ratio.
+- `FOVMultiplier` accepts `0.500`-`2.000`. `1.000` preserves original vertical
+  FOV; `1.150` is an optional wider view.
+- `ConstrainUITo16x9=1` enables the D3D12 safe-area prototype. It is not a
+  finished anchored-HUD solution and can also constrain full-screen effects.
 
-Run `scripts/linux/configure.sh gui` or, on Windows,
-`scripts\windows\configure.ps1` for the graphical configurator. It exposes
-resolution, FOV, FPS, and UI settings. Linux also offers reversible
-native/Gamescope Steam launch modes. Steam must be closed before changing its
-launch options; the INI can still be saved while Steam is running.
+### Frame rate
 
-The two modules are independent. For example, the `fps-only-120` profile sets
-`UltrawideEnabled=0`, `FPSOverrideEnabled=1`, and `Limit=120`; no resolution,
-projection, FOV, or UI hook is installed in that mode.
+- `FPSOverrideEnabled=0` leaves the game's original frame limiter untouched.
+- `Limit` accepts `30`, `60` or `120`.
+- `ToggleHotkey` accepts `Off`, `F1`-`F24`, one letter or one digit when edited
+  manually. The GUI exposes choices from F6 to F12.
+- `ToggleHotkeyModifiers` may contain `Ctrl`, `Alt`, `Shift` and/or `Win`, for
+  example `Ctrl+F10`. The hotkey exists only while the game is running and the
+  FPS module is enabled.
+- Each hotkey press writes one state transition between 60 and 120. It does
+  not poll or rewrite the value every frame.
 
-Ready-made command-line profiles are also available:
+Use 60 FPS for normal play. The 120 option has reproduced a scripted-scene
+stall with audio continuing and is intended for testing.
+
+### Controller profile
+
+- `ControllerProfileFixEnabled=1` preserves a connected native controller
+  profile when the port incorrectly attempts to switch to keyboard profile 0.
+- Set it to `0` for keyboard/mouse-only play or to test unmodified input.
+- Disconnecting every controller clears the preserved profile. Reconnection is
+  detected by the game normally; no virtual controller is created.
+
+### Unsupported executables
+
+The configurator compares `mgs4.exe` with the verified SHA-256. Unknown builds
+are blocked by default. `AllowUnsupportedExecutable=1` permits an attempt after
+an explicit warning. Known code-hook signatures are still verified, but data
+offsets may have moved, so the override may crash. It does not add actual
+support for that build.
+
+### Launcher
+
+`SkipUnityLauncher` records the configurator choice. The configurator also
+installs or restores the actual wrapper; editing this key alone does not move
+files. `Language` supports `en`, `sp`, `fr`, `it`, `ge` and `jp`. See
+[Direct-launch wrapper](LAUNCHER_WRAPPER.md).
+
+## Example combinations
+
+| Desired result | Ultrawide | FPS override | Controller fix | Wrapper |
+|---|---:|---:|---:|---:|
+| Ultrawide only, original FPS/input | On | Off | Off | Either |
+| 120 FPS only at 16:9 | Off | On/120 | Off | Either |
+| Controller correction only | Off | Off | On | Either |
+| Ultrawide plus controller correction | On | Off | On | Either |
+| Everything | On | On | On | On |
+
+Ready-made CLI presets include `stable`, `ui-safe`, `120`, `120-ui`,
+`fps-only-120`, `ultrawide-only` and `controller-fix-only`. For example:
 
 ```bash
-./scripts/linux/configure.sh stable     # 60 FPS, original UI
-./scripts/linux/configure.sh ui-safe    # 60 FPS, centered UI experiment
-./scripts/linux/configure.sh 120        # 120 FPS experiment, original UI
-./scripts/linux/configure.sh fps-only-120 # original rendering, 120 FPS only
-./scripts/linux/configure.sh ultrawide-only # ultrawide, original game FPS
+./scripts/linux/configure.sh controller-fix-only
+./scripts/linux/configure.sh fps-only-120
 ```
 
-On Windows, use `scripts\windows\configure.ps1 -Profile stable` (or
-`ui-safe`, `120`, `120-ui`, `fps-only-120`, or `ultrawide-only`). The game must
-be closed while changing a profile.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
+  -Profile controller-fix-only
+```
 
-The patch intentionally overrides these values when `mgs4.exe` starts. The
-corresponding internal game-menu settings may appear to save but will not take
-effect while the patch is enabled. Uninstall the patch to restore full control
-to the internal menu.
-
-When loading a save, the dark Praying Mantis screen can remain visible after
-loading has completed. If `PULSE CUALQUIER BOTÓN` is shown at bottom left,
-press a button or click once; it is waiting for confirmation rather than stuck.
+The log is `mgs4_ultrawide.log` beside the executable. Internal game-menu
+resolution/FPS values may appear to save but are superseded only by whichever
+patch modules are enabled.

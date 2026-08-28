@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MGS4Ultra120 VERSION 0.2.1 LANGUAGES C CXX)
+project(MGS4Ultra120 VERSION 0.3.0 LANGUAGES C CXX)
 
 include(FetchContent)
 
@@ -25,6 +25,21 @@ target_compile_features(mgs4_ultrawide PRIVATE cxx_std_17)
 target_compile_definitions(mgs4_ultrawide PRIVATE _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN)
 target_link_libraries(mgs4_ultrawide PRIVATE minhook winmm)
 
+add_executable(mgs4_direct_launcher WIN32
+    launcher_wrapper/mgs4_direct_launcher.cpp
+)
+set_target_properties(mgs4_direct_launcher PROPERTIES
+    OUTPUT_NAME launcher
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+target_compile_features(mgs4_direct_launcher PRIVATE cxx_std_17)
+target_compile_definitions(mgs4_direct_launcher PRIVATE
+    _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN
+)
+
 if(MINGW)
     target_link_options(mgs4_ultrawide PRIVATE -static -static-libgcc -static-libstdc++)
+    target_link_options(mgs4_direct_launcher PRIVATE
+        -municode -static -static-libgcc -static-libstdc++
+    )
 endif()

@@ -1,54 +1,75 @@
 # Technical notes
 
+## Executable gate
+
+The patch validates the PE timestamp and image size before enabling game
+hooks. Unknown builds are blocked unless `AllowUnsupportedExecutable=1`.
+Relevant code-hook sites still verify expected bytes after protected code has
+initialized. The override cannot validate known data RVAs and therefore remains
+unsafe rather than silently claiming compatibility.
+
 ## World rendering
 
-The patch validates the PE timestamp and image size before enabling hooks. It
-intercepts the common engine projection setter at RVA `0x0e3410`. For a
-positively identified 16:9 or already-native target-aspect perspective matrix,
-it applies the optional FOV multiplier and derives the horizontal scale from
-the adjusted vertical scale:
+The common engine projection setter at RVA `0x0e3410` is intercepted. For a
+positively identified 16:9 or target-aspect perspective matrix:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 m00 = sign(m00) * abs(adjusted_m11) / (width / height)
 ```
 
-This is a projection change, not a post-process stretch. At the default
-multiplier of 1.000 it is Hor+. Other values change both axes together and do
-not alter geometry proportions. Non-perspective and unknown-aspect matrices
-are left alone.
+Non-perspective and unknown-aspect matrices are untouched. Resolution getters
+at RVAs `0x65c040` and `0x65c030` return configured dimensions; the central
+setter at `0x65f050` substitutes them when resolution state changes. This is
+event-driven and replaces an early diagnostic prototype that rewrote globals
+periodically.
 
-Resolution getters at RVAs `0x65c040` and `0x65c030` return the configured
-dimensions. The central resolution setter at `0x65f050` replaces incoming
-dimensions with those values. This event-driven path replaced an early
-diagnostic prototype that rewrote globals every 8 ms.
+## Frame rate and hotkey
 
-## D3D12 UI safe area
+The independent FPS module writes the canonical frame-limit field at RVA
+`0x1b08df4`. A Windows hotkey message thread uses `RegisterHotKey` and
+`WM_HOTKEY` to switch the field once per user press between 60 and 120. There
+is no FPS polling loop. This changes the presentation limit only; a separate
+script/physics-timestep correction has not been found, which is why 120 remains
+experimental.
 
-The proxy intercepts `D3D12CreateDevice` before renderer initialization and
-hooks pipeline and direct command-list creation. The UI vertex shader is
-matched by its 948-byte DXBC length and 20-byte DXBC header/hash. Only draws
-using a pipeline created with that shader receive a centered viewport whose
-width is `height * 16 / 9`; the original viewport is restored immediately
-after each draw. World pipelines remain full-width.
+## Controller profile
 
-The selective UI implementation currently covers D3D12 only. A D3D11
-equivalent remains future work.
+The game's detected-profile setter at RVA `0x750ec0` is hooked. Profiles 1-7
+are learned only while the game's controller-connected mask at RVA
+`0x23d2dbc0` is nonzero. A request for keyboard profile 0 is replaced by the
+latched controller profile while connected. When the mask reaches zero the
+latch is cleared. All other profile values continue to the original function.
 
-## Proxy and safeguards
+The module works with game-native device detection. It contains no XInput
+proxy, controller poller, virtual-device layer or periodic memory writer.
 
-`winmm.dll` forwards the original WinMM functions needed by the game and uses
-MinHook for engine/D3D12 interception. Expected bytes are checked at relevant
-engine hook sites. Unknown executable builds are rejected rather than patched.
+## D3D12 UI prototype
 
-The proxy and INI normally survive Steam file updates because `mgs4.exe` is
-not modified. Compatibility with a new executable is deliberately not
-assumed: its PE identity and hook-site bytes must be added and retested. The
-configurators report an unsupported hash, and the DLL fails closed instead of
-writing known offsets into an unknown build.
+The proxy intercepts `D3D12CreateDevice`, pipeline creation and direct command
+lists. A known 948-byte UI DXBC vertex shader is matched by length and its
+20-byte DXBC header/hash. Matching draws temporarily receive a centered 16:9
+viewport and the original viewport is restored immediately afterwards.
 
-The ultrawide and FPS paths have separate enable flags. When ultrawide is
-disabled, the resolution getters, resolution setter and projection function
-are not hooked. When the FPS override is disabled, the frame-limit global is
-not written. This makes the 120-FPS-only profile independent from all rendering
-changes.
+Because some full-screen effects share this shader, it is not a reliable final
+draw classifier. The final anchored mode requires interception earlier in the
+UI coordinate/layout path. D3D11 UI classification remains unimplemented.
+
+## Direct launcher
+
+The optional wrapper replaces only `Launcher/launcher.exe` after backing it
+up. It derives the adjacent install and game directories, serializes launcher
+tokens into the temporary `mgs4_param` bootstrap file, starts `MGS4/mgs4.exe`,
+waits for the child and forwards its exit code. An inherited marker prevents a
+nested return-to-launcher request from creating a loop.
+
+## Proxy safeguards
+
+`winmm.dll` forwards the WinMM exports required by the game and uses a pinned
+MinHook revision. Each major module has a separate enable flag. Disabling
+ultrawide avoids all resolution/projection/UI hooks; disabling FPS avoids the
+frame field and hotkey; disabling the controller fix avoids its profile hook.
+
+The DLL and INI normally survive ordinary Steam verification because
+`mgs4.exe` is not edited. Compatibility with a replaced executable is never
+assumed; its identity and hook signatures must be analyzed and tested.

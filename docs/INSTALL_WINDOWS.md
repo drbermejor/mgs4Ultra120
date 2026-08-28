@@ -26,9 +26,10 @@ Open the graphical configurator while the game is closed:
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1
 ```
 
-It controls resolution, FOV, FPS and UI modes, validates the supported
-executable hash, and warns before enabling 120 FPS. Command-line profiles also
-remain available, for example:
+It exposes independent switches for ultrawide/FOV, FPS, controller-profile
+correction and the optional direct-launch wrapper. It validates the executable
+hash and requires separate confirmations for 120 FPS and an unsupported-build
+override. Command-line profiles also remain available, for example:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
@@ -37,3 +38,5 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
 
 To uninstall, run `scripts\windows\uninstall.ps1` with the same `-GameDir`.
 Pre-existing files are restored from the installer's private backup directory.
+The launcher is restored only if its active hash still matches this package's
+wrapper; a launcher changed by Steam or another tool is preserved.

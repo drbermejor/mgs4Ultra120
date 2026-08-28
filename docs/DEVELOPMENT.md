@@ -35,10 +35,10 @@ After a clean successful build, create the platform packages from the repo
 root with:
 
 ```bash
-./scripts/package-release.sh v0.2.1-alpha.1
+./scripts/package-release.sh v0.3.0-alpha.1
 ```
 
-The script refuses to package a missing DLL, copies only redistributable
-project files, and emits SHA-256 checksums beside the Windows ZIP and Linux
-tarball. GitHub's automatically generated source archives remain the canonical
-source packages for a tagged release.
+The script refuses to package a missing DLL or direct-launch wrapper, copies
+only redistributable project files, and emits SHA-256 checksums beside the
+Windows ZIP and Linux tarball. GitHub's automatically generated source
+archives remain the canonical source packages for a tagged release.

@@ -25,7 +25,8 @@ WINEDLLOVERRIDES="winmm=n,b" gamescope -f --force-windows-fullscreen \
 ```
 
 Run `./scripts/linux/configure.sh gui` for the graphical configurator. It
-controls resolution, FOV, FPS and UI modes. It can also switch Steam
+controls independent ultrawide/FOV, FPS, controller-profile, launcher and UI
+modules. It can also switch Steam
 between native and Gamescope fullscreen commands without losing the launch
 options backed up by the installer. Steam must be fully closed for that last
 operation. The stable profile keeps FOV 1.000, original UI and 60 FPS;
@@ -46,3 +47,5 @@ MGS4_GAME_DIR="/path/to/METAL GEAR SOLID 4/MGS4" ./scripts/linux/install.sh
 To remove the patch, exit Steam and run `./scripts/linux/uninstall.sh` with the
 same `MGS4_GAME_DIR` if one was used. The uninstaller restores files and Steam
 launch options only when they still match the installer's recorded state.
+The optional Unity launcher replacement receives the same hash-checked restore
+protection, so a launcher updated by Steam is never overwritten blindly.

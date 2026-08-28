@@ -23,7 +23,11 @@ static float g_fov_multiplier = 1.0f;
 static bool g_enable_ultrawide = true;
 static bool g_enable_fps_override = true;
 static bool g_constrain_ui = false;
+static bool g_controller_profile_fix = true;
+static UINT g_fps_hotkey_vk;
+static UINT g_fps_hotkey_modifiers;
 static volatile LONG g_ui_hook_requested_state;
+static volatile LONG g_locked_controller_profile;
 static volatile LONG g_minhook_state;
 
 using TimeBeginPeriodFn = MMRESULT (WINAPI*)(UINT);
@@ -35,9 +39,101 @@ using SetResolutionFn = void (__fastcall*)(std::uint16_t mode, std::int32_t inde
                                            std::uint32_t height);
 static SetProjectionFn g_original_set_projection;
 static SetResolutionFn g_original_set_resolution;
+using SetDetectedProfileFn = void (__fastcall*)(std::int32_t);
+static SetDetectedProfileFn g_original_set_detected_profile;
 
 static void apply_resolution_state();
 static bool initialize_minhook();
+static void log_line(const char* message);
+
+static UINT parse_hotkey_key(const char* text) {
+    if (!text || !text[0] || _stricmp(text, "Off") == 0 ||
+        _stricmp(text, "Disabled") == 0)
+        return 0;
+    if ((text[0] == 'F' || text[0] == 'f') && text[1]) {
+        char* end = nullptr;
+        const long number = std::strtol(text + 1, &end, 10);
+        if (end && *end == '\0' && number >= 1 && number <= 24)
+            return static_cast<UINT>(VK_F1 + number - 1);
+    }
+    if (text[1] == '\0') {
+        const char character = text[0];
+        if (character >= 'a' && character <= 'z')
+            return static_cast<UINT>(character - 'a' + 'A');
+        if ((character >= 'A' && character <= 'Z') ||
+            (character >= '0' && character <= '9'))
+            return static_cast<UINT>(character);
+    }
+    return 0;
+}
+
+static UINT parse_hotkey_modifiers(const char* text) {
+    if (!text) return 0;
+    char upper[64] = {};
+    for (std::size_t index = 0; text[index] && index + 1 < sizeof(upper); ++index) {
+        const char character = text[index];
+        upper[index] = character >= 'a' && character <= 'z'
+            ? static_cast<char>(character - 'a' + 'A') : character;
+    }
+    UINT result = 0;
+    if (std::strstr(upper, "CTRL")) result |= MOD_CONTROL;
+    if (std::strstr(upper, "ALT")) result |= MOD_ALT;
+    if (std::strstr(upper, "SHIFT")) result |= MOD_SHIFT;
+    if (std::strstr(upper, "WIN")) result |= MOD_WIN;
+    return result;
+}
+
+static DWORD WINAPI fps_hotkey_thread(void*) {
+    constexpr int identifier = 0x4d475334;  // MGS4
+    if (!RegisterHotKey(nullptr, identifier,
+                        g_fps_hotkey_modifiers | MOD_NOREPEAT,
+                        g_fps_hotkey_vk)) {
+        log_line("ERROR: FPS toggle hotkey could not be registered.");
+        return 0;
+    }
+    log_line("FPS toggle hotkey registered; each press switches 60/120.");
+    MSG message{};
+    while (GetMessageW(&message, nullptr, 0, 0) > 0) {
+        if (message.message != WM_HOTKEY ||
+            message.wParam != static_cast<WPARAM>(identifier))
+            continue;
+        const auto current = static_cast<std::uint32_t>(InterlockedCompareExchange(
+            reinterpret_cast<volatile LONG*>(&g_target_fps), 0, 0));
+        const std::uint32_t next = current == 120 ? 60 : 120;
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_target_fps),
+                            static_cast<LONG>(next));
+        if (g_executable_base)
+            *reinterpret_cast<volatile std::uint32_t*>(
+                g_executable_base + 0x1b08df4) = next;
+        log_line(next == 120 ? "FPS hotkey: experimental 120 FPS enabled."
+                             : "FPS hotkey: safe 60 FPS restored.");
+    }
+    UnregisterHotKey(nullptr, identifier);
+    return 0;
+}
+
+// The PC port can spuriously select profile 0 (keyboard) while an XInput slot
+// remains connected. Its subsequent keyboard merge then neutralizes otherwise
+// valid controller axes. Preserve whichever native controller family the game
+// detected (profiles 1..7) until every controller slot is disconnected. This
+// neither synthesizes input nor periodically rewrites game state.
+static void __fastcall hooked_set_detected_profile(std::int32_t profile) {
+    const auto base = g_executable_base;
+    if (g_controller_profile_fix && base) {
+        const LONG connected_mask =
+            *reinterpret_cast<volatile LONG*>(base + 0x23d2dbc0);
+        if (!connected_mask) {
+            InterlockedExchange(&g_locked_controller_profile, 0);
+        } else if (profile >= 1 && profile <= 7) {
+            InterlockedExchange(&g_locked_controller_profile, profile);
+        } else if (profile == 0) {
+            const LONG locked = InterlockedCompareExchange(
+                &g_locked_controller_profile, 0, 0);
+            if (locked >= 1 && locked <= 7) profile = locked;
+        }
+    }
+    g_original_set_detected_profile(profile);
+}
 
 static void log_line(const char* message) {
     char module_path[MAX_PATH] = {};
@@ -558,6 +654,40 @@ static bool initialize_minhook() {
     return InterlockedCompareExchange(&g_minhook_state, 0, 0) == 2;
 }
 
+static bool install_controller_profile_fix(std::uintptr_t base) {
+    constexpr std::uintptr_t setter_rva = 0x750ec0;
+    constexpr unsigned char expected[] =
+        {0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x8b, 0xd9};
+    auto* target = reinterpret_cast<unsigned char*>(base + setter_rva);
+    for (unsigned attempt = 0; attempt < 200; ++attempt) {
+        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
+        if (attempt == 199) {
+            log_line("ERROR: controller-profile target did not decrypt in time.");
+            return false;
+        }
+        Sleep(25);
+    }
+
+    if (!initialize_minhook()) {
+        log_line("ERROR: MinHook initialization failed for controller-profile fix.");
+        return false;
+    }
+    DWORD old_protection = 0;
+    if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
+        log_line("ERROR: could not enable the controller-profile fix hook.");
+        return false;
+    }
+    const bool okay = create_and_enable_hook(
+        target, reinterpret_cast<void*>(&hooked_set_detected_profile),
+        reinterpret_cast<void**>(&g_original_set_detected_profile),
+        "controller profile fix");
+    DWORD ignored = 0;
+    VirtualProtect(target, 32, old_protection, &ignored);
+    if (okay)
+        log_line("Controller-profile fix installed; connected pad family is preserved.");
+    return okay;
+}
+
 static bool install_resolution_hook(std::uintptr_t base) {
     constexpr std::uintptr_t resolution_setter_rva = 0x65f050;
     constexpr unsigned char expected[] =
@@ -686,7 +816,19 @@ static DWORD WINAPI patch_thread(void*) {
         GetPrivateProfileIntA("Ultrawide", "Height", 1440, ini_path);
     const bool enable_fps_override =
         GetPrivateProfileIntA("Patch", "FPSOverrideEnabled", 1, ini_path) != 0;
+    const bool allow_unsupported = GetPrivateProfileIntA(
+        "Patch", "AllowUnsupportedExecutable", 0, ini_path) != 0;
+    const bool controller_profile_fix = GetPrivateProfileIntA(
+        "Input", "ControllerProfileFixEnabled", 1, ini_path) != 0;
     const std::uint32_t fps = GetPrivateProfileIntA("FPS", "Limit", 60, ini_path);
+    char hotkey_text[32] = {};
+    char modifier_text[64] = {};
+    GetPrivateProfileStringA("FPS", "ToggleHotkey", "F10", hotkey_text,
+                             sizeof(hotkey_text), ini_path);
+    GetPrivateProfileStringA("FPS", "ToggleHotkeyModifiers", "None", modifier_text,
+                             sizeof(modifier_text), ini_path);
+    const UINT hotkey_vk = parse_hotkey_key(hotkey_text);
+    const UINT hotkey_modifiers = parse_hotkey_modifiers(modifier_text);
     char fov_text[32] = {};
     GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.000", fov_text,
                              sizeof(fov_text), ini_path);
@@ -704,25 +846,32 @@ static DWORD WINAPI patch_thread(void*) {
     }
     g_enable_ultrawide = enable_ultrawide;
     g_enable_fps_override = enable_fps_override;
+    g_controller_profile_fix = controller_profile_fix;
     g_target_width = width;
     g_target_height = height;
     g_target_fps = fps;
+    g_fps_hotkey_vk = hotkey_vk;
+    g_fps_hotkey_modifiers = hotkey_modifiers;
     g_fov_multiplier = fov_multiplier;
     g_target_aspect = static_cast<float>(width) / static_cast<float>(height);
 
-    char settings_message[256] = {};
+    char settings_message[320] = {};
     std::snprintf(settings_message, sizeof(settings_message),
-                  "Configuration: ultrawide %s (%ux%u, aspect %.6f, FOVMultiplier %.3f), FPS override %s (%u), UI safe area %s.",
+                  "Configuration: ultrawide %s (%ux%u, aspect %.6f, FOVMultiplier %.3f), FPS override %s (%u), UI safe area %s, controller-profile fix %s.",
                   enable_ultrawide ? "on" : "off", width, height,
                   g_target_aspect, g_fov_multiplier,
                   enable_fps_override ? "on" : "off", fps,
-                  g_constrain_ui ? "experimental" : "off");
+                  g_constrain_ui ? "experimental" : "off",
+                  controller_profile_fix ? "on" : "off");
     log_line(settings_message);
 
     const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
     if (!supported_executable(base)) {
-        log_line("ERROR: unrecognized mgs4.exe version; no offsets were applied.");
-        return 0;
+        if (!allow_unsupported) {
+            log_line("ERROR: unrecognized mgs4.exe version; no offsets were applied. Set AllowUnsupportedExecutable=1 only if you accept crash/corruption risk.");
+            return 0;
+        }
+        log_line("WARNING: unsupported executable override enabled. Known RVAs will be attempted under user responsibility; hook signatures are still checked.");
     }
     g_executable_base = base;
     if (enable_ultrawide) {
@@ -731,6 +880,13 @@ static DWORD WINAPI patch_thread(void*) {
         force_resolution_getters(base, width, height);
         install_resolution_hook(base);
         install_engine_hook(base);
+    }
+    if (controller_profile_fix)
+        install_controller_profile_fix(base);
+    if (enable_fps_override && hotkey_vk) {
+        HANDLE hotkey_thread = CreateThread(nullptr, 0, fps_hotkey_thread,
+                                            nullptr, 0, nullptr);
+        if (hotkey_thread) CloseHandle(hotkey_thread);
     }
 
     apply_resolution_state();

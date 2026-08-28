@@ -2,7 +2,9 @@
 
 ## Supported executable
 
-This alpha intentionally fails closed on unknown builds.
+This alpha blocks unknown builds by default. The configurator exposes an
+explicit unsafe override for testing, but that does not make their RVAs
+compatible and crashes remain possible.
 
 | Field | Supported value |
 |---|---|
@@ -33,5 +35,9 @@ apply to DirectX 11; the selective UI safe area is D3D12-only in this alpha.
 - 60 FPS: release default.
 - 120 FPS: presentation rate reached, but a scripted intro stall with audio
   continuing was reproduced. Not certified for gameplay.
+- Controller profile fix: native controller profile, full disconnect and
+  reconnection were exercised under Proton without a virtual controller layer.
+- Direct-launch wrapper: exercised through Steam on Linux/Proton; broader
+  Windows and Steam Cloud transfer validation is still requested.
 - A full playthrough is not yet certified; back up saves and treat the project
   as alpha software.

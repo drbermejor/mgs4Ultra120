@@ -1,0 +1,77 @@
+[b]MGS4 Ultra120 alpha.6 - Experimental supersampling preview[/b]
+
+[b]Important: this is an experimental Windows prerelease.[/b]
+
+Supersampling is disabled by default. If you only want the already validated ultrawide, FOV, controller and corrected-120-FPS patch, continue using alpha.5. Alpha.5 remains the recommended stable download and its release has not been replaced by this preview.
+
+[b]What does the experimental supersampling option do?[/b]
+
+It keeps the game window and Windows output at your physical monitor resolution, but renders the game internally at a larger resolution and downsamples the complete frame for presentation. It does not require AMD VSR, NVIDIA DSR or changing the Windows desktop resolution.
+
+[list]
+[*]1920x1080 at 2.00x renders internally at 3840x2160.
+[*]2560x1080 at 2.00x renders internally at 5120x2160.
+[*]3440x1440 at 1.50x renders internally at 5160x2160.
+[*]3440x1440 at 2.00x renders internally at 6880x2880.
+[/list]
+
+The first native-Windows test passed at 3440x1440 output, 1.50x/5160x2160 internal rendering, windowed presentation and FOV 1.150. The game kept a real 3440x1440 window, applied 472 synchronized camera/frustum updates with no late 16:9 fallback, and the result was visually confirmed. This is an initial configuration test, not a full-playthrough or a guarantee for every GPU.
+
+Alpha.6 also includes the current alpha.5 fixes:
+
+[list]
+[*]Correct Hor+ ultrawide rendering without stretching.
+[*]Recommended FOV 1.150 with synchronized world culling.
+[*]The fix that keeps FOV continuous during tight in-engine close-ups and cinematics instead of briefly narrowing the image.
+[*]30/60 FPS plus optional corrected 120 FPS through cipherxof/MGSFPSUnlock.
+[*]Controller-profile correction.
+[*]Optional Unity-launcher bypass while still launching through Steam.
+[/list]
+
+[b]Experimental release:[/b]
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6]MGS4 Ultra120 v0.3.1-alpha.6[/url]
+
+[b]Stable release:[/b]
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5]MGS4 Ultra120 v0.3.1-alpha.5[/url]
+
+[b]Option 1: Setup EXE[/b]
+
+Download [i]MGS4Ultra120-v0.3.1-alpha.6-windows-setup.exe[/i], install/update, open the configurator, enable [b]Experimental supersampling[/b] and choose a render scale. The configurator shows the calculated internal resolution and asks for explicit confirmation. Start with 1.50x at 3440x1440 and use windowed presentation.
+
+[b]Option 2: Portable ZIP/CMD[/b]
+
+Download [i]MGS4Ultra120-v0.3.1-alpha.6-windows-portable.zip[/i], select [b]Extract All[/b], open the extracted folder and run [i]MGS4Ultra120-Setup.cmd[/i]. Do not run it from inside the ZIP. Choose install/update and configure, then enable supersampling in the configurator.
+
+[b]Option 3: Manual copy-only ZIP[/b]
+
+This is the most transparent route and runs no setup script.
+
+[list=1]
+[*]Download and extract [i]MGS4Ultra120-v0.3.1-alpha.6-windows-manual.zip[/i].
+[*]Close the game.
+[*]Copy [i]winmm.dll[/i], [i]mgs4_ultrawide.ini[/i] and the included [i]scripts[/i] folder into the folder containing [i]mgs4.exe[/i].
+[*]Open [i]mgs4_ultrawide.ini[/i] and set:
+[/list]
+
+[code][Supersampling]
+SupersamplingEnabled=1
+RenderScale=1.50[/code]
+
+Keep [i]Width[/i] and [i]Height[/i] at your physical output resolution, save the file and launch normally through Steam. To disable the preview or recover from a failed startup, close the game and set [i]SupersamplingEnabled=0[/i].
+
+[b]Warnings and current limitations[/b]
+
+[list]
+[*]1.50x renders 2.25 times as many pixels; 2.00x renders 4 times as many pixels.
+[*]High values can sharply reduce performance, exhaust VRAM, crash the game or reset the graphics driver. The patch does not guess a safe GPU-specific limit.
+[*]The complete frame is downsampled, so HUD text and the Steam overlay may appear smaller.
+[*]Windowed presentation is the only tested target so far. Exclusive fullscreen, HDR, VRR/G-SYNC, mixed-refresh multi-monitor setups and Proton still need separate validation.
+[*]Supersampling remains off in every recommended/default profile.
+[/list]
+
+[b]Unsigned installer[/b]
+
+The setup EXE is not digitally signed, so Windows SmartScreen, Chrome or antivirus software may display an unknown-publisher or reputation warning. The project is open source: anyone can inspect the source and build the ASI or installer independently. The EXE is optional; use the portable or manual ZIP if you prefer readable scripts or copy-only installation. Download only from the official GitHub release and keep antivirus enabled.
+
+Source code:
+[url=https://github.com/drbermejor/mgs4Ultra120/tree/experimental/supersampling]experimental/supersampling branch[/url]

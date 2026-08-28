@@ -1,7 +1,8 @@
 # Experimental supersampling
 
-This feature exists only on the `experimental/supersampling` branch. It is
-disabled by default and is not part of the current alpha.5 release.
+This feature is developed on the `experimental/supersampling` branch and is
+published separately as the Windows-only alpha.6 prerelease. It is disabled by
+default and is not part of the recommended alpha.5 release.
 
 Supersampling keeps the configured `Width` and `Height` as the physical Windows
 output and game-window size, while a uniform `RenderScale` raises the internal

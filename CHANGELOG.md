@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.1-alpha.6 - experimental supersampling preview
+
+- Added optional internal-resolution supersampling while keeping the Windows
+  output and game window at the configured physical resolution.
+- Added a disabled-by-default configurator control with a live internal-size
+  preview and an explicit performance, VRAM, stability and UI-size warning.
+- Kept the stable path unchanged when supersampling is disabled and retained
+  all alpha.5 FOV/culling and close-up camera continuity fixes.
+- Validated 3440x1440 physical output with 1.50x/5160x2160 internal rendering,
+  windowed presentation and FOV 1.150 on native Windows.
+- Added render-extent unit tests, update/configuration smoke coverage and a
+  simple manual INI fallback. This is a Windows-only prerelease; alpha.5
+  remains the recommended stable package.
+
 ## v0.3.1-alpha.5 - synchronized FOV/culling refresh
 
 - Moved the primary ultrawide/FOV correction into the central camera builder at

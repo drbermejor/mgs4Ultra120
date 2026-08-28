@@ -8,6 +8,10 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
+> **Experimental Windows preview.** `v0.3.1-alpha.6` adds optional internal
+> supersampling and remains disabled by default. The validated alpha.5 release
+> is still the recommended download when supersampling is not required.
+
 ## What the Windows release installs
 
 | Component | Purpose |
@@ -70,6 +74,12 @@ The EXE is unsigned, so SmartScreen or a browser may show an
 unknown-publisher/reputation warning. The EXE is optional. Download only from
 the official release and keep antivirus enabled. All project code and build
 instructions are public and can be reviewed or built independently.
+
+The separate
+[v0.3.1-alpha.6 experimental supersampling preview](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6)
+is Windows-only, disabled by default and intended for users who explicitly want
+to render above their physical output resolution. See
+[experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
 ### Brief manual installation
 

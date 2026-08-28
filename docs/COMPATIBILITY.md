@@ -46,6 +46,9 @@ driver/display setup.
 - FOV 1.000 and 1.150: visually compared from the same saved camera position;
   1.150 shows more vertical/horizontal scene content without changing object
   proportions.
+- Synchronized FOV/culling build at 3440x1440 and FOV 1.150: hundreds of camera
+  projections and frustums rebuilt one-for-one without a late fallback or
+  startup crash; aiming crosshair confirmed visible by the user.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - 60 FPS/core: previously validated Windows path remains available without the
   optional high-FPS component.

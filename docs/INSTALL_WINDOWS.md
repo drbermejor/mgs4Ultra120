@@ -75,7 +75,7 @@ documentation/notices. Choose one installation route; do not perform both.
 ## Defaults and safe updates
 
 The recommended Windows profile uses the primary monitor's physical resolution,
-native-size windowed presentation, FOV 1.000, controller-profile correction,
+native-size windowed presentation, FOV 1.150, controller-profile correction,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120.
 
 Setup does not edit `mgs4.exe`. It backs up unknown same-name files, preserves

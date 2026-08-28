@@ -113,6 +113,11 @@ set_target_properties(winmm_proxy_smoke PROPERTIES
 )
 
 if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
+    add_executable(projection_math_test tests/projection_math_test.cpp)
+    target_compile_features(projection_math_test PRIVATE cxx_std_17)
+    target_include_directories(projection_math_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+    add_test(NAME projection_math COMMAND projection_math_test)
+
     add_test(NAME winmm_proxy_smoke COMMAND winmm_proxy_smoke)
     add_executable(launcher_args_probe tests/launcher_args_probe.cpp)
     target_compile_features(launcher_args_probe PRIVATE cxx_std_17)

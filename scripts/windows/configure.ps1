@@ -151,9 +151,9 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         $CurrentDisplayMode
     }
     switch ($Profile) {
-        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
+        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
         "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
     }
     if ($Profile -eq "fps-only-120" -and
@@ -225,7 +225,7 @@ $Ui = @{
         ImprovedFpsOff = "Core mode: optional MGSFPSUnlock is not installed"
         Width = "Render width"; Height = "Render height"
         AutoSize = "Primary monitor physical size"
-        Fov = "FOV (1.00 original; >1 may cause side pop-in)"
+        Fov = "FOV (1.15 recommended; 1.00 original framing)"
         Presentation = "Windows presentation"
         DisplayItems = @("Windowed at native size (recommended)", "Exclusive fullscreen (advanced)")
         FrameRate = "Frame-rate limit"

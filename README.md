@@ -36,17 +36,18 @@ unlock implementation.
 
 - 3440x1440 real-time 3D rendering is validated as correctly proportioned and
   Hor+ rather than a stretched 16:9 image.
-- `FOVMultiplier=1.000` preserves the original vertical FOV. Width, height and
-  FOV remain configurable.
+- `FOVMultiplier=1.150` is the recommended 21:9 framing and closely matches the
+  established RPCS3 ultrawide presentation. `1.000` remains available when the
+  original vertical FOV is preferred. Width, height and FOV remain configurable.
 - The unfinished UI/safe-area experiment is not part of the release binary.
   Menus, HUD and full-screen effects retain the game's original behavior.
 - Pre-rendered Bink video is unchanged.
-- A user reported a missing aiming crosshair and apparently zoomed FOV at
-  5120x2160. That ultrawide case is still under investigation; it is not
-  presented as fixed in this refresh.
-- `FOVMultiplier > 1.000` can expose side pop-in/culling because widening the
-  render projection does not yet widen the game's visibility bounds. Keep
-  `1.000` for the recommended native presentation.
+- Main now corrects the primary camera projection before rebuilding its
+  view-projection matrices and CPU visibility planes. This synchronizes the
+  wider rendered FOV with culling instead of exposing the former side pop-in.
+- Native 3440x1440 testing at `1.150` has correct proportions and a working
+  aiming crosshair. The external 5120x2160 crosshair report remains open until
+  that exact resolution is reproduced; it is not yet claimed fixed.
 
 ## Windows downloads
 
@@ -100,7 +101,7 @@ See [Windows installation](docs/INSTALL_WINDOWS.md) and
 ## Windows defaults and known display issue
 
 The configurator selects the primary monitor's physical resolution, native-size
-windowed presentation, FOV 1.000, corrected 120 FPS, controller-profile fix and
+windowed presentation, FOV 1.150, corrected 120 FPS, controller-profile fix and
 Unity-launcher bypass. Exclusive fullscreen is an advanced option.
 
 On one mixed-refresh NVIDIA multi-monitor system, focus changes produced a red
@@ -122,13 +123,18 @@ command. See [Linux installation](docs/INSTALL_LINUX.md).
 ## Technical outline
 
 The port normally supplies a 16:9 perspective matrix even when the output is
-ultrawide. MGS4Ultra120 recognizes the relevant perspective matrices and keeps
-vertical FOV while deriving horizontal FOV from the configured aspect:
+ultrawide. MGS4Ultra120 recognizes the central camera projection and applies the
+configured aspect/FOV before rebuilding the combined matrices and six CPU
+visibility planes:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
 ```
+
+This keeps rendered framing and world culling synchronized. A renderer-level
+hook remains only as a fallback for untouched 16:9 projection paths and rejects
+already corrected target-aspect matrices to prevent double application.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
 `Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and

@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased - synchronized FOV/culling
+
+- Moved the primary ultrawide/FOV correction into the central camera builder at
+  RVA `0x0b9bb0`, before combined view-projection matrices and CPU frustum
+  planes are consumed.
+- Rebuilt the primary and secondary combined matrices and all six normalized
+  visibility planes from the corrected projection, eliminating the known
+  render-FOV/culling mismatch that caused side pop-in above `1.000`.
+- Retained the renderer projection hook only as a 16:9 fallback and prevented
+  target-aspect camera matrices from receiving the FOV multiplier twice.
+- Added projection/frustum unit coverage and runtime counters. Native Windows
+  testing at 3440x1440 completed hundreds of synchronized camera builds without
+  a crash or late fallback.
+- Changed the recommended 21:9 framing to `FOVMultiplier=1.150`. `1.000` remains
+  available as the original vertical-FOV option; `1.150` is visually wider and
+  closely matches the established RPCS3 21:9 framing.
+- Kept the reported 5120x2160 aiming-crosshair case open until that exact
+  resolution and controller transition are reproduced.
+
 ## v0.3.1-alpha.5 - Windows ASI release
 
 - Refreshed the existing tag/assets in place while preserving the core/normal-

@@ -22,7 +22,7 @@ AllowUnsupportedExecutable=0
 [Ultrawide]
 Width=3440
 Height=1440
-FOVMultiplier=1.000
+FOVMultiplier=1.150
 
 [FPS]
 Limit=60
@@ -43,10 +43,12 @@ UsePrimaryPhysicalResolution=1
 - `UltrawideEnabled=1` enables native resolution and Hor+ projection changes.
 - `Width`/`Height` accept physical output dimensions. The GUI supports
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
-- `FOVMultiplier` accepts `0.500`–`2.000`. `1.000` preserves vertical FOV and
-  is recommended. A user report confirms side pop-in/culling above `1.000`;
-  the projection widens but the game's visibility bounds may remain unchanged.
-  Both `.` and `,` decimal separators are accepted by the ASI.
+- `FOVMultiplier` accepts `0.500`–`2.000`. `1.150` is the recommended 21:9
+  framing and adds roughly 5 degrees of vertical view to the narrow gameplay
+  camera. `1.000` preserves the game's original vertical FOV. Projection and
+  CPU visibility planes are rebuilt together, so the former side-pop-in
+  mismatch above `1.000` is no longer expected. Both `.` and `,` decimal
+  separators are accepted by the ASI.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build

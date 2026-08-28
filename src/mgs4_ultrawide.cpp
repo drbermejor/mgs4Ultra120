@@ -8,12 +8,15 @@
 #include <cstring>
 
 #include "MinHook.h"
+#include "projection_math.h"
 
 #if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" FARPROC winmm_proxy_resolve_by_name(const char* name);
 #endif
 static float g_target_aspect = 43.0f / 18.0f;
 static volatile LONG g_projection_patches;
+static volatile LONG g_camera_projection_patches;
+static volatile LONG g_frustum_rebuilds;
 static std::uintptr_t g_executable_base;
 static std::uint32_t g_target_width = 3440;
 static std::uint32_t g_target_height = 1440;
@@ -26,11 +29,19 @@ static volatile LONG g_minhook_state;
 using TimeBeginPeriodFn = MMRESULT (WINAPI*)(UINT);
 using TimeGetTimeFn = DWORD (WINAPI*)();
 using SetProjectionFn = void (__fastcall*)(const float* matrix);
+using BuildCameraFn = void (__fastcall*)(void* camera, const void* source,
+                                         float parameter3, float parameter4,
+                                         float parameter5, float parameter6);
+using MultiplyMatrixFn = void (__fastcall*)(float* destination,
+                                            const float* left,
+                                            const float* right);
 using SetResolutionFn = void (__fastcall*)(std::uint16_t mode, std::int32_t index,
                                            std::uint8_t use_safe_area,
                                            std::uint32_t width,
                                            std::uint32_t height);
 static SetProjectionFn g_original_set_projection;
+static BuildCameraFn g_original_build_camera;
+static MultiplyMatrixFn g_multiply_matrix;
 static SetResolutionFn g_original_set_resolution;
 using SetDetectedProfileFn = void (__fastcall*)(std::int32_t);
 static SetDetectedProfileFn g_original_set_detected_profile;
@@ -512,13 +523,10 @@ extern "C" DWORD WINAPI mgs4_timeGetTime() {
 }
 #endif
 
-static bool near_zero(float x) {
-    return std::isfinite(x) && std::fabs(x) < 0.00001f;
-}
-
-// Engine-level projection setter, used before rendering branches into D3D11
-// or D3D12. FOVMultiplier scales the tangent of the vertical FOV; deriving X
-// from that adjusted Y and the target aspect preserves geometry proportions.
+// Late renderer-level fallback. Main camera projections are corrected earlier,
+// before their combined matrices and visibility frustum are built. Accept only
+// untouched 16:9 matrices here so an upstream-corrected target-aspect matrix is
+// never widened a second time.
 static void __fastcall hooked_set_projection(const float* matrix) {
     if (!matrix) {
         g_original_set_projection(matrix);
@@ -527,27 +535,50 @@ static void __fastcall hooked_set_projection(const float* matrix) {
 
     float copy[16];
     std::memcpy(copy, matrix, sizeof(copy));
-    const float x = copy[0];
-    const float y = copy[5];
-    const bool finite_scale = std::isfinite(x) && std::isfinite(y) &&
-                              std::fabs(x) >= 0.25f && std::fabs(x) <= 8.0f &&
-                              std::fabs(y) >= 0.25f && std::fabs(y) <= 12.0f;
-    const bool perspective_shape = near_zero(copy[1]) && near_zero(copy[2]) &&
-        near_zero(copy[3]) && near_zero(copy[4]) && near_zero(copy[6]) &&
-        near_zero(copy[7]) && near_zero(copy[8]) && near_zero(copy[9]) &&
-        near_zero(copy[12]) && near_zero(copy[13]) && near_zero(copy[15]) &&
-        std::isfinite(copy[10]) && std::isfinite(copy[14]) &&
-        std::fabs(std::fabs(copy[11]) - 1.0f) < 0.0002f;
-    const float source_aspect = finite_scale ? std::fabs(y / x) : 0.0f;
-    const bool known_aspect =
-        std::fabs(source_aspect - (16.0f / 9.0f)) < 0.0003f ||
-        std::fabs(source_aspect - g_target_aspect) < 0.0003f;
-    if (finite_scale && perspective_shape && known_aspect) {
-        copy[5] = std::copysign(std::fabs(y) / g_fov_multiplier, y);
-        copy[0] = std::copysign(std::fabs(copy[5]) / g_target_aspect, x);
+    if (mgs4_projection::adjust_projection(copy, g_target_aspect,
+                                           g_fov_multiplier, false)) {
         InterlockedIncrement(&g_projection_patches);
     }
     g_original_set_projection(copy);
+}
+
+// Central camera builder. The original function creates three projection
+// variants, combines the first two with the view matrix, and derives six CPU
+// culling planes from the primary combined matrix. Correcting projections here
+// keeps rendered FOV and visibility bounds synchronized.
+static void __fastcall hooked_build_camera(void* camera, const void* source,
+                                           float parameter3, float parameter4,
+                                           float parameter5, float parameter6) {
+    g_original_build_camera(camera, source, parameter3, parameter4,
+                            parameter5, parameter6);
+    if (!camera || !g_multiply_matrix) return;
+
+    auto* bytes = static_cast<unsigned char*>(camera);
+    auto* view = reinterpret_cast<float*>(bytes + 0x40);
+    auto* primary_projection = reinterpret_cast<float*>(bytes + 0xc0);
+    auto* primary_combined = reinterpret_cast<float*>(bytes + 0x100);
+    auto* secondary_projection = reinterpret_cast<float*>(bytes + 0x140);
+    auto* secondary_combined = reinterpret_cast<float*>(bytes + 0x180);
+    auto* tertiary_projection = reinterpret_cast<float*>(bytes + 0x1c0);
+    auto* planes = reinterpret_cast<float*>(bytes + 0x2c0);
+
+    const bool primary_changed = mgs4_projection::adjust_projection(
+        primary_projection, g_target_aspect, g_fov_multiplier, true);
+    const bool secondary_changed = mgs4_projection::adjust_projection(
+        secondary_projection, g_target_aspect, g_fov_multiplier, true);
+    const bool tertiary_changed = mgs4_projection::adjust_projection(
+        tertiary_projection, g_target_aspect, g_fov_multiplier, true);
+
+    if (primary_changed) {
+        g_multiply_matrix(primary_combined, primary_projection, view);
+        if (mgs4_projection::rebuild_frustum_planes(planes, primary_combined))
+            InterlockedIncrement(&g_frustum_rebuilds);
+    }
+    if (secondary_changed)
+        g_multiply_matrix(secondary_combined, secondary_projection, view);
+
+    if (primary_changed || secondary_changed || tertiary_changed)
+        InterlockedIncrement(&g_camera_projection_patches);
 }
 
 // Central display-mode setter.  The original routine is still allowed to do
@@ -760,6 +791,52 @@ static bool install_engine_hook(std::uintptr_t base) {
     return true;
 }
 
+static bool install_camera_hook(std::uintptr_t base) {
+    constexpr std::uintptr_t camera_builder_rva = 0x0b9bb0;
+    constexpr std::uintptr_t matrix_multiply_rva = 0x0bacc0;
+    const unsigned char expected[] = { 0x48, 0x8b, 0xc4, 0x53, 0x56, 0x57 };
+    auto* target = reinterpret_cast<unsigned char*>(base + camera_builder_rva);
+
+    for (unsigned attempt = 0; attempt < 200; ++attempt) {
+        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
+        if (attempt == 199) {
+            log_line("ERROR: camera builder did not decrypt in time; synchronized FOV was not enabled.");
+            return false;
+        }
+        Sleep(25);
+    }
+
+    DWORD old_protection = 0;
+    if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
+        log_line("ERROR: could not temporarily make the camera builder executable.");
+        return false;
+    }
+
+    g_multiply_matrix = reinterpret_cast<MultiplyMatrixFn>(base + matrix_multiply_rva);
+    const bool initialized = initialize_minhook();
+    const MH_STATUS create = initialized
+        ? MH_CreateHook(target, reinterpret_cast<void*>(&hooked_build_camera),
+                        reinterpret_cast<void**>(&g_original_build_camera))
+        : MH_UNKNOWN;
+    const MH_STATUS enable = create == MH_OK ? MH_EnableHook(target) : MH_UNKNOWN;
+    DWORD ignored = 0;
+    const bool okay = initialized && create == MH_OK && enable == MH_OK;
+    VirtualProtect(target, 32,
+                   okay ? final_code_protection(old_protection) : old_protection,
+                   &ignored);
+    if (!okay) {
+        g_multiply_matrix = nullptr;
+        char message[256] = {};
+        std::snprintf(message, sizeof(message),
+                      "ERROR camera hook: create=%s enable=%s target=%p",
+                      MH_StatusToString(create), MH_StatusToString(enable), target);
+        log_line(message);
+        return false;
+    }
+    log_line("Camera projection/frustum hook installed; synchronized Hor+ and FOV active.");
+    return true;
+}
+
 static void put32(std::uintptr_t base, std::uintptr_t rva, std::uint32_t value) {
     *reinterpret_cast<volatile std::uint32_t*>(base + rva) = value;
 }
@@ -812,7 +889,7 @@ static DWORD WINAPI patch_thread(void*) {
     const bool controller_profile_fix = GetPrivateProfileIntA(
         "Input", "ControllerProfileFixEnabled", 1, ini_path) != 0;
     char fov_text[32] = {};
-    GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.000", fov_text,
+    GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.150", fov_text,
                              sizeof(fov_text), ini_path);
     float fov_multiplier = 1.0f;
     const bool fov_valid = parse_ini_decimal(fov_text, &fov_multiplier);
@@ -853,6 +930,7 @@ static DWORD WINAPI patch_thread(void*) {
     if (enable_ultrawide) {
         force_resolution_getters(base, width, height);
         install_resolution_hook(base);
+        install_camera_hook(base);
         install_engine_hook(base);
     }
     if (controller_profile_fix)
@@ -860,9 +938,11 @@ static DWORD WINAPI patch_thread(void*) {
     apply_resolution_state();
     // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);
-    char projection_message[128] = {};
+    char projection_message[256] = {};
     std::snprintf(projection_message, sizeof(projection_message),
-                  "Projection matrices adjusted after startup: %ld.",
+                  "Projection activity after startup: camera builds=%ld, synchronized frustums=%ld, late 16:9 fallbacks=%ld.",
+                  InterlockedCompareExchange(&g_camera_projection_patches, 0, 0),
+                  InterlockedCompareExchange(&g_frustum_rebuilds, 0, 0),
                   InterlockedCompareExchange(&g_projection_patches, 0, 0));
     log_line(projection_message);
     log_line("Initial state applied; patch thread finished without a polling loop.");

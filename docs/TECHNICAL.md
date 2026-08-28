@@ -8,10 +8,13 @@ Relevant code-hook sites still verify expected bytes after protected code has
 initialized. The override cannot validate known data RVAs and therefore remains
 unsafe rather than silently claiming compatibility.
 
-## World rendering
+## World rendering and synchronized visibility
 
-The common engine projection setter at RVA `0x0e3410` is intercepted. For a
-positively identified 16:9 or target-aspect perspective matrix:
+The central camera builder at RVA `0x0b9bb0` is intercepted. The original
+function first creates three projection variants, a view matrix, two combined
+view-projection matrices and six normalized CPU visibility planes. Before its
+caller consumes those results, MGS4Ultra120 adjusts each positively identified
+16:9 or target-aspect perspective projection:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
@@ -24,11 +27,27 @@ setter at `0x65f050` substitutes them when resolution state changes. This is
 event-driven and replaces an early diagnostic prototype that rewrote globals
 periodically.
 
-This hook changes the render projection, not the game's world visibility or
-occlusion bounds. A reported side-pop-in problem at `FOVMultiplier > 1.000` is
-therefore consistent with culling still using the original FOV. Until a
-separate culling structure is identified and validated, `1.000` is the safe
-recommendation; widening the projection is considered experimental.
+The corrected primary projection is recombined with the view matrix through
+the game's matrix routine at RVA `0x0bacc0`. All six planes are then extracted
+in the engine's original left/right/bottom/top/near/far order and normalized.
+The secondary combined matrix is also refreshed, while the third projection is
+corrected for its later consumer. Rendered FOV and CPU culling therefore use
+the same projection instead of producing the former side pop-in.
+
+The common renderer projection setter at RVA `0x0e3410` remains hooked only as
+a fallback for untouched 16:9 paths. It rejects target-aspect matrices, which
+prevents the upstream camera correction and FOV multiplier from being applied
+twice. Runtime logs report camera builds, synchronized frustum rebuilds and
+late fallbacks separately.
+
+At 3440x1440, `FOVMultiplier=1.150` adds roughly 5 degrees of vertical view to
+the narrow gameplay camera, preserves object proportions and closely follows
+the established RPCS3 21:9 framing. `1.000` remains the original vertical-FOV
+option. The 3440x1440 aiming crosshair is confirmed working; the separately
+reported 5120x2160 case still requires reproduction at that exact resolution.
+The comparison uses the MGS4 entries published through the
+[official RPCS3 patch API](https://rpcs3.net/compatibility?patch&api=v1&v=1.2);
+PS3 addresses are research references and are not copied into the PC hook.
 
 ## Frame rate ownership
 

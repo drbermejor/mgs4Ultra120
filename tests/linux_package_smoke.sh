@@ -49,7 +49,7 @@ grep -q 'WINEDLLOVERRIDES=\\"winmm=n,b\\" PROTON_LOG=1 %command%' "$CONFIG"
 
 MGS4_GAME_DIR="$GAME_DIR" "$PACKAGE_DIR/scripts/linux/configure.sh" stable
 grep -q '^FPSOverrideEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
-grep -q '^FOVMultiplier=1.000$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^FOVMultiplier=1.150$' "$GAME_DIR/mgs4_ultrawide.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" MGS4_GAME_DIR="$GAME_DIR" \
   "$PACKAGE_DIR/scripts/linux/uninstall.sh"

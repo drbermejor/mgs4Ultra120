@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - synchronized FOV/culling
+## v0.3.1-alpha.5 - synchronized FOV/culling refresh
 
 - Moved the primary ultrawide/FOV correction into the central camera builder at
   RVA `0x0b9bb0`, before combined view-projection matrices and CPU frustum
@@ -19,8 +19,6 @@
 - Kept the reported 5120x2160 aiming-crosshair case open until that exact
   resolution and controller transition are reproduced.
 
-## v0.3.1-alpha.5 - Windows ASI release
-
 - Refreshed the existing tag/assets in place while preserving the core/normal-
   FPS route and making corrected 120 FPS an optional additive installation.
 - Delegated high-FPS timing to `cipherxof/MGSFPSUnlock` 0.1.0, thanked and
@@ -33,8 +31,9 @@
 - Removed unconditional `gamemoderun` from generated Linux Gamescope commands,
   added a Gamescope availability check and published a separate Linux core
   package using the game's normal FPS behavior.
-- Documented reported side pop-in/culling above `FOVMultiplier=1.000` and kept
-  `1.000` as the recommended native value while visibility bounds are unknown.
+- Replaced the earlier projection-only FOV path that could reveal side
+  pop-in/culling above `1.000`; projection and visibility bounds are now rebuilt
+  together, and `1.150` is the recommended 21:9 framing.
 - Removed standalone checksum files from GitHub release assets to keep the
   download list simple; local build checksums remain available to developers.
 - Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.

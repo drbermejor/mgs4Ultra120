@@ -5,6 +5,10 @@ valid. **Redownload the asset you use because older alpha.5 downloads were
 replaced.** Linux remains a separate Proton release line; use the alpha.5 Linux
 tarball for the corrected current scripts.
 
+The latest refresh synchronizes the expanded FOV with the game's CPU visibility
+frustum. Earlier alpha.5 downloads used a projection-only adjustment and are
+obsolete even though the filenames are unchanged.
+
 ## What it does
 
 MGS4 Ultra120 provides native ultrawide/Hor+ rendering, configurable FOV, a
@@ -73,11 +77,21 @@ package. It fixes the unconditional `gamemoderun` launch failure and does not
 write Gamescope options when Gamescope is missing. It provides ultrawide/FOV,
 controller correction and launcher choice using the game's normal FPS behavior.
 The external corrected-120 ASI route remains Windows-only until tested under
-Proton. The older alpha.2 Linux asset is retained only as the previously tested
-legacy line.
+Proton.
 
 ## Fixes in this refresh
 
+- Applies the ultrawide/FOV correction in the central camera builder and
+  rebuilds both view-projection matrices and all six normalized visibility
+  planes. This fixes the former render-FOV/culling mismatch and side pop-in
+  caused by the earlier projection-only path.
+- Uses `FOVMultiplier=1.150` as the recommended 21:9 framing. `1.000` remains
+  available for users who prefer the original vertical FOV.
+- Prevents the renderer fallback from applying the FOV multiplier twice to an
+  already corrected target-aspect matrix.
+- Adds projection/frustum unit tests and runtime counters. Native 3440x1440
+  testing completed hundreds of synchronized camera/frustum builds without a
+  late fallback or crash, and the aiming crosshair remained visible.
 - Preserves the working core/normal-FPS route; improved 120 is additive and
   optional rather than a hard dependency.
 - Removes the unverified UI/safe-area experiment from the release binary and
@@ -99,11 +113,10 @@ legacy line.
 
 ## Known limitations
 
-- 3440x1440 is the validated ultrawide target. A 5120x2160 report of a missing
-  aiming crosshair and apparently zoomed FOV is still under investigation.
-- `FOVMultiplier > 1.000` can reveal side pop-in/culling. The projection widens
-  but the game's visibility bounds have not been identified; keep `1.000` for
-  the recommended native presentation.
+- 3440x1440 with FOV 1.150 is the validated ultrawide target. The synchronized
+  camera/frustum logic is resolution-independent, but an external 5120x2160
+  report of a missing aiming crosshair has not yet been reproduced at that exact
+  resolution and therefore is not claimed fixed.
 - A full playthrough at corrected 120 FPS has not yet been certified by this
   project. Include both plugin logs when reporting timing issues.
 - On one mixed-refresh NVIDIA multi-monitor Windows setup, G-SYNC/VRR focus

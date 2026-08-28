@@ -115,8 +115,8 @@ current_skip="$(ini_value SkipUnityLauncher)"
 current_language="$(ini_value Language)"
 current_allow_unsupported="$(ini_value AllowUnsupportedExecutable)"
 case "$MODE" in
-  stable) apply_values 3440 1440 1.000 1 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
-  ultrawide-only) apply_values 3440 1440 1.000 1 0 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
+  stable) apply_values 3440 1440 1.150 1 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
+  ultrawide-only) apply_values 3440 1440 1.150 1 0 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
   controller-fix-only) apply_values 3440 1440 1.000 0 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
   status) show_status; exit $? ;;
   gui) ;;
@@ -145,7 +145,7 @@ result="$(zenity --forms --title='MGS4 Ultra120 configurator' \
   --text='Changes apply on the next game start. Leave text fields empty to retain their values.' \
   --separator='|' \
   --add-entry="Width (current: $width)" --add-entry="Height (current: $height)" \
-  --add-entry="FOV (current: $fov; 1.000 original; >1 may cause side pop-in)" \
+  --add-entry="FOV (current: $fov; 1.150 recommended; 1.000 original framing)" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Controller profile fix' --combo-values="$controller_values" \
   --add-combo='Steam launch path' --combo-values="$launcher_values" \

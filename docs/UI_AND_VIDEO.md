@@ -35,6 +35,9 @@ right anchors before final UI vertices are generated; applying a single
 
 The game ships Bink 2 (`.bk2`) assets and imports the decoder separately from
 its renderer integration. This alpha does not crop, stretch or replace those
-assets. A deterministic draw/compositor identification is required before the
-patch can force a 16:9 pillarboxed rectangle without also affecting real-time
-effects. Until that is verified, no heuristic video option is exposed.
+assets. Static header inspection found seventeen 3840x2160 assets and one
+3840x1080 asset, so blindly forcing every Bink draw to 16:9 would also be
+incorrect. A deterministic draw/compositor and active-asset identification is
+required before the patch can preserve each video's native aspect without
+affecting real-time effects. Until that is verified, no heuristic video option
+is exposed.

@@ -37,7 +37,7 @@ the game and releases that state after all controllers disconnect.
   centered 16:9 D3D12 experiment can also affect full-screen effects and is
   therefore disabled by default.
 - Pre-rendered Bink video is not cropped or expanded by this alpha. A dedicated
-  forced-16:9 compositor path is still under investigation; real-time engine
+  native-aspect compositor path is still under investigation; real-time engine
   cinematics already use the corrected projection.
 
 ## Screenshots

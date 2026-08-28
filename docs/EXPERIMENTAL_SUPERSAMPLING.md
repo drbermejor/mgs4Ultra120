@@ -41,6 +41,11 @@ continues to use the physical output aspect.
 - The whole rendered frame is reduced to the output size. HUD text and the Steam
   overlay may therefore appear smaller; supersampling does not yet separate
   world rendering from UI composition.
+- Keep internal render width **below 4096 pixels** for normal gameplay. The
+  reticle was stable at 3956x1656, began flickering at exactly 4096 pixels wide,
+  and could disappear according to aiming depth at 4128x1728 and 5160x2160.
+  The configurator warns about this boundary but deliberately does not enforce
+  a hard limit.
 - Windowed presentation is the initial test target. Exclusive fullscreen,
   HDR, VRR/G-SYNC and mixed-refresh multi-monitor combinations require separate
   validation.
@@ -59,3 +64,10 @@ The initial `cc3c060` candidate was validated on native Windows at physical
 late 16:9 fallback. The user confirmed the rendered result was correct. This is
 an initial configuration test, not a full-playthrough or broad GPU-validation
 claim; the feature therefore remains experimental and disabled by default.
+
+Subsequent same-session near/far tests isolated a depth-aware crosshair defect
+to the internal-width boundary. At 3956x1656 the reticle remained visible while
+aiming at the same distant scene. At exactly 4096x1715 it was visible but began
+to flicker, while at 4128x1728 it changed between visible and absent according
+to aiming depth. It was also captured absent at 5160x2160. This does not affect
+the stable alpha.5 path; the targeted cause is not yet patched.

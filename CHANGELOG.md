@@ -10,6 +10,10 @@
   all alpha.5 FOV/culling and close-up camera continuity fixes.
 - Validated 3440x1440 physical output with 1.50x/5160x2160 internal rendering,
   windowed presentation and FOV 1.150 on native Windows.
+- Isolated the depth-aware aiming-reticle boundary through same-session tests:
+  stable at 3956x1656, flickering at exactly 4096 pixels wide and conditionally
+  absent above it. The configurator and runtime log now advise keeping internal
+  width below 4096 without enforcing a hard limit.
 - Added render-extent unit tests, update/configuration smoke coverage and a
   simple manual INI fallback. This is a Windows-only prerelease; alpha.5
   remains the recommended stable package.

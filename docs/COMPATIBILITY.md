@@ -57,8 +57,11 @@ driver/display setup.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - Experimental branch only: internal supersampling at 3440x1440 output,
   1.50x/5160x2160 render resolution, windowed presentation and FOV 1.150 passed
-  the first native-Windows runtime and visual check. It remains disabled by
-  default and is not part of the alpha.5 release.
+  the first native-Windows runtime and visual check. Follow-up aiming tests found
+  the reticle stable at 3956x1656, flickering at exactly 4096 pixels wide and
+  depth-conditionally absent at 4128x1728 and 5160x2160. Alpha.6 warns users to
+  keep internal width below 4096; supersampling remains disabled by default and
+  is not part of the alpha.5 release.
 - 60 FPS/core: previously validated Windows path remains available without the
   optional high-FPS component.
 - Corrected 120 FPS: supplied by optional `cipherxof/MGSFPSUnlock` 0.1.0 and

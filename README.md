@@ -50,8 +50,10 @@ unlock implementation.
   view-projection matrices and CPU visibility planes. This synchronizes the
   wider rendered FOV with culling instead of exposing the former side pop-in.
 - Native 3440x1440 testing at `1.150` has correct proportions and a working
-  aiming crosshair. The external 5120x2160 crosshair report remains open until
-  that exact resolution is reproduced; it is not yet claimed fixed.
+  aiming crosshair. Experimental supersampling tests isolate a separate
+  internal-width boundary: the reticle is stable at 3956x1656, flickers at
+  exactly 4096 pixels wide and can disappear according to aiming depth above
+  it. Alpha.6 warns users to keep internal width below 4096.
 
 ## Windows downloads
 

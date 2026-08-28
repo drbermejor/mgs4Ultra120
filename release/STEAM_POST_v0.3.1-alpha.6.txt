@@ -45,14 +45,14 @@ Examples:
 [*]3440x1440 at 2.00x becomes 6880x2880 internally.
 [/list]
 
-Native-Windows testing confirms that supersampling retains a real 3440x1440 window and keeps camera/culling correction synchronized. A known aiming-crosshair defect remains above 4096 internal pixels wide: at 4128x1728 the depth-aware reticle appears or disappears depending on the distance of the aimed point, and it was also captured missing at 5160x2160. It remains visible at 3956x1656. This points to the reticle projection/update path rather than FOV, world culling or the physical monitor.
+Native-Windows testing confirms that supersampling retains a real 3440x1440 window and keeps camera/culling correction synchronized. A known aiming-crosshair defect begins at the 4096-pixel internal-width boundary: the reticle remains stable at 3956x1656, starts flickering at exactly 4096 pixels wide, and at 4128x1728 it appears or disappears depending on the distance of the aimed point. It was also captured missing at 5160x2160. This points to the reticle projection/update path rather than FOV, world culling or the physical monitor.
 
 [b]Please keep the experimental scope realistic[/b]
 
 Alpha.6 is being provided for voluntary testing, not as a promise that every scale, GPU, resolution or display configuration will be individually supported.
 
 [list]
-[*][b]Known crosshair limitation:[/b] above 4096 internal pixels wide, the depth-aware reticle can appear or disappear depending on the distance of the aimed point. Keep the calculated internal width at or below 4096 for normal gameplay.
+[*][b]Known crosshair limitation:[/b] at exactly 4096 internal pixels wide, the depth-aware reticle can flicker. Above 4096 it can appear or disappear depending on the distance of the aimed point. Keep the calculated internal width below 4096 for normal gameplay.
 [*]At 3440x1440, start at 1.15x/3956x1656, which has been confirmed with a visible crosshair.
 [*]Rendering cost and approximate render-target memory grow with the square of the scale: 1.50x uses 2.25 times as many pixels and 2.00x uses 4 times as many pixels.
 [*]Excessive values may exhaust VRAM, reduce performance, crash the game or reset the graphics driver. Choosing an appropriate value is the user's responsibility.

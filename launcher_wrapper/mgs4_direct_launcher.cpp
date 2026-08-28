@@ -59,8 +59,7 @@ std::wstring read_token(const std::wstring& ini, const wchar_t* key,
     return safe_token(value) ? value : std::wstring(fallback);
 }
 
-bool write_launcher_parameters(const std::wstring& launcher_directory,
-                               const std::vector<std::wstring>& arguments) {
+bool write_launcher_parameters(const std::vector<std::wstring>& arguments) {
     std::string serialized;
     for (std::size_t index = 0; index < arguments.size(); ++index) {
         if (index) serialized.push_back('\x08');
@@ -139,7 +138,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
         L"-ctrltype", controller,
         L"-launcherroot", launcher_directory,
     };
-    if (!write_launcher_parameters(launcher_directory, arguments)) {
+    if (!write_launcher_parameters(arguments)) {
         show_error(L"Could not write the mgs4_param bootstrap file.", GetLastError());
         return 3;
     }

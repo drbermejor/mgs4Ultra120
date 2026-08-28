@@ -129,6 +129,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     const std::wstring self_region = read_token(ini_path, L"SelfRegion", L"EU");
     const std::wstring language = read_token(ini_path, L"Language", L"en");
     const std::wstring controller = read_token(ini_path, L"ControllerType", L"XBOX");
+    append_log(launcher_directory, "Wrapper started; region=" + utf8(region) +
+                                   " language=" + utf8(language) +
+                                   " controller=" + utf8(controller));
     const std::vector<std::wstring> arguments = {
         L"-region", region,
         L"-lan", language,

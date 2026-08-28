@@ -6,7 +6,7 @@ Do not use v0.3.1-alpha.1 or alpha.2 on native Windows. Their two-export WinMM
 shim was insufficient for Steam's native client DLL. Install alpha.3 or newer,
 whose proxy mirrors the complete 64-bit WinMM export table.
 
-The alpha.4 ASI preview no longer implements WinMM forwarding in project code.
+The alpha.4 ASI release no longer implements WinMM forwarding in project code.
 It uses pinned Ultimate ASI Loader `v9.7.4` as the proxy and loads
 `scripts/MGS4Ultra120.asi`. If alpha.4 reports a loader problem, verify both
 files and their published hashes rather than copying an alpha.3 DLL over it.
@@ -79,10 +79,10 @@ Report the GPU, driver version, monitor resolutions/scaling, HDR/G-SYNC state
 and whether the symptom also occurs after uninstalling the patch. A desktop
 screenshot may not capture a scan-out/VRR fault, so a phone video is useful.
 
-The ASI preview completed 20 confirmed focus changes on this setup without a
-new event or captured band, but G-SYNC was still disabled. Treat that as an
-acceptance result, not evidence that changing the injection layout fixes the
-driver/display pipeline.
+The ASI release completed 20 confirmed automated focus changes and the user's
+subsequent manual focus test without an apparent recurrence. G-SYNC was still
+disabled during the automated run. Treat this as an acceptance result, not a
+universal guarantee for every driver/display pipeline.
 
 ## `0xc0000005` immediately after hook installation
 

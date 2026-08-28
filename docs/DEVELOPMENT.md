@@ -5,6 +5,7 @@
 - CMake 3.21 or newer
 - A 64-bit Windows C++ compiler, or MinGW-w64 for cross-compiling
 - Git/network access for the pinned MinHook source
+- Inno Setup 6 only when generating the optional setup EXE
 
 Native Windows build:
 
@@ -23,7 +24,7 @@ cmake -S . -B build-mingw \
 cmake --build build-mingw -j
 ```
 
-Outputs are written under `build*/bin`: the legacy `winmm.dll`, preview
+Outputs are written under `build*/bin`: the legacy `winmm.dll`, Windows
 `MGS4Ultra120.asi`, direct `launcher.exe` and test probes. MinHook is pinned to
 commit `d94c64d32ea37bc4f5ee47d580709f70c6fb6080`. Ultimate ASI Loader is pinned
 to `v9.7.4`; its fetch script verifies the upstream archive and extracted DLL.
@@ -62,7 +63,7 @@ After a clean successful build, create the platform packages from the repo
 root with:
 
 ```bash
-./scripts/package-release.sh v0.3.1-alpha.4 windows
+./scripts/package-release.sh v0.3.1-alpha.5 windows
 ```
 
 To package MSVC output from Git Bash instead of the default MinGW directory:
@@ -70,11 +71,26 @@ To package MSVC output from Git Bash instead of the default MinGW directory:
 ```bash
 MGS4ULTRA120_BIN_DIR="$PWD/build/bin/Release" \
 MGS4ULTRA120_ASI_LOADER="$PWD/build-third-party/ultimate-asi-loader/winmm.dll" \
-  ./scripts/package-release.sh v0.3.1-alpha.4 windows
+  ./scripts/package-release.sh v0.3.1-alpha.5 windows
 ```
 
 The script refuses to package a missing loader, ASI or direct-launch wrapper,
-copies only redistributable files and emits a SHA-256 checksum beside each
-selected archive. The alpha.4 preview is Windows-only. Alpha.3 remains the
-recommended native release and Linux users remain on the prior separately
+copies only redistributable files, creates the ready-to-drag `Manual-Install`
+tree and emits a SHA-256 checksum beside each selected archive. Alpha.5 is the
+current native-Windows release; Linux users remain on the prior separately
 validated line. GitHub's generated archives remain the source packages.
+
+To generate the same setup EXE after packaging on Windows:
+
+```powershell
+$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.1-alpha.5-windows.zip
+$sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash
+.\installer\windows\Build-Installer.ps1 `
+  -Version v0.3.1-alpha.5 `
+  -WindowsZip $zip `
+  -ExpectedZipSha256 $sha
+```
+
+`Build-Installer.ps1` first runs the complete package smoke test and then calls
+Inno Setup. This lets anyone independently build and inspect an installer from
+the auditable repository sources and the hash-pinned upstream loader.

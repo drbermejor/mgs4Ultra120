@@ -1,14 +1,15 @@
 # Manual DLL and INI installation
 
-The alpha.4 ASI preview manual route uses these files from the Windows ZIP:
+The Windows ZIP contains a ready-to-drag `Manual-Install` folder with:
 
-- `bin/winmm.dll`
-- `bin/MGS4Ultra120.asi`
-- `config/mgs4_ultrawide.ini`
+- `winmm.dll`
+- `mgs4_ultrawide.ini`
+- `scripts/MGS4Ultra120.asi`
 
-Close the game. Copy `winmm.dll` and the INI into the folder containing
-`mgs4.exe` (normally `...steamapps\common\METAL GEAR SOLID 4\MGS4`). Create a
-`scripts` folder there and copy `MGS4Ultra120.asi` into it. Then start the game
+Close the game. Drag everything **inside** `Manual-Install` into the folder
+containing `mgs4.exe` (normally
+`...steamapps\common\METAL GEAR SOLID 4\MGS4`). Keep the included `scripts`
+folder so the ASI lands at `MGS4\scripts\MGS4Ultra120.asi`. Then start the game
 through Steam. The patch never replaces `mgs4.exe`.
 
 This copy-only route does not enable the direct-launch wrapper. To skip Unity,
@@ -55,7 +56,7 @@ open the configurator and click **Save settings** once when changing
 presentation mode. Do not map `DisplayMode` to the wrapper's `-resolution`
 token: native tracing shows that token remains slot `0` in both modes.
 
-To remove a purely manual alpha.4 installation, close the game and remove only
+To remove a purely manual Windows installation, close the game and remove only
 `scripts/MGS4Ultra120.asi`, `mgs4_ultrawide.ini`, and the `winmm.dll` you
 personally copied. Do not remove `winmm.dll` when it was already used by
 another ASI mod. Restore your own backups for every pre-existing filename.

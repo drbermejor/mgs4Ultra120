@@ -1,0 +1,28 @@
+MGS4 ULTRA120 - COPY-ONLY MANUAL INSTALL
+
+1. Close the game.
+2. Open the game folder that directly contains mgs4.exe. It is normally:
+
+   ...\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4
+
+3. Drag every item inside this Manual-Install folder into that MGS4 folder.
+   Keep the included scripts folder: MGS4Ultra120.asi must end up at:
+
+   MGS4\scripts\MGS4Ultra120.asi
+
+   The other two files must end up at:
+
+   MGS4\winmm.dll
+   MGS4\mgs4_ultrawide.ini
+
+4. Start the game normally through Steam.
+
+This copy-only method does not install shortcuts or the optional Unity-launcher
+bypass. Edit mgs4_ultrawide.ini with a text editor while the game is closed.
+
+Back up any existing file with the same name before overwriting it. If another
+mod already owns winmm.dll as an x64 Ultimate ASI Loader, keep that loader and
+copy only mgs4_ultrawide.ini plus scripts\MGS4Ultra120.asi.
+
+To remove this manual installation, close the game and delete only the files
+you copied. Do not delete a winmm.dll that was already used by another mod.

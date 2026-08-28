@@ -1,13 +1,23 @@
 # Changelog
 
-## v0.3.1-alpha.4 - ASI migration preview
+## v0.3.1-alpha.5 - Promote the Windows ASI release
+
+- Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
+- Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
+  unchanged.
+- Added a ready-to-drag `Manual-Install` directory to the Windows ZIP, with
+  matching loader, configuration and `scripts/MGS4Ultra120.asi` payloads.
+- Simplified unsigned-binary guidance and documented source inspection, local
+  compilation, ZIP/CMD setup and copy-only installation as equal choices.
+- Recorded the user's successful manual focus-change validation.
+
+## v0.3.1-alpha.4 - Native Windows ASI release
 
 - Split the Windows patch into pinned Ultimate ASI Loader `v9.7.4` as the x64
   `winmm.dll` proxy and `scripts/MGS4Ultra120.asi` as the project plugin.
 - Added hash-verified upstream fetching, MIT attribution and redistributable
   metadata without committing the third-party executable to source control.
-- Preserved the alpha.3 proxy build/test target so the validated release stays
-  reproducible and recommended while this preview is reviewed.
+- Preserved the alpha.3 proxy build/test target as a reproducible legacy gate.
 - Migrated installed alpha.3 ownership and original backups in place; retained
   supported INI values and the existing GUI/CMD configuration path.
 - Added collision-safe ASI backup/restore and compatible-loader reuse so setup

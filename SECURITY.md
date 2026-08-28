@@ -1,15 +1,16 @@
 # Security policy
 
-This patch loads local native code into a single-player game process and writes
-to validated in-memory addresses. Alpha.3 uses a combined proxy DLL; the
-alpha.4 preview uses pinned Ultimate ASI Loader plus a project ASI. Only
-download releases from this repository and verify every published SHA-256.
+This patch loads native code into a single-player game process and writes to
+validated in-memory addresses. Download releases from this repository and use
+the published SHA-256 files when verifying binaries.
 
-The installer and project binaries are unsigned, and the upstream loader's
-certificate is self-signed rather than rooted in the Windows trusted publisher
-store. Chrome, SmartScreen or antivirus can show reputation warnings. Do not
-disable protection globally or assume every warning is false; use the portable
-ZIP/CMD route when you do not trust the installer EXE.
+The project is fully open source. The installer, patch, setup scripts, build
+instructions and pinned third-party metadata can all be inspected before use,
+and the project can be compiled locally. The distributed EXE is not digitally
+signed, so an unknown-publisher or reputation notice is possible. Running the
+EXE is optional: the Windows ZIP includes the readable CMD/PowerShell setup and
+also supports a copy-only manual installation documented in
+`docs/MANUAL_INI.md`.
 
 Please report a vulnerability privately through GitHub Security Advisories if
 possible. Do not include proprietary game binaries or sensitive user data in a

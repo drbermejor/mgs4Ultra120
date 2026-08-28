@@ -24,15 +24,17 @@ with GE-Proton10-34. World projection and output-resolution hooks are common
 engine code and also apply to DirectX 11; the selective UI safe area is
 D3D12-only in this alpha.
 
-The alpha.4 ASI preview was migrated in place from the installed alpha.3 on
+The alpha.4 ASI release was migrated in place from the installed alpha.3 on
 the same system. Steam loaded the pinned Ultimate ASI Loader, the real system
 WinMM and `scripts/MGS4Ultra120.asi`; the stable log reported all hooks active
 at physical 3440x1440/60. DWM measured the primary frame at exactly
 3440x1440 physical pixels while the expected DPI-virtualized API view was
 2752x1152. Ten cross-monitor focus cycles (20 confirmed foreground changes)
 passed with the game responding, clean physical captures, no new dump and no
-new reliability/display event. G-SYNC remained disabled, so this does not
-prove ASI alone resolves the earlier VRR scan-out symptom.
+new reliability/display event. G-SYNC remained disabled during that automated
+run. The user later completed manual focus-change testing without an apparent
+recurrence; this still does not establish a universal result for every
+driver/display setup.
 
 ## Test status
 

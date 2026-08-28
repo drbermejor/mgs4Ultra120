@@ -9,6 +9,10 @@ $RequiredFiles = @(
     "MGS4Ultra120-Setup.cmd",
     "bin\winmm.dll",
     "bin\MGS4Ultra120.asi",
+    "Manual-Install\winmm.dll",
+    "Manual-Install\scripts\MGS4Ultra120.asi",
+    "Manual-Install\mgs4_ultrawide.ini",
+    "Manual-Install\README.txt",
     "bin\launcher.exe",
     "config\mgs4_ultrawide.ini",
     "scripts\windows\setup.ps1",
@@ -50,6 +54,19 @@ foreach ($RelativePath in @("bin\winmm.dll", "bin\MGS4Ultra120.asi")) {
         [BitConverter]::ToUInt32($Bytes, $PeOffset) -ne 0x00004550 -or
         [BitConverter]::ToUInt16($Bytes, $PeOffset + 4) -ne 0x8664) {
         throw "$RelativePath is not an x86-64 PE image."
+    }
+}
+foreach ($Pair in @(
+    @("bin\winmm.dll", "Manual-Install\winmm.dll"),
+    @("bin\MGS4Ultra120.asi", "Manual-Install\scripts\MGS4Ultra120.asi"),
+    @("config\mgs4_ultrawide.ini", "Manual-Install\mgs4_ultrawide.ini")
+)) {
+    $SourceHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $PackageDir $Pair[0])).Hash
+    $ManualHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $PackageDir $Pair[1])).Hash
+    if ($SourceHash -ne $ManualHash) {
+        throw "Manual-install payload does not match $($Pair[0])."
     }
 }
 

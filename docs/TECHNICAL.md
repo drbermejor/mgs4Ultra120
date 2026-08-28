@@ -69,8 +69,8 @@ window/fullscreen flag. Presentation is stored separately as `WindowMode` in
 
 ## Loader architecture and proxy safeguards
 
-The recommended alpha.3 release keeps the patch and complete WinMM forwarding
-table in one project-built DLL. The alpha.4 preview separates them:
+The current alpha.5 release uses the WinMM/ASI separation introduced and
+validated in alpha.4:
 
 ```text
 mgs4.exe -> winmm.dll (Ultimate ASI Loader v9.7.4)
@@ -79,8 +79,8 @@ mgs4.exe -> winmm.dll (Ultimate ASI Loader v9.7.4)
 
 Ultimate ASI Loader is fetched from its official release with pinned archive
 and extracted-DLL SHA-256 values. The project plugin contains no WinMM exports.
-The legacy proxy target remains buildable and tested so alpha.3 stays
-reproducible while the PR is reviewed.
+The combined alpha.3 proxy target remains buildable and tested as a legacy
+reproducibility gate.
 
 `winmm.dll` mirrors the complete 64-bit system WinMM export table, not only the
 two imports visible in `mgs4.exe`. This is required because native Steam's

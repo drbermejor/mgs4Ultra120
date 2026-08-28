@@ -1,35 +1,20 @@
-MGS4 ULTRA120 - UNSIGNED COMMUNITY INSTALLER
+MGS4 ULTRA120 - COMMUNITY INSTALLER
 
-This installer is not digitally signed. Windows SmartScreen may identify it as
-an unrecognized app or show "Unknown publisher". That warning is expected for
-this release, but it must not be ignored blindly.
+This EXE is not digitally signed, so Windows or a browser may identify it as
+an unknown publisher or show a reputation notice. Download it only from the
+official project release page and compare its SHA-256 with the file published
+beside it:
 
-Google Chrome may also label or block this new unsigned download as dangerous.
-That can be a reputation-based false positive, but verify the official source,
-filename and SHA-256 before deciding to keep it. Never disable Safe Browsing,
-SmartScreen or antivirus globally.
+https://github.com/drbermejor/mgs4Ultra120/releases
 
-Continue only when all of the following are true:
+The complete installer, patch and build source is public. Anyone can inspect
+the code, review the pinned dependencies and compile it independently:
 
-  1. You downloaded the EXE from the official release page:
-     https://github.com/drbermejor/mgs4Ultra120/releases
+https://github.com/drbermejor/mgs4Ultra120
 
-  2. Its SHA-256 matches the .sha256 file published beside it. In PowerShell:
+The EXE is optional. The Windows ZIP offers two alternatives:
 
-     Get-FileHash .\MGS4Ultra120-vX.Y.Z-alpha.N-windows-setup.exe -Algorithm SHA256
+  - Double-click MGS4Ultra120-Setup.cmd to run the readable PowerShell setup.
+  - Drag the contents of Manual-Install into the folder containing mgs4.exe.
 
-  3. You understand that this ASI preview loads Ultimate ASI Loader as
-     winmm.dll and scripts\MGS4Ultra120.asi into the game process.
-
-Do not disable SmartScreen or antivirus protection globally. If the source is
-different, the hash does not match, or the warning is unexpected, cancel and
-delete the file.
-
-If you do not trust the EXE, use the Windows ZIP published beside it. Verify
-the ZIP checksum, extract the complete folder, and double-click
-MGS4Ultra120-Setup.cmd. It runs the same plain-text PowerShell setup and keeps
-the same reversible backups without installing this persistent setup wrapper.
-
-This installer does not request administrator rights and does not modify
-mgs4.exe. It installs the setup manager for the current user and creates
-shortcuts so configuration and reversible removal remain available.
+The installer does not request administrator rights or modify mgs4.exe.

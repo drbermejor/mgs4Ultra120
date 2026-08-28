@@ -1,14 +1,11 @@
-# ASI migration preview
+# ASI migration and acceptance record
 
 ## Status
 
-`v0.3.1-alpha.4` is a Windows-only prerelease built from a review branch.
-It does not supersede the validated `v0.3.1-alpha.3` Windows release. Linux and
-Proton remain on their separate prior release line.
-
-Review the exact branch comparison at
-https://github.com/drbermejor/mgs4Ultra120/compare/main...feat/asi-loader-alpha4
-before proposing or merging it into `main`.
+The ASI layout introduced and validated in `v0.3.1-alpha.4` is the current
+native-Windows architecture. `v0.3.1-alpha.5` promotes it to `main` and adds a
+ready-to-drag manual package without changing the tested plugin or loader.
+Linux and Proton remain on their separate prior release line.
 
 ## Layout
 
@@ -60,7 +57,7 @@ expect reputation warnings and verify the release checksum.
 
 ## Native acceptance result
 
-The preview was installed over the final alpha.3 on Windows 11 with an RTX
+Alpha.4 was installed over the final alpha.3 on Windows 11 with an RTX
 4090, a 3440x1440 240 Hz primary at 125% scaling and a 2560x1440 144 Hz
 secondary at 150% scaling. G-SYNC and Auto HDR were disabled.
 
@@ -77,14 +74,15 @@ secondary at 150% scaling. G-SYNC and Auto HDR were disabled.
   Windows reliability/display record.
 - The game and wrapper closed normally through `WM_CLOSE`.
 
-This is not a full playthrough. The red sweep previously appeared in the
-display scan-out path and was not always present in screenshots. Because
-G-SYNC remained disabled during this acceptance run, alpha.4 does not claim
-that ASI fixes the NVIDIA mixed-monitor symptom.
+The user subsequently completed the manual focus-change validation without an
+apparent recurrence and accepted the ASI architecture for the main Windows
+line. This is not
+a full playthrough, and it is not a universal claim for every NVIDIA driver or
+mixed-monitor configuration.
 
-## Required review before recommendation
+## Acceptance status
 
-Do not replace alpha.3 as the recommended release until the PR has received
-independent native-Windows tests covering installation over alpha.3, a clean
-install, Steam launch, DX11/DX12, uninstall, another ASI mod and affected
-G-SYNC/multi-monitor systems.
+The migration, clean installation, Steam launch, automated loader/plugin tests,
+backup ownership rules, uninstall and manual focus-change validation have all
+passed. DX11/DX12 coverage and a full playthrough remain useful independent
+follow-up testing for this public alpha.

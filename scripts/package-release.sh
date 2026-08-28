@@ -40,6 +40,13 @@ make_tree() {
   if [[ "$platform" == windows ]]; then
     install -m0644 "$ASI_LOADER" "$root/bin/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/bin/MGS4Ultra120.asi"
+    mkdir -p -- "$root/Manual-Install/scripts"
+    install -m0644 "$ASI_LOADER" "$root/Manual-Install/winmm.dll"
+    install -m0644 "$ASI_PLUGIN" "$root/Manual-Install/scripts/MGS4Ultra120.asi"
+    install -m0644 "$REPO_DIR/config/windows/mgs4_ultrawide.ini" \
+      "$root/Manual-Install/mgs4_ultrawide.ini"
+    install -m0644 "$REPO_DIR/installer/windows/MANUAL_INSTALL.txt" \
+      "$root/Manual-Install/README.txt"
     mkdir -p -- "$root/third_party/ultimate_asi_loader"
     install -m0644 "$REPO_DIR/third_party/ultimate_asi_loader/README.md" \
       "$root/third_party/ultimate_asi_loader/README.md"

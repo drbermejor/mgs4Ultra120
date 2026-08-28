@@ -19,11 +19,15 @@ Examples:
 | 3440x1440 | 1.50 | 5160x2160 |
 | 3440x1440 | 2.00 | 6880x2880 |
 
-The first native-Windows validation passed at 3440x1440 output,
-1.50x/5160x2160 internal rendering, windowed presentation and FOV 1.150. The
-runtime reported the correct physical client size, 472 synchronized
-camera/frustum updates and no late 16:9 fallback; the rendered result was
-confirmed visually. This is not a full-playthrough or broad GPU certification.
+Native-Windows testing confirms that supersampling keeps a real 3440x1440
+window while rendering the world internally at 5160x2160, with synchronized
+camera/frustum updates and no late 16:9 fallback. Aiming-crosshair behaviour at
+high internal resolutions is still under investigation. It remains visible at
+3956x1656. At 4128x1728 it appears or disappears depending on the depth of the
+aimed point; it was also captured missing at 5160x2160. This points to the
+high-width projection/update path of the depth-aware reticle rather than FOV,
+world culling or the physical monitor. Keep internal width at or below 4096 for
+normal gameplay until the targeted UI defect is fixed.
 
 Alpha.6 also contains the public alpha.5 fixes, including synchronized FOV and
 world culling, continuous FOV through tight in-engine close-ups, the controller
@@ -47,8 +51,9 @@ under Proton. Linux users should remain on the separate alpha.5 package.
 
 Install or update with the EXE or portable CMD, open the configurator, enable
 **Experimental supersampling**, choose a scale and review the calculated
-internal resolution. Start with 1.50x on 3440x1440. Windowed presentation is the
-only configuration tested so far. Saving requires an explicit warning
+internal resolution. At 3440x1440, 1.15x/3956x1656 is the conservative starting
+point currently confirmed with a visible crosshair. Windowed presentation is
+the only configuration tested so far. Saving requires an explicit warning
 confirmation.
 
 ## Manual use
@@ -61,7 +66,7 @@ confirmation.
    ```ini
    [Supersampling]
    SupersamplingEnabled=1
-   RenderScale=1.50
+   RenderScale=1.15
    ```
 
 4. Keep `Width` and `Height` at the physical output resolution and launch
@@ -78,6 +83,10 @@ confirmation.
   guess a safe limit for each GPU.
 - The complete frame is downsampled. HUD text and the Steam overlay may appear
   smaller because world and UI rendering are not separated.
+- **Known crosshair defect:** above 4096 internal pixels wide, the depth-aware
+  aiming reticle can appear or disappear depending on the distance of the aimed
+  point. This is reproduced at 4128x1728 and captured at 5160x2160. Keep the
+  calculated internal width at or below 4096 for normal gameplay.
 - Exclusive fullscreen, HDR, VRR/G-SYNC, mixed-refresh multi-monitor systems
   and Proton require additional testing.
 - Supersampling is off by default in every recommended profile.

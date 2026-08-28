@@ -45,14 +45,15 @@ Examples:
 [*]3440x1440 at 2.00x becomes 6880x2880 internally.
 [/list]
 
-The first native-Windows validation passed at 3440x1440 output, 1.50x/5160x2160 internal rendering, windowed presentation and FOV 1.150. The game retained a real 3440x1440 window, completed 472 synchronized camera/frustum updates with no late 16:9 fallback, and the result was visually confirmed.
+Native-Windows testing confirms that supersampling retains a real 3440x1440 window and keeps camera/culling correction synchronized. A known aiming-crosshair defect remains above 4096 internal pixels wide: at 4128x1728 the depth-aware reticle appears or disappears depending on the distance of the aimed point, and it was also captured missing at 5160x2160. It remains visible at 3956x1656. This points to the reticle projection/update path rather than FOV, world culling or the physical monitor.
 
 [b]Please keep the experimental scope realistic[/b]
 
 Alpha.6 is being provided for voluntary testing, not as a promise that every scale, GPU, resolution or display configuration will be individually supported.
 
 [list]
-[*]Start with a reasonable scale such as 1.25x or 1.50x. Do not assume that the highest value your GPU can enter is useful or stable.
+[*][b]Known crosshair limitation:[/b] above 4096 internal pixels wide, the depth-aware reticle can appear or disappear depending on the distance of the aimed point. Keep the calculated internal width at or below 4096 for normal gameplay.
+[*]At 3440x1440, start at 1.15x/3956x1656, which has been confirmed with a visible crosshair.
 [*]Rendering cost and approximate render-target memory grow with the square of the scale: 1.50x uses 2.25 times as many pixels and 2.00x uses 4 times as many pixels.
 [*]Excessive values may exhaust VRAM, reduce performance, crash the game or reset the graphics driver. Choosing an appropriate value is the user's responsibility.
 [*]The project will investigate reproducible patch defects, but cannot provide a custom maximum, performance target or ideal scale for every GPU.
@@ -71,7 +72,7 @@ Each release provides the same three installation routes. Download the files fro
 
 Download the corresponding [i]windows-setup.exe[/i]. It detects Steam, installs or updates the patch, creates shortcuts, opens the configurator and supports reversible removal.
 
-For experimental alpha.6, enable [b]Experimental supersampling[/b] in the configurator, review the calculated internal resolution and confirm the warning. At 3440x1440, begin with 1.50x and windowed presentation.
+For experimental alpha.6, enable [b]Experimental supersampling[/b] in the configurator, review the calculated internal resolution and confirm the warning. At 3440x1440, begin conservatively with 1.15x and windowed presentation.
 
 [b]Option B: Portable ZIP/CMD[/b]
 
@@ -111,7 +112,7 @@ FOVMultiplier=1.150
 
 [Supersampling]
 SupersamplingEnabled=1
-RenderScale=1.50[/code]
+RenderScale=1.15[/code]
 
 Keep Width and Height at the physical output resolution. If startup fails or you want the normal rendering path again, close the game and set:
 

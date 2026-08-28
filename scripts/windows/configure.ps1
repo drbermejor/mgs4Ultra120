@@ -45,6 +45,7 @@ function Get-IniValue([string]$Key) {
 }
 
 function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
+                           [int]$SupersamplingEnabled, [decimal]$RenderScale,
                            [int]$UltrawideEnabled,
                            [int]$ControllerFixEnabled,
                            [int]$SkipUnityLauncher, [string]$Language,
@@ -54,6 +55,13 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
         throw "Width/height are outside the allowed range."
     }
     if ($Fov -lt 0.5 -or $Fov -gt 2.0) { throw "FOV multiplier must be between 0.5 and 2.0." }
+    if ($RenderScale -lt 1.0) { throw "Supersampling render scale must be at least 1.0." }
+    if ($SupersamplingEnabled -notin @(0, 1)) { throw "SupersamplingEnabled must be 0 or 1." }
+    if ($SupersamplingEnabled -eq 1 -and
+        ([decimal]$Width * $RenderScale -gt [uint32]::MaxValue -or
+         [decimal]$Height * $RenderScale -gt [uint32]::MaxValue)) {
+        throw "The requested internal render size does not fit the game's 32-bit resolution fields."
+    }
     if ($Language -notin @("en", "sp", "fr", "it", "ge", "jp")) { throw "Unsupported direct-launch language." }
     if ($DisplayMode -notin @("Windowed", "Fullscreen")) { throw "Unsupported Windows display mode." }
     $Values = [ordered]@{
@@ -61,6 +69,8 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
         FPSOverrideEnabled = 0
         Width = $Width; Height = $Height
         FOVMultiplier = $Fov.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
+        SupersamplingEnabled = $SupersamplingEnabled
+        RenderScale = $RenderScale.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
         Limit = 60
         ControllerProfileFixEnabled = $ControllerFixEnabled
         SkipUnityLauncher = $SkipUnityLauncher
@@ -151,10 +161,10 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         $CurrentDisplayMode
     }
     switch ($Profile) {
-        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
-        "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 0 1.50 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
+        "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1.50 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
     }
     if ($Profile -eq "fps-only-120" -and
         -not (Test-MgsFpsUnlockInstalled $GameDir)) {
@@ -223,9 +233,11 @@ $Ui = @{
         Ultrawide = "Enable ultrawide rendering and FOV correction"
         ImprovedFpsOn = "Improved FPS unlock installed (cipherxof/MGSFPSUnlock)"
         ImprovedFpsOff = "Core mode: optional MGSFPSUnlock is not installed"
-        Width = "Render width"; Height = "Render height"
+        Width = "Physical output width"; Height = "Physical output height"
         AutoSize = "Primary monitor physical size"
         Fov = "FOV (1.15 recommended; 1.00 original framing)"
+        Supersampling = "Experimental supersampling (off by default)"
+        RenderScale = "Internal render scale"
         Presentation = "Windows presentation"
         DisplayItems = @("Windowed at native size (recommended)", "Exclusive fullscreen (advanced)")
         FrameRate = "Frame-rate limit"
@@ -243,6 +255,7 @@ $Ui = @{
         AutoHdrTitle = "Auto HDR warning"
         NvidiaTitle = "NVIDIA multi-monitor warning"
         FullscreenTitle = "Exclusive fullscreen"
+        SupersamplingTitle = "Experimental supersampling"
         UnsupportedTitle = "Unsupported executable"
         AutoHdrMessage = "Auto HDR is enabled. The multi-monitor test reproduced a red sweep during focus changes. It was not the final cause, but disabling it is recommended while testing. Save anyway?"
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
@@ -253,7 +266,7 @@ $Ui = @{
 $Form = [Windows.Forms.Form]@{
     Text = $Ui.Form
     StartPosition = "CenterScreen"
-    ClientSize = [Drawing.Size]::new(620, 722)
+    ClientSize = [Drawing.Size]::new(620, 812)
     FormBorderStyle = "FixedDialog"
     MaximizeBox = $false
 }
@@ -331,14 +344,53 @@ if ($AutoResolutionBox.Checked) {
 }
 Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 2.00 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
 
-Add-Label $Ui.Presentation 241
-$DisplayModeBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 238); Size = [Drawing.Size]::new(300, 28); DropDownStyle = "DropDownList" }
+$SupersamplingBox = [Windows.Forms.CheckBox]@{
+    Text = $Ui.Supersampling
+    Location = [Drawing.Point]::new(30, 241); Size = [Drawing.Size]::new(550, 27)
+    Checked = (Get-IniValue "SupersamplingEnabled") -eq "1"
+}
+$Form.Controls.Add($SupersamplingBox)
+Add-Label $Ui.RenderScale 278
+$RenderScaleBox = Add-Numeric 278 1.00 1000000.00 ([decimal]::Parse(
+    (Get-IniValue "RenderScale"), [Globalization.CultureInfo]::InvariantCulture)) 2
+$RenderPreview = [Windows.Forms.Label]@{
+    Location = [Drawing.Point]::new(435, 274); Size = [Drawing.Size]::new(165, 44)
+    ForeColor = [Drawing.Color]::DarkGoldenrod
+}
+$Form.Controls.Add($RenderPreview)
+function Update-SupersamplingPreview {
+    $RenderScaleBox.Enabled = $SupersamplingBox.Checked
+    $Scale = if ($SupersamplingBox.Checked) {
+        [decimal]$RenderScaleBox.Value
+    } else {
+        [decimal]1.0
+    }
+    $RenderWidth = [Math]::Round([decimal]$WidthBox.Value * $Scale,
+        0, [MidpointRounding]::AwayFromZero)
+    $RenderHeight = [Math]::Round([decimal]$HeightBox.Value * $Scale,
+        0, [MidpointRounding]::AwayFromZero)
+    if ($SupersamplingBox.Checked -and $RenderWidth -ge 4096) {
+        $RenderPreview.Text = "Internal: $RenderWidth x $RenderHeight`nCrosshair risk: keep width below 4096"
+        $RenderPreview.ForeColor = [Drawing.Color]::DarkRed
+    } else {
+        $RenderPreview.Text = "Internal: $RenderWidth x $RenderHeight"
+        $RenderPreview.ForeColor = [Drawing.Color]::DarkGoldenrod
+    }
+}
+$SupersamplingBox.Add_CheckedChanged({ Update-SupersamplingPreview })
+$RenderScaleBox.Add_ValueChanged({ Update-SupersamplingPreview })
+$WidthBox.Add_ValueChanged({ Update-SupersamplingPreview })
+$HeightBox.Add_ValueChanged({ Update-SupersamplingPreview })
+Update-SupersamplingPreview
+
+Add-Label $Ui.Presentation 315
+$DisplayModeBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 312); Size = [Drawing.Size]::new(300, 28); DropDownStyle = "DropDownList" }
 [void]$DisplayModeBox.Items.AddRange($Ui.DisplayItems)
 $DisplayModeBox.SelectedIndex = if ((Get-IniValue "DisplayMode") -eq "Fullscreen") { 1 } else { 0 }
 $Form.Controls.Add($DisplayModeBox)
 
-Add-Label $Ui.FrameRate 278
-$FpsBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 275); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
+Add-Label $Ui.FrameRate 352
+$FpsBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 349); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
 [void]$FpsBox.Items.AddRange($Ui.FpsItems)
 $CurrentFps = Get-MgsFpsUnlockTarget $GameDir
 $FpsBox.SelectedIndex = if ($CurrentFps -eq 60) { 1 } elseif ($CurrentFps -eq 30) { 2 } else { 0 }
@@ -347,18 +399,18 @@ $Form.Controls.Add($FpsBox)
 
 $ControllerFixBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.Controller
-    Location = [Drawing.Point]::new(30, 322); Size = [Drawing.Size]::new(550, 27)
+    Location = [Drawing.Point]::new(30, 396); Size = [Drawing.Size]::new(550, 27)
     Checked = (Get-IniValue "ControllerProfileFixEnabled") -eq "1"
 }
 $SkipLauncherBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.Skip
-    Location = [Drawing.Point]::new(30, 354); Size = [Drawing.Size]::new(560, 27)
+    Location = [Drawing.Point]::new(30, 428); Size = [Drawing.Size]::new(560, 27)
     Checked = (Get-IniValue "SkipUnityLauncher") -eq "1"
 }
 $Form.Controls.AddRange(@($ControllerFixBox, $SkipLauncherBox))
 
-Add-Label $Ui.Language 395
-$LanguageBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 392); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
+Add-Label $Ui.Language 469
+$LanguageBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 466); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
 [void]$LanguageBox.Items.AddRange(@("en", "sp", "fr", "it", "ge", "jp"))
 $LanguageBox.SelectedItem = Get-IniValue "Language"
 if ($LanguageBox.SelectedIndex -lt 0) { $LanguageBox.SelectedItem = "en" }
@@ -368,7 +420,7 @@ $Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Exe).Hash.ToLowerInvariant
 $Supported = $Hash -eq $KnownExeSha256
 $Status = [Windows.Forms.Label]@{
     Text = if ($Supported) { $Ui.Supported } else { $Ui.UnsupportedStatus }
-    Location = [Drawing.Point]::new(30, 442); Size = [Drawing.Size]::new(550, 28)
+    Location = [Drawing.Point]::new(30, 516); Size = [Drawing.Size]::new(550, 28)
     ForeColor = if ($Supported) { [Drawing.Color]::DarkGreen } else { [Drawing.Color]::DarkRed }
     Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold)
 }
@@ -384,25 +436,26 @@ $Warning = [Windows.Forms.Label]@{
             "Core mode uses the game's normal FPS settings. Reopen Easy Setup with the optional 120 FPS box checked to add MGSFPSUnlock."
         })
     }
-    Location = [Drawing.Point]::new(30, 476); Size = [Drawing.Size]::new(550, 82)
+    Location = [Drawing.Point]::new(30, 550); Size = [Drawing.Size]::new(550, 92)
     ForeColor = if ((Test-Mgs4Ultra120AutoHdrEnabled) -or $NvidiaMultiDisplay) { [Drawing.Color]::DarkRed } else { [Drawing.Color]::Black }
 }
 $Form.Controls.AddRange(@($Status, $Warning))
 
 $UnsupportedBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.Unsupported
-    Location = [Drawing.Point]::new(30, 562); Size = [Drawing.Size]::new(560, 27)
+    Location = [Drawing.Point]::new(30, 650); Size = [Drawing.Size]::new(560, 27)
     Checked = (Get-IniValue "AllowUnsupportedExecutable") -eq "1"
 }
 $Form.Controls.Add($UnsupportedBox)
 
-$StableButton = [Windows.Forms.Button]@{ Text = $Ui.Defaults; Location = [Drawing.Point]::new(30, 652); Size = [Drawing.Size]::new(200, 38) }
-$SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Point]::new(300, 652); Size = [Drawing.Size]::new(150, 38); BackColor = [Drawing.Color]::RoyalBlue; ForeColor = [Drawing.Color]::White; Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold) }
-$CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 652); Size = [Drawing.Size]::new(105, 38) }
+$StableButton = [Windows.Forms.Button]@{ Text = $Ui.Defaults; Location = [Drawing.Point]::new(30, 742); Size = [Drawing.Size]::new(200, 38) }
+$SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Point]::new(300, 742); Size = [Drawing.Size]::new(150, 38); BackColor = [Drawing.Color]::RoyalBlue; ForeColor = [Drawing.Color]::White; Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold) }
+$CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 742); Size = [Drawing.Size]::new(105, 38) }
 $StableButton.Add_Click({
     $AutoResolutionBox.Checked = $true
     $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.15
     $DisplayModeBox.SelectedIndex = 0
+    $SupersamplingBox.Checked = $false; $RenderScaleBox.Value = 1.50
     $FpsBox.SelectedIndex = 0
     $UltrawideBox.Checked = $true
     $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
@@ -427,6 +480,18 @@ $SaveButton.Add_Click({
             $Ui.UnsupportedMessage, $Ui.UnsupportedTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
+    if ($SupersamplingBox.Checked) {
+        $RenderWidth = [Math]::Round([decimal]$WidthBox.Value *
+            [decimal]$RenderScaleBox.Value, 0,
+            [MidpointRounding]::AwayFromZero)
+        $RenderHeight = [Math]::Round([decimal]$HeightBox.Value *
+            [decimal]$RenderScaleBox.Value, 0,
+            [MidpointRounding]::AwayFromZero)
+        $Answer = [Windows.Forms.MessageBox]::Show(
+            "Experimental supersampling will render internally at $RenderWidth x $RenderHeight and present at $([int]$WidthBox.Value) x $([int]$HeightBox.Value). Known crosshair limitation: an internal width of exactly 4096 can flicker, and higher widths can make the reticle disappear depending on aiming depth. Keep the internal width below 4096; 3956 x 1656 is the validated stable setting for 3440 x 1440 output. It does not require AMD VSR, NVIDIA DSR or a desktop-resolution change. It can sharply reduce performance, exhaust VRAM, crash the game or graphics driver, and make the Steam overlay/HUD smaller because the complete frame is downsampled. No automatic limit is applied. Windowed presentation is recommended. Continue under your responsibility?",
+            $Ui.SupersamplingTitle, "YesNo", "Warning")
+        if ($Answer -ne "Yes") { return }
+    }
     if ($DisplayModeBox.SelectedIndex -eq 1) {
         $Answer = [Windows.Forms.MessageBox]::Show(
             $Ui.FullscreenMessage, $Ui.FullscreenTitle, "YesNo", "Warning")
@@ -440,7 +505,12 @@ $SaveButton.Add_Click({
     Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
         ([int]$WidthBox.Value) ([int]$HeightBox.Value) $DisplayMode
     Set-LauncherWrapper $SkipLauncherBox.Checked
-    Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) $FovBox.Value ([int]$UltrawideBox.Checked) ([int]$ControllerFixBox.Checked) ([int]$SkipLauncherBox.Checked) ([string]$LanguageBox.SelectedItem) ([int]$UnsupportedBox.Checked) $DisplayMode ([int]$AutoResolutionBox.Checked)
+    Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) `
+        $FovBox.Value ([int]$SupersamplingBox.Checked) $RenderScaleBox.Value `
+        ([int]$UltrawideBox.Checked) ([int]$ControllerFixBox.Checked) `
+        ([int]$SkipLauncherBox.Checked) ([string]$LanguageBox.SelectedItem) `
+        ([int]$UnsupportedBox.Checked) $DisplayMode `
+        ([int]$AutoResolutionBox.Checked)
     if ($MgsFpsInstalled) {
         Set-MgsFpsUnlockTarget $GameDir $Fps
     }

@@ -1,0 +1,45 @@
+[b]MGS4 Ultra120 - alpha.6 update[/b]
+
+MGS4 Ultra120 adds native ultrawide/Hor+ rendering, configurable FOV, controller-profile correction and optional corrected 120 FPS support to the Steam PC version of MGS4.
+
+Alpha.6 has been updated after a user reported incorrect character proportions.
+
+The first alpha.6 build enabled an early camera correction that could make characters look unnaturally tall and thin. This happened with supersampling both enabled and disabled. That path has now been removed, and the validated alpha.5 rendering/FOV behaviour has been restored.
+
+I apologize for publishing that change before testing this specific comparison thoroughly on native Windows.
+
+[b]Normal version - recommended[/b]
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5]Download alpha.5[/url]
+
+Use alpha.5 if you only want the normal ultrawide/FOV/controller patch.
+
+[b]Experimental supersampling[/b]
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6]Download alpha.6[/url]
+
+Use alpha.6 only if you specifically want internal-resolution supersampling. It is disabled by default. At 3440x1440, 1.15x produces 3956x1656 internally and is the tested starting point.
+
+[b]Known alpha.6 limitation[/b]
+
+[list]
+[*]3956x1656: reticle tested as stable.
+[*]4096 pixels wide: the reticle can flicker.
+[*]Above 4096: the reticle can disappear depending on aiming depth.
+[/list]
+
+Keep internal render width below 4096 for normal gameplay. The configurator warns about this but does not enforce a limit.
+
+[b]Installation choices[/b]
+
+[list]
+[*][b]Setup EXE:[/b] guided installation and configuration.
+[*][b]Portable ZIP:[/b] extract it and run MGS4Ultra120-Setup.cmd.
+[*][b]Manual ZIP:[/b] copy winmm.dll, mgs4_ultrawide.ini and the scripts folder into the MGS4 folder containing mgs4.exe.
+[/list]
+
+The installer is open source but unsigned, so Windows or Chrome may display an unknown-publisher warning. The EXE is optional; use the manual ZIP if preferred.
+
+A separate alpha.6 Linux/Proton package is available. Supersampling on Linux remains experimental and was not validated in this Windows testing session.
+
+For bug reports, include the exact release, resolution, FOV, supersampling scale and mgs4_ultrawide.log.

@@ -46,18 +46,30 @@ driver/display setup.
 - FOV 1.000 and 1.150: visually compared from the same saved camera position;
   1.150 shows more vertical/horizontal scene content without changing object
   proportions.
-- Renderer-level FOV correction at 3440x1440 and FOV 1.150: visually validated
-  with correct character proportions and a visible aiming crosshair.
-- A central camera/frustum candidate was tested and withdrawn after it produced
-  distorted tall/thin proportions. The release makes no synchronized CPU
-  culling claim. Values above 1.000 can reveal side pop-in, and extreme
-  in-engine close-ups can briefly return to the original framing.
+- Renderer-level FOV at 3440x1440 and 1.150: visually validated with natural
+  character proportions and a working aiming crosshair. A later central
+  camera/frustum candidate removed side culling and close-up discontinuities
+  but caused a confirmed tall/thin aspect regression, so it was withdrawn.
+- CPU culling synchronization and continuous FOV through extreme close-ups are
+  not claimed by the current package. Values above 1.000 can reveal side pop-in.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
+- Experimental branch only: internal supersampling at 3440x1440 output,
+  1.50x/5160x2160 render resolution and windowed presentation passed the
+  internal/output-size check, but that first candidate also contained the now
+  withdrawn aspect-regressing camera hook. Follow-up aiming tests found
+  the reticle stable at 3956x1656, flickering at exactly 4096 pixels wide and
+  depth-conditionally absent at 4128x1728 and 5160x2160. Alpha.6 warns users to
+  keep internal width below 4096; supersampling remains disabled by default and
+  is not part of the alpha.5 release.
+- The corrected alpha.6 projection path was compared directly against the
+  published alpha.5 ASI with supersampling disabled. FOV 1.150 and natural
+  character proportions were confirmed after removing the early camera hook.
 - 60 FPS/core: previously validated Windows path remains available without the
   optional high-FPS component.
 - Corrected 120 FPS: supplied by optional `cipherxof/MGSFPSUnlock` 0.1.0 and
-  verified here for package installation/coexistence. A full playthrough is not
-  yet certified by this project.
+  verified here for package installation/coexistence. Under GE-Proton10-34 all
+  MGS4 timing hooks initialized after the verified local `PAGE_WRITECOPY`
+  adaptation. A full playthrough is not yet certified by this project.
 - Controller profile fix: native controller profile, full disconnect and
   reconnection were exercised under Proton without a virtual controller layer.
 - Native Windows: clean install through the unsigned EXE, Steam launch with no

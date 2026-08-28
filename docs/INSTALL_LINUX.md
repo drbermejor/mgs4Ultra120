@@ -1,34 +1,44 @@
 # Linux / Proton installation
 
-Linux is a separate release line. Use
-`MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz` for the current core patch. Do not
-run the Windows setup EXE or CMD under Proton.
+The Linux package uses the same Ultimate ASI Loader and separate-plugin layout
+as Windows. It provides ultrawide/Hor+, configurable FOV and resolution,
+experimental supersampling, the controller-profile correction, optional direct
+launch and optional corrected 30/60/120 FPS.
 
-The current Linux core provides ultrawide/Hor+ rendering, FOV adjustment, the
-controller-profile correction and the optional direct-launch wrapper. It uses
-the game's normal frame-rate behavior. The external MGSFPSUnlock integration
-is Windows-only until its ASI-loader path has been validated under Proton.
+Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
+the supported Steam executable. Other Proton versions may work but have not
+passed the same release checks.
 
-The previously tested environment was Steam, GE-Proton10-34, the original
-Unity launcher and DirectX 12. The alpha.5 Linux scripts fix the unconditional
-`gamemoderun` dependency reported by users, but this refreshed package has not
-yet received an end-to-end CachyOS retest.
+## Easy setup
 
-## Install
-
-1. Download the Linux tarball from the official release and extract it.
-2. Exit Steam completely; do not merely close its window.
-3. In a terminal inside the extracted folder, run:
+1. Download and extract the Linux `.tar.gz` from the GitHub release.
+2. Exit Steam completely, not only its game window.
+3. Open a terminal in the extracted folder and run:
 
    ```bash
-   ./scripts/linux/install.sh
+   ./MGS4Ultra120-Linux-Setup.sh
    ```
 
-4. Force `GE-Proton10-34` for the game if it is installed.
-5. Launch normally through Steam.
+4. The installer downloads MGSFPSUnlock 0.1.0 directly from its official
+   release, verifies it and applies the Proton compatibility byte locally.
+5. The graphical configurator opens automatically when `zenity` is installed.
+   Choose output resolution, FOV, ultrawide, supersampling, FPS, launcher mode
+   and fullscreen mode, then save.
+6. Start Steam and launch the game normally using DirectX 12.
 
-The installer adds `WINEDLLOVERRIDES="winmm=n,b"` without discarding existing
-Steam launch options.
+Setup also creates **MGS4 Ultra120 Configurator** on the desktop and in the
+application menu. The installed tool lives in `~/.local/share/mgs4Ultra120`, so
+the extracted download can be removed after setup.
+
+The download contains no game files and no MGSFPSUnlock binary. Internet access
+is required once when corrected FPS support is installed. To install only the
+core patch and keep the game's normal FPS behavior:
+
+```bash
+MGS4_INSTALL_FPS_UNLOCK=0 ./MGS4Ultra120-Linux-Setup.sh
+```
+
+## Another Steam library
 
 The default game directory is:
 
@@ -36,60 +46,55 @@ The default game directory is:
 ~/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4
 ```
 
-For another Steam library, pass the folder containing `mgs4.exe`:
+For another library, pass the folder that directly contains `mgs4.exe`:
 
 ```bash
-MGS4_GAME_DIR="/path/to/METAL GEAR SOLID 4/MGS4" ./scripts/linux/install.sh
+MGS4_GAME_DIR="/path/to/METAL GEAR SOLID 4/MGS4" \
+  ./MGS4Ultra120-Linux-Setup.sh
 ```
 
-## Configure
+Use the same environment variable with the configure and uninstall launchers.
 
-Run:
+## Configure later
+
+Exit the game, then run:
 
 ```bash
-./scripts/linux/configure.sh gui
+./MGS4Ultra120-Linux-Configure.sh
 ```
 
-The GUI controls ultrawide/FOV, the controller fix, the optional Unity-launcher
-bypass and the Linux fullscreen command. The stable profile is available
-without a GUI:
+After Easy Setup, the same configurator can be opened from its desktop shortcut
+or the application menu without returning to the extracted archive.
 
-```bash
-./scripts/linux/configure.sh stable
-```
+The corrected FPS selector is active only when MGSFPSUnlock was installed.
+Targets are 30, 60 and experimental 120 FPS. Supersampling keeps `Width` and
+`Height` as the physical output and multiplies only the internal render size.
+At 3440x1440, scale `1.15` produces 3956x1656 and remains below the known
+4096-pixel reticle boundary.
 
-## KDE / Wayland panel remains visible
+## Fullscreen on KDE / Wayland
 
-First confirm that this command works:
-
-```bash
-gamescope --help
-```
-
-Then select **Gamescope fullscreen** in the configurator, or use the following
-Steam launch option with the monitor's native size and refresh rate:
+If the desktop panel remains visible, install Gamescope and select
+**Gamescope fullscreen** in the configurator. For a 3440x1440 240 Hz display it
+writes the reversible Steam option:
 
 ```text
 WINEDLLOVERRIDES="winmm=n,b" gamescope -f --force-windows-fullscreen \
   -W 3440 -H 1440 -w 3440 -h 1440 -r 240 -- %command%
 ```
 
-GameMode is optional and is not inserted. The configurator leaves Steam launch
-options unchanged if `gamescope` is missing. If the KDE panel remains visible,
-try `Super+F` to toggle the Gamescope window or return to the native option:
-
-```text
-WINEDLLOVERRIDES="winmm=n,b" %command%
-```
+Native/no-Gamescope mode remains available. GameMode is not required or added.
 
 ## Uninstall
 
 Exit Steam and run:
 
 ```bash
-./scripts/linux/uninstall.sh
+./MGS4Ultra120-Linux-Uninstall.sh
 ```
 
-Use the same `MGS4_GAME_DIR` override if one was used for installation. The
-uninstaller restores files, launcher and Steam options only when their recorded
-state still matches, so an external update is not overwritten blindly.
+The uninstaller restores pre-existing loader, plugins, configuration, launcher
+and Steam launch options from the installation backup.
+
+See [corrected FPS on Proton](PROTON_FPS.md) for the verified local adaptation
+and [experimental supersampling](EXPERIMENTAL_SUPERSAMPLING.md) for limits.

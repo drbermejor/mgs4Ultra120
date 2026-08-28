@@ -28,7 +28,9 @@ int main() {
     if (mgs4_projection::classify_aspect(projection, target_aspect) !=
         mgs4_projection::AspectKind::target) return 4;
 
-    // Optional strict mode rejects an already corrected target-aspect matrix.
+    // The optional strict mode rejects an already corrected target-aspect
+    // matrix. It is reserved for a future early-camera path; the released
+    // renderer hook deliberately accepts fresh 16:9 and target-aspect inputs.
     float fallback_copy[16];
     std::memcpy(fallback_copy, projection, sizeof(fallback_copy));
     if (mgs4_projection::adjust_projection(fallback_copy, target_aspect, 1.15f,

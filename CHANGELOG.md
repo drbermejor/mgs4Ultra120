@@ -1,28 +1,108 @@
 # Changelog
 
-## v0.3.1-alpha.5 - FOV and package refresh
+## v0.3.2-alpha.1 - unified Linux ASI setup
 
-- Uses the visually validated renderer-level ultrawide/FOV correction.
-- Recommends `FOVMultiplier=1.150` for 21:9; `1.000` preserves the original
-  vertical FOV. CPU culling is not expanded, so values above `1.000` can still
-  reveal side pop-in and some extreme close-ups can briefly use original
-  framing.
-- Corrects the source and release record: a later central camera/frustum
-  experiment never reached the downloadable alpha.5 ASI and was withdrawn after
-  alpha.6 native testing reproduced distorted character proportions.
-- Adds optional corrected 120 FPS support through
-  `cipherxof/MGSFPSUnlock` 0.1.0 while retaining normal 30/60 FPS operation.
-- Removes the unverified UI safe-area experiment; original HUD/menu/effect
-  behavior remains active.
-- Fixes Steam discovery when stale libraries point to disconnected drives,
-  locale-independent FOV parsing and official launcher settings that omit
-  redundant `WindowSizeW`/`WindowSizeH` fields.
-- Keeps the validated Ultimate ASI Loader architecture, controller-profile fix
-  and reversible launcher bypass.
-- Provides unsigned setup EXE, portable, manual, complete and separate Linux
-  packages with short installation guidance.
-- Removes standalone checksum assets from GitHub releases; local developer
-  builds still generate them.
+- Replaced the legacy combined Proton proxy in the Linux package with the same
+  pinned Ultimate ASI Loader and separate-plugin layout used on Windows.
+- Added automatic, hash-pinned download of the official MGSFPSUnlock 0.1.0
+  release. Its binary remains excluded from downloads because upstream does not
+  declare a redistribution license.
+- Added a deterministic local one-byte Proton adaptation for Wine's
+  `PAGE_WRITECOPY` report, with pinned source archive, input ASI, instruction
+  signature and final adapted-binary hashes.
+- Validated all MGS4 timing hooks under GE-Proton10-34: target FPS, spherical
+  camera, character control, polygon demos, wind, SPURS tasks, hair, cloth,
+  rigid bodies and ragdolls.
+- Exposed resolution, FOV, ultrawide, experimental supersampling, 30/60/120 FPS,
+  controller profile, direct launch and Gamescope fullscreen in the Linux GUI.
+- Added easy setup/configure/uninstall launchers at the root of the Linux
+  archive and retained reversible backups for the loader, plugins, INIs,
+  launcher and Steam options.
+- Validated 3440x1440 output, 3956x1656 internal supersampling and an exact
+  3440x1440 Gamescope client/outer window without the KDE panel.
+
+## v0.3.1-alpha.6 - experimental supersampling preview
+
+- Removed the early central-camera/frustum rewrite after reproducing a native
+  Windows aspect-ratio regression: characters became unnaturally tall and thin
+  with supersampling both on and off. Restored the renderer projection behavior
+  of the alpha.5 binary actually published and validated FOV 1.150 visually.
+- Corrected the release history: the downloadable alpha.5 ASI used the
+  renderer-only path despite later source/release notes claiming synchronized
+  culling. Side-pop-in and extreme close-up continuity are again documented as
+  open limitations rather than shipped fixes.
+- Added optional internal-resolution supersampling while keeping the Windows
+  output and game window at the configured physical resolution.
+- Added a disabled-by-default configurator control with a live internal-size
+  preview and an explicit performance, VRAM, stability and UI-size warning.
+- Supersampling disabled now follows the published alpha.5 projection path;
+  supersampling changes only internal/output resolution handling.
+- Validated 3440x1440 physical output with 1.50x/5160x2160 internal rendering,
+  windowed presentation and FOV 1.150 on native Windows.
+- Isolated the depth-aware aiming-reticle boundary through same-session tests:
+  stable at 3956x1656, flickering at exactly 4096 pixels wide and conditionally
+  absent above it. The configurator and runtime log now advise keeping internal
+  width below 4096 without enforcing a hard limit.
+- Added render-extent unit tests, update/configuration smoke coverage and a
+  simple manual INI fallback. Alpha.6 now includes a separate unvalidated
+  Linux/Proton test package; alpha.5 remains the recommended stable package.
+
+## v0.3.1-alpha.5 - synchronized FOV/culling refresh
+
+> Packaging correction: the downloadable alpha.5 ASI did not contain the
+> central camera/frustum hook described below. It retained the earlier
+> renderer-only correction. These entries describe the attempted source change,
+> not a capability that should be claimed for the published alpha.5 binary.
+
+- Moved the primary ultrawide/FOV correction into the central camera builder at
+  RVA `0x0b9bb0`, before combined view-projection matrices and CPU frustum
+  planes are consumed.
+- Rebuilt the primary and secondary combined matrices and all six normalized
+  visibility planes from the corrected projection, eliminating the known
+  render-FOV/culling mismatch that caused side pop-in above `1.000`.
+- Retained the renderer projection hook only as a 16:9 fallback and prevented
+  target-aspect camera matrices from receiving the FOV multiplier twice.
+- Added projection/frustum unit coverage and runtime counters. Native Windows
+  testing at 3440x1440 completed hundreds of synchronized camera builds without
+  a crash or late fallback.
+- Changed the recommended 21:9 framing to `FOVMultiplier=1.150`. `1.000` remains
+  available as the original vertical-FOV option; `1.150` is visually wider and
+  closely matches the established RPCS3 21:9 framing.
+- Kept the reported 5120x2160 aiming-crosshair case open until that exact
+  resolution and controller transition are reproduced.
+
+- Refreshed the existing tag/assets in place while preserving the core/normal-
+  FPS route and making corrected 120 FPS an optional additive installation.
+- Delegated high-FPS timing to `cipherxof/MGSFPSUnlock` 0.1.0, thanked and
+  credited upstream, disabled the old single-field writer and added direct
+  upstream download plus pinned archive/ASI verification.
+- Removed the unverified UI safe-area experiment from release builds and the
+  configurator; original UI/effect behavior remains active.
+- Fixed stale Steam libraries on disconnected drive letters aborting Windows
+  discovery, and added locale-independent FOV parsing with actionable logs.
+- Removed unconditional `gamemoderun` from generated Linux Gamescope commands,
+  added a Gamescope availability check and published a separate Linux core
+  package using the game's normal FPS behavior.
+- Replaced the earlier projection-only FOV path that could reveal side
+  pop-in/culling above `1.000`; projection and visibility bounds are now rebuilt
+  together, and `1.150` is the recommended 21:9 framing.
+- Removed standalone checksum files from GitHub release assets to keep the
+  download list simple; local build checksums remain available to developers.
+- Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
+- Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
+  unchanged.
+- Added a ready-to-drag `Manual-Install` directory to the Windows ZIP, with
+  matching loader, configuration and `scripts/MGS4Ultra120.asi` payloads.
+- Simplified unsigned-binary guidance and documented source inspection, local
+  compilation, ZIP/CMD setup and copy-only installation as equal choices.
+- Recorded the user's successful manual focus-change validation.
+- Accepted official `launcher_sv` variants that omit the redundant
+  `WindowSizeW`/`WindowSizeH` fields when `ResolutionWindowW`/`H` are present.
+- Synchronized every available official display field without inventing absent
+  keys and retained strict requirements for exclusive fullscreen.
+- Caught configurator save errors inside the GUI and stopped Easy Setup from
+  reporting success when settings were not saved.
+- Split Windows downloads into minimal manual, portable and complete ZIPs.
 
 ## v0.3.1-alpha.4 - Native Windows ASI release
 

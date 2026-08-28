@@ -24,8 +24,9 @@ cmake -S . -B build-mingw \
 cmake --build build-mingw -j
 ```
 
-Outputs are written under `build*/bin`: the legacy `winmm.dll`, Windows
-`MGS4Ultra120.asi`, direct `launcher.exe` and test probes. MinHook is pinned to
+Outputs are written under `build*/bin`: the legacy proxy, cross-platform
+`MGS4Ultra120.asi`, direct `launcher.exe` and test probes. Release packages use
+the pinned Ultimate ASI Loader on both Windows and Proton. MinHook is pinned to
 commit `d94c64d32ea37bc4f5ee47d580709f70c6fb6080`. Ultimate ASI Loader is pinned
 to `v9.7.4`; its fetch script verifies the upstream archive and extracted DLL.
 
@@ -64,6 +65,7 @@ root with:
 
 ```bash
 ./scripts/package-release.sh v0.3.1-alpha.5 windows
+./scripts/package-release.sh v0.3.2-alpha.1 linux
 ```
 
 To package MSVC output from Git Bash instead of the default MinGW directory:

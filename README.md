@@ -4,9 +4,13 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.1-alpha.5` targets the verified Steam executable.
+> **Public alpha.** `v0.3.2-alpha.1` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
+
+> **Experimental Windows preview.** `v0.3.1-alpha.6` adds optional internal
+> supersampling and remains disabled by default. The validated alpha.5 release
+> is still the recommended download when supersampling is not required.
 
 ## What the Windows release installs
 
@@ -42,14 +46,19 @@ unlock implementation.
 - The unfinished UI/safe-area experiment is not part of the release binary.
   Menus, HUD and full-screen effects retain the game's original behavior.
 - Pre-rendered Bink video is unchanged.
-- The published alpha.5 renderer-level correction is the validated path. The
-  attempted central camera/frustum rewrite was withdrawn after alpha.6 A/B
-  testing reproduced distorted tall/thin character proportions.
-- CPU culling is not expanded with FOV. Values above `1.000` can reveal side
-  pop-in, and extreme close-ups can briefly return to the original framing.
+- The released renderer-level hook accepts the game's original 16:9 and native
+  ultrawide projection states, then applies the configured FOV once. An early
+  camera/frustum rewrite tested during alpha.6 was withdrawn because it made
+  characters unnaturally tall and thin even with supersampling disabled.
+- CPU culling is therefore not currently expanded with FOV. Values above
+  `1.000` can still reveal side pop-in, and very tight in-engine close-ups may
+  briefly use the original framing. These limitations are preferable to
+  shipping the confirmed aspect-ratio regression.
 - Native 3440x1440 testing at `1.150` has correct proportions and a working
-  aiming crosshair. The external 5120x2160 crosshair report remains open until
-  that exact resolution is reproduced; it is not yet claimed fixed.
+  aiming crosshair. Experimental supersampling tests isolate a separate
+  internal-width boundary: the reticle is stable at 3956x1656, flickers at
+  exactly 4096 pixels wide and can disappear according to aiming depth above
+  it. Alpha.6 warns users to keep internal width below 4096.
 
 ## Windows downloads
 
@@ -72,6 +81,14 @@ The EXE is unsigned, so SmartScreen or a browser may show an
 unknown-publisher/reputation warning. The EXE is optional. Download only from
 the official release and keep antivirus enabled. All project code and build
 instructions are public and can be reviewed or built independently.
+
+The separate
+[v0.3.1-alpha.6 experimental supersampling preview](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6)
+is disabled by default and intended for users who explicitly want to render
+above their physical output resolution. Windows is validated as described;
+the separate Linux/Proton alpha.6 package is experimental and unvalidated in
+this cycle. See
+[experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
 ### Brief manual installation
 
@@ -114,28 +131,37 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-Linux remains a separate Proton line. The alpha.5 Linux core package removes
-the unconditional `gamemoderun` dependency and refuses to write a Gamescope
-command when Gamescope is missing. It uses the game's normal FPS behavior; the
-external corrected-120 route stays Windows-only until validated under Proton.
-Nested Gamescope can still have KDE/Wayland fullscreen issues; verify
-`gamescope --help`, use `Super+F` to toggle fullscreen, or return to the native
-command. See [Linux installation](docs/INSTALL_LINUX.md).
+The `v0.3.2-alpha.1` Linux package now uses the same architecture as Windows:
+pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
+`MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
+official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`
+compatibility byte locally; its unlicensed binary is never redistributed.
+
+The Linux GUI configures resolution, FOV, ultrawide, supersampling, 30/60/120
+FPS, controller-profile correction, launcher bypass and native/Gamescope
+fullscreen. Easy Setup creates a persistent configurator shortcut on the
+desktop and in the application menu. GE-Proton10-34, DX12, 3440x1440 Hor+ with 3956x1656 internal
+supersampling, all FPS timing hooks and a true 3440x1440 Gamescope client were
+validated. See [Linux installation](docs/INSTALL_LINUX.md) and
+[corrected FPS on Proton](docs/PROTON_FPS.md).
 
 ## Technical outline
 
-The port normally supplies a 16:9 perspective matrix even when the output is
-ultrawide. MGS4Ultra120 recognizes 16:9 and target-aspect renderer projections
-and applies the configured aspect/FOV in the final projection setter:
+The renderer can receive either an original 16:9 projection or one already
+matching the selected ultrawide output. MGS4Ultra120 recognizes both states and
+applies the configured aspect/FOV in the final renderer projection setter:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
 ```
 
-The early central-camera rewrite is not installed because native Windows
-testing reproduced an aspect-ratio regression. Synchronized CPU culling and
-uninterrupted FOV through extreme close-ups are not currently claimed.
+The first alpha.6 package also rewrote projections in the central camera builder.
+Native testing after a user report confirmed that this caused an additional
+horizontal transformation and distorted character proportions with
+supersampling both on and off. That path is disabled. The renderer correction
+now matches the visually validated alpha.5 download; synchronized CPU culling
+and uninterrupted FOV through extreme close-ups are not currently claimed.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
 `Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and
@@ -144,6 +170,8 @@ restores the original only when ownership hashes still match.
 Further reading:
 
 - [Configuration](docs/CONFIGURATION.md)
+- [Experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md) (separate
+  branch only; not included in alpha.5)
 - [Controller profile fix](docs/CONTROLLER_FIX.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
 - [UI and video status](docs/UI_AND_VIDEO.md)

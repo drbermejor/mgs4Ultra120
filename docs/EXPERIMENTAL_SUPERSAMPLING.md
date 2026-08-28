@@ -1,0 +1,78 @@
+# Experimental supersampling
+
+This feature is developed on the `experimental/supersampling` branch and is
+published separately as the alpha.6 prerelease. It is disabled by default and
+is not part of the recommended alpha.5 release. Windows received the native
+validation below; the Linux/Proton alpha.6 package is supplied for voluntary
+testing and is not validated in this session.
+
+Supersampling keeps the configured `Width` and `Height` as the physical Windows
+output and game-window size, while a uniform `RenderScale` raises the internal
+render resolution. DXGI then presents that larger frame at the physical output
+size. It does not require AMD VSR, NVIDIA DSR or changing the Windows desktop
+resolution.
+
+Examples:
+
+| Physical output | Scale | Internal render |
+| --- | ---: | --- |
+| 1920x1080 | 2.00 | 3840x2160 |
+| 2560x1080 | 2.00 | 5120x2160 |
+| 3440x1440 | 1.50 | 5160x2160 |
+| 3440x1440 | 2.00 | 6880x2880 |
+
+Use the Windows configurator or add this section to `mgs4_ultrawide.ini`:
+
+```ini
+[Supersampling]
+SupersamplingEnabled=1
+RenderScale=1.50
+```
+
+`RenderScale=1.00` performs no supersampling. Uniform scaling preserves the
+configured aspect ratio, so the existing ultrawide projection/FOV correction
+continues to use the physical output aspect.
+
+## Warnings
+
+- Rendering cost and approximate render-target memory grow with the square of
+  the scale: 1.50x uses 2.25x as many pixels and 2.00x uses 4x.
+- Excessive values can exhaust VRAM, reduce performance, crash the game or reset
+  the graphics driver. The patch reports unusually large requests but does not
+  guess a safe GPU-specific limit.
+- The whole rendered frame is reduced to the output size. HUD text and the Steam
+  overlay may therefore appear smaller; supersampling does not yet separate
+  world rendering from UI composition.
+- Keep internal render width **below 4096 pixels** for normal gameplay. The
+  reticle was stable at 3956x1656, began flickering at exactly 4096 pixels wide,
+  and could disappear according to aiming depth at 4128x1728 and 5160x2160.
+  The configurator warns about this boundary but deliberately does not enforce
+  a hard limit.
+- Windowed presentation is the initial test target. Exclusive fullscreen,
+  HDR, VRR/G-SYNC and mixed-refresh multi-monitor combinations require separate
+  validation.
+- Close the game before changing the setting. If startup fails, set
+  `SupersamplingEnabled=0` manually to return to the stable path.
+
+The configurator displays the calculated internal resolution and requires an
+explicit warning confirmation whenever supersampling is enabled.
+
+## Native Windows validation
+
+The initial `cc3c060` candidate was validated on native Windows at physical
+3440x1440, `RenderScale=1.50` (5160x2160 internal), windowed presentation and
+`FOVMultiplier=1.150`. Runtime verification reported a 3440x1440 client and
+5160x2160 internal render state. The first candidate also enabled an early
+camera/frustum rewrite. A later alpha.6 report and direct alpha.5/alpha.6 A/B
+test showed that rewrite distorted character proportions even when
+supersampling was disabled. It has been removed. The final renderer-level path
+was validated at 3440x1440 with supersampling off, natural character
+proportions and FOV 1.150 active. Supersampling itself remains experimental and
+disabled by default.
+
+Subsequent same-session near/far tests isolated a depth-aware crosshair defect
+to the internal-width boundary. At 3956x1656 the reticle remained visible while
+aiming at the same distant scene. At exactly 4096x1715 it was visible but began
+to flicker, while at 4128x1728 it changed between visible and absent according
+to aiming depth. It was also captured absent at 5160x2160. This does not affect
+the stable alpha.5 path; the targeted cause is not yet patched.

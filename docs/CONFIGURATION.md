@@ -1,6 +1,12 @@
 # Configuration
 
-Run the Windows configurator only while the game is closed:
+Run a configurator only while the game is closed. On Linux use:
+
+```bash
+./MGS4Ultra120-Linux-Configure.sh
+```
+
+On Windows use:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
@@ -45,10 +51,10 @@ UsePrimaryPhysicalResolution=1
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
 - `FOVMultiplier` accepts `0.500`–`2.000`. `1.150` is the recommended 21:9
   framing and adds roughly 5 degrees of vertical view to the narrow gameplay
-  camera. `1.000` preserves the game's original vertical FOV. The correction
-  is applied at the renderer projection setter; CPU visibility bounds are not
-  expanded, so values above `1.000` can reveal side pop-in. Both `.` and `,`
-  decimal separators are accepted by the ASI.
+  camera. `1.000` preserves the game's original vertical FOV. The current
+  renderer-level correction does not rebuild CPU visibility planes, so values
+  above `1.000` can reveal side pop-in. Both `.` and `,` decimal separators are
+  accepted by the ASI.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build
@@ -70,8 +76,9 @@ MGSFPSUnlock owns frame-rate timing:
 TargetFrameRate = 120
 ```
 
-The Windows GUI exposes 120, 60 and 30. Guided setup installs and verifies
-MGSFPSUnlock 0.1.0 before writing this file. Do not enable an older
+Both GUIs expose 120, 60 and 30 when the optional component is installed.
+Guided setup installs and verifies MGSFPSUnlock 0.1.0 before writing this file;
+Linux also applies and verifies the Wine compatibility byte locally. Do not enable an older
 `FPSOverrideEnabled=1` at the same time.
 
 ## Command-line profiles

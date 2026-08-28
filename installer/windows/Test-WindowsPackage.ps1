@@ -173,6 +173,8 @@ try {
     foreach ($ExpectedLine in @(
         "UltrawideEnabled=1",
         "FPSOverrideEnabled=0",
+        "SupersamplingEnabled=0",
+        "RenderScale=1.500",
         "Limit=60",
         "ControllerProfileFixEnabled=1"
     )) {
@@ -273,12 +275,17 @@ try {
     $Customized = [regex]::Replace($Customized, '(?m)^Width=.*$', 'Width=5120')
     $Customized = [regex]::Replace($Customized, '(?m)^Language=.*$', 'Language=sp')
     $Customized = [regex]::Replace($Customized, '(?m)^Limit=.*$', 'Limit=120')
+    $Customized = [regex]::Replace($Customized,
+        '(?m)^SupersamplingEnabled=.*$', 'SupersamplingEnabled=1')
+    $Customized = [regex]::Replace($Customized,
+        '(?m)^RenderScale=.*$', 'RenderScale=2.000')
     [IO.File]::WriteAllText($IniPath, $Customized,
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     $UpdatedIni = Get-Content -Raw -LiteralPath $IniPath
     foreach ($PreservedLine in @(
-        "Width=5120", "Language=sp", "SkipUnityLauncher=1"
+        "Width=5120", "Language=sp", "SkipUnityLauncher=1",
+        "SupersamplingEnabled=1", "RenderScale=2.000"
     )) {
         if ($UpdatedIni -notmatch "(?m)^$([regex]::Escape($PreservedLine))$") {
             throw "Update did not preserve setting: $PreservedLine"

@@ -9,6 +9,7 @@
 
 #include "MinHook.h"
 #include "projection_math.h"
+#include "supersampling_math.h"
 
 #if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" FARPROC winmm_proxy_resolve_by_name(const char* name);
@@ -18,10 +19,14 @@ static volatile LONG g_projection_patches;
 static volatile LONG g_camera_projection_patches;
 static volatile LONG g_frustum_rebuilds;
 static std::uintptr_t g_executable_base;
+static std::uint32_t g_output_width = 3440;
+static std::uint32_t g_output_height = 1440;
 static std::uint32_t g_target_width = 3440;
 static std::uint32_t g_target_height = 1440;
 static float g_fov_multiplier = 1.0f;
+static float g_render_scale = 1.0f;
 static bool g_enable_ultrawide = true;
+static bool g_enable_resolution_override = true;
 static bool g_controller_profile_fix = true;
 static volatile LONG g_locked_controller_profile;
 static volatile LONG g_minhook_state;
@@ -49,6 +54,52 @@ static SetDetectedProfileFn g_original_set_detected_profile;
 static void apply_resolution_state();
 static bool initialize_minhook();
 static void log_line(const char* message);
+
+struct LargestProcessWindow {
+    DWORD process_id;
+    HWND window;
+    std::uint64_t client_area;
+};
+
+static BOOL CALLBACK find_largest_process_window(HWND window, LPARAM parameter) {
+    auto* result = reinterpret_cast<LargestProcessWindow*>(parameter);
+    DWORD process_id = 0;
+    GetWindowThreadProcessId(window, &process_id);
+    if (process_id != result->process_id || !IsWindowVisible(window) ||
+        GetWindow(window, GW_OWNER)) return TRUE;
+    RECT client = {};
+    if (!GetClientRect(window, &client)) return TRUE;
+    const auto width = static_cast<std::uint64_t>(client.right - client.left);
+    const auto height = static_cast<std::uint64_t>(client.bottom - client.top);
+    const auto area = width * height;
+    if (area > result->client_area) {
+        result->window = window;
+        result->client_area = area;
+    }
+    return TRUE;
+}
+
+static void log_presentation_window_size() {
+    LargestProcessWindow result = { GetCurrentProcessId(), nullptr, 0 };
+    EnumWindows(find_largest_process_window,
+                reinterpret_cast<LPARAM>(&result));
+    if (!result.window) {
+        log_line("WARNING: no visible top-level game window was found for output-size verification.");
+        return;
+    }
+    RECT client = {};
+    RECT outer = {};
+    GetClientRect(result.window, &client);
+    GetWindowRect(result.window, &outer);
+    char message[256] = {};
+    std::snprintf(message, sizeof(message),
+                  "Presentation window after startup: client=%ldx%ld, outer=%ldx%ld, DPI=%u; configured output=%ux%u, internal render=%ux%u.",
+                  client.right - client.left, client.bottom - client.top,
+                  outer.right - outer.left, outer.bottom - outer.top,
+                  GetDpiForWindow(result.window), g_output_width,
+                  g_output_height, g_target_width, g_target_height);
+    log_line(message);
+}
 
 // The protected executable decrypts code before changing the page from RW to
 // RX. On native Windows a signature can therefore be visible while
@@ -527,8 +578,11 @@ extern "C" DWORD WINAPI mgs4_timeGetTime() {
 // Depending on the engine path, this setter receives either a canonical 16:9
 // matrix or one whose X scale already matches the output aspect. Both are
 // original, unmodified camera states here and must receive the configured FOV.
-// The central camera rewrite remains disabled after it caused distorted
-// tall/thin character proportions in native alpha.6 testing.
+//
+// Do not move this rewrite back into the central camera builder without a new
+// native-Windows visual gate. The first alpha.6 package did so and applied an
+// additional horizontal transform later in the engine, making characters look
+// unnaturally tall and thin even when supersampling was disabled.
 static void __fastcall hooked_set_projection(const float* matrix) {
     if (!matrix) {
         g_original_set_projection(matrix);
@@ -583,11 +637,10 @@ static void __fastcall hooked_build_camera(void* camera, const void* source,
         InterlockedIncrement(&g_camera_projection_patches);
 }
 
-// Central display-mode setter.  The original routine is still allowed to do
-// all backend and window management, but it always receives the configured
-// native size.  Once it has finished its built-in 16:9 safe-area calculation,
-// replace that final viewport with the native ultrawide canvas exactly once
-// per real mode change.
+// Central display-mode setter. The launcher keeps the physical output/window
+// size, while this engine path receives the internal render size. When
+// supersampling is disabled both sizes are identical, preserving the stable
+// release path exactly.
 static void __fastcall hooked_set_resolution(std::uint16_t mode,
                                              std::int32_t index,
                                              std::uint8_t use_safe_area,
@@ -856,7 +909,7 @@ static void apply_resolution_state() {
     const auto height = g_target_height;
     if (!base) return;
 
-    if (g_enable_ultrawide) {
+    if (g_enable_resolution_override) {
         put_resolution_pair_atomic(base, 0x1b00000, width, height);
         put_resolution_pair_atomic(base, 0x22a8d40, width, height);
         put_resolution_pair_atomic(base, 0x22a8d48, width, height);
@@ -886,6 +939,8 @@ static DWORD WINAPI patch_thread(void*) {
         GetPrivateProfileIntA("Ultrawide", "Width", 3440, ini_path);
     const std::uint32_t height =
         GetPrivateProfileIntA("Ultrawide", "Height", 1440, ini_path);
+    const bool enable_supersampling = GetPrivateProfileIntA(
+        "Supersampling", "SupersamplingEnabled", 0, ini_path) != 0;
     const bool allow_unsupported = GetPrivateProfileIntA(
         "Patch", "AllowUnsupportedExecutable", 0, ini_path) != 0;
     const bool controller_profile_fix = GetPrivateProfileIntA(
@@ -895,30 +950,59 @@ static DWORD WINAPI patch_thread(void*) {
                              sizeof(fov_text), ini_path);
     float fov_multiplier = 1.0f;
     const bool fov_valid = parse_ini_decimal(fov_text, &fov_multiplier);
-    if (enable_ultrawide &&
-        (!width || !height || !fov_valid ||
-         fov_multiplier < 0.5f || fov_multiplier > 2.0f)) {
+    char render_scale_text[32] = {};
+    GetPrivateProfileStringA("Supersampling", "RenderScale", "1.50",
+                             render_scale_text, sizeof(render_scale_text),
+                             ini_path);
+    float render_scale = 1.0f;
+    const bool render_scale_valid =
+        parse_ini_decimal(render_scale_text, &render_scale);
+    std::uint32_t render_width = width;
+    std::uint32_t render_height = height;
+    const bool render_extent_valid = !enable_supersampling ||
+        (render_scale_valid && mgs4_supersampling::compute_render_extent(
+            width, height, render_scale, &render_width, &render_height));
+    if (!width || !height ||
+        (enable_ultrawide && (!fov_valid || fov_multiplier < 0.5f ||
+                              fov_multiplier > 2.0f)) ||
+        !render_extent_valid) {
         char invalid_message[512] = {};
         std::snprintf(invalid_message, sizeof(invalid_message),
-                      "ERROR: invalid ultrawide configuration in %s: Width=%u, Height=%u, FOVMultiplier='%s' (accepted FOV range 0.500-2.000).",
-                      ini_path, width, height, fov_text);
+                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (accepted 0.500-2.000), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
+                      ini_path, width, height, fov_text,
+                      enable_supersampling ? 1u : 0u, render_scale_text);
         log_line(invalid_message);
         return 0;
     }
     g_enable_ultrawide = enable_ultrawide;
+    g_enable_resolution_override = enable_ultrawide || enable_supersampling;
     g_controller_profile_fix = controller_profile_fix;
-    g_target_width = width;
-    g_target_height = height;
+    g_output_width = width;
+    g_output_height = height;
+    g_target_width = render_width;
+    g_target_height = render_height;
     g_fov_multiplier = fov_multiplier;
+    g_render_scale = enable_supersampling ? render_scale : 1.0f;
     g_target_aspect = static_cast<float>(width) / static_cast<float>(height);
 
-    char settings_message[320] = {};
+    char settings_message[512] = {};
     std::snprintf(settings_message, sizeof(settings_message),
-                  "Configuration: ultrawide %s (%ux%u, aspect %.6f, FOVMultiplier %.3f), controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
-                  enable_ultrawide ? "on" : "off", width, height,
+                  "Configuration: output %ux%u; internal render %ux%u; supersampling %s (scale %.3f); ultrawide/FOV %s (aspect %.6f, FOVMultiplier %.3f); controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
+                  g_output_width, g_output_height, g_target_width,
+                  g_target_height, enable_supersampling ? "on" : "off",
+                  g_render_scale, enable_ultrawide ? "on" : "off",
                   g_target_aspect, g_fov_multiplier,
                   controller_profile_fix ? "on" : "off");
     log_line(settings_message);
+    if (enable_supersampling && (render_scale > 2.0f ||
+        render_width > 16384 || render_height > 16384)) {
+        log_line("WARNING: experimental supersampling exceeds the conservative 2x/16384-pixel guidance. No GPU/VRAM capacity limit is enforced; performance, stability and driver behavior are the user's responsibility.");
+    }
+    if (enable_supersampling && render_width >= 4096) {
+        log_line("WARNING: internal render width is 4096 pixels or higher. Native Windows testing found crosshair flicker at exactly 4096 and depth-dependent disappearance above it. Keep internal width below 4096 for normal gameplay; no automatic limit is enforced.");
+    }
+    if (enable_supersampling && render_scale == 1.0f)
+        log_line("WARNING: supersampling is enabled at 1.0x, so internal and output resolution are identical.");
 
     const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
     if (!supported_executable(base)) {
@@ -929,9 +1013,11 @@ static DWORD WINAPI patch_thread(void*) {
         log_line("WARNING: unsupported executable override enabled. Known RVAs will be attempted under user responsibility; hook signatures are still checked.");
     }
     g_executable_base = base;
-    if (enable_ultrawide) {
-        force_resolution_getters(base, width, height);
+    if (g_enable_resolution_override) {
+        force_resolution_getters(base, render_width, render_height);
         install_resolution_hook(base);
+    }
+    if (enable_ultrawide) {
         install_engine_hook(base);
         log_line("Central camera/frustum rewrite disabled after the alpha.6 aspect-ratio regression; published alpha.5 renderer projection path active.");
     }
@@ -940,6 +1026,7 @@ static DWORD WINAPI patch_thread(void*) {
     apply_resolution_state();
     // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);
+    if (enable_supersampling) log_presentation_window_size();
     char projection_message[192] = {};
     std::snprintf(projection_message, sizeof(projection_message),
                   "Renderer projection adjustments after startup: %ld. Central camera/frustum rewrite is disabled.",

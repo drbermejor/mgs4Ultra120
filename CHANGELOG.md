@@ -11,8 +11,11 @@
   configurator; original UI/effect behavior remains active.
 - Fixed stale Steam libraries on disconnected drive letters aborting Windows
   discovery, and added locale-independent FOV parsing with actionable logs.
-- Removed unconditional `gamemoderun` from generated Linux Gamescope commands
-  and added a Gamescope availability check for future Linux packages.
+- Removed unconditional `gamemoderun` from generated Linux Gamescope commands,
+  added a Gamescope availability check and published a separate Linux core
+  package using the game's normal FPS behavior.
+- Documented reported side pop-in/culling above `FOVMultiplier=1.000` and kept
+  `1.000` as the recommended native value while visibility bounds are unknown.
 - Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
 - Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
   unchanged.

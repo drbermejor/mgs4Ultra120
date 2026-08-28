@@ -43,7 +43,9 @@ UsePrimaryPhysicalResolution=1
 - `UltrawideEnabled=1` enables native resolution and Hor+ projection changes.
 - `Width`/`Height` accept physical output dimensions. The GUI supports
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
-- `FOVMultiplier` accepts `0.500`–`2.000`. `1.000` preserves vertical FOV.
+- `FOVMultiplier` accepts `0.500`–`2.000`. `1.000` preserves vertical FOV and
+  is recommended. A user report confirms side pop-in/culling above `1.000`;
+  the projection widens but the game's visibility bounds may remain unchanged.
   Both `.` and `,` decimal separators are accepted by the ASI.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.

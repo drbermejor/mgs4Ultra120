@@ -22,6 +22,13 @@ FetchContent_MakeAvailable(minhook)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+if(BUILD_TESTING)
+    add_test(NAME linux_steam_options_smoke
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tests/linux_steam_options_smoke.py"
+    )
+endif()
+
 set(WINMM_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated/winmm")
 if(MSVC)
     enable_language(ASM_MASM)

@@ -16,7 +16,7 @@ KNOWN_EXE_SHA256="9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe
 MODE="${1:-gui}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
-ini_value() { sed -n "s/^$1=//p" "$INI" | head -n1; }
+ini_value() { sed -n "s/^$1=//p" "$INI" | tr -d '\r' | head -n1; }
 game_running() {
   pgrep -x 'mgs4.exe' >/dev/null || pgrep -f -- '^-region eu -lan ' >/dev/null
 }
@@ -26,17 +26,17 @@ game_running() {
 game_running && die "Exit the game before changing settings."
 
 apply_values() {
-  local width="$1" height="$2" fov="$3" fps="$4" ultrawide="$5" fps_override="$6" controller_fix="$7" skip_launcher="$8" language="$9" allow_unsupported="${10}"
-  python3 - "$INI" "$width" "$height" "$fov" "$fps" "$ultrawide" "$fps_override" "$controller_fix" "$skip_launcher" "$language" "$allow_unsupported" <<'PY'
+  local width="$1" height="$2" fov="$3" ultrawide="$4" controller_fix="$5" skip_launcher="$6" language="$7" allow_unsupported="$8"
+  python3 - "$INI" "$width" "$height" "$fov" "$ultrawide" "$controller_fix" "$skip_launcher" "$language" "$allow_unsupported" <<'PY'
 import math
 import re
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-width, height, fov, fps, ultrawide, fps_override, controller_fix, skip_launcher, language, allow_unsupported = sys.argv[2:]
+width, height, fov, ultrawide, controller_fix, skip_launcher, language, allow_unsupported = sys.argv[2:]
 try:
-    width_i, height_i, fps_i = int(width), int(height), int(fps)
+    width_i, height_i = int(width), int(height)
     fov_f = float(fov.replace(",", "."))
 except ValueError as error:
     raise SystemExit(f"Invalid numeric value: {error}")
@@ -44,15 +44,13 @@ if not (640 <= width_i <= 16384 and 480 <= height_i <= 16384):
     raise SystemExit("Width/height are outside the allowed range")
 if not (0.5 <= fov_f <= 2.0) or not math.isfinite(fov_f):
     raise SystemExit("FOV multiplier must be between 0.5 and 2.0")
-if fps_i not in (30, 60):
-    raise SystemExit("FPS must be 30 or 60")
 if language not in ("en", "sp", "fr", "it", "ge", "jp"):
     raise SystemExit("Unsupported direct-launch language")
 values = {
     "Width": str(width_i), "Height": str(height_i),
-    "FOVMultiplier": f"{fov_f:.3f}", "Limit": str(fps_i),
+    "FOVMultiplier": f"{fov_f:.3f}", "Limit": "60",
     "UltrawideEnabled": ultrawide,
-    "FPSOverrideEnabled": fps_override,
+    "FPSOverrideEnabled": "0",
     "ControllerProfileFixEnabled": controller_fix,
     "SkipUnityLauncher": skip_launcher,
     "Language": language,
@@ -117,29 +115,24 @@ current_skip="$(ini_value SkipUnityLauncher)"
 current_language="$(ini_value Language)"
 current_allow_unsupported="$(ini_value AllowUnsupportedExecutable)"
 case "$MODE" in
-  stable) apply_values 3440 1440 1.000 60 1 1 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
-  fps-only-60) apply_values 3440 1440 1.000 60 0 1 0 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
-  ultrawide-only) apply_values 3440 1440 1.000 60 1 0 0 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
-  controller-fix-only) apply_values 3440 1440 1.000 60 0 0 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
+  stable) apply_values 3440 1440 1.000 1 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
+  ultrawide-only) apply_values 3440 1440 1.000 1 0 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
+  controller-fix-only) apply_values 3440 1440 1.000 0 1 "$current_skip" "$current_language" "$current_allow_unsupported"; exit 0 ;;
   status) show_status; exit $? ;;
   gui) ;;
-  *) die "Usage: $0 [gui|stable|fps-only-60|ultrawide-only|controller-fix-only|status]" ;;
+  *) die "Usage: $0 [gui|stable|ultrawide-only|controller-fix-only|status]" ;;
 esac
 
 command -v zenity >/dev/null || die "zenity is required for GUI mode."
 
 width="$(ini_value Width)"; height="$(ini_value Height)"
-fov="$(ini_value FOVMultiplier)"; fps="$(ini_value Limit)"
-ultrawide="$(ini_value UltrawideEnabled)"; fps_override="$(ini_value FPSOverrideEnabled)"
+fov="$(ini_value FOVMultiplier)"
+ultrawide="$(ini_value UltrawideEnabled)"
 controller_fix="$(ini_value ControllerProfileFixEnabled)"
 skip_launcher="$(ini_value SkipUnityLauncher)"; language="$(ini_value Language)"
 allow_unsupported="$(ini_value AllowUnsupportedExecutable)"
-fps_values="$fps"
-for value in 60 30; do [[ "$fps_values" == *"$value"* ]] || fps_values+="|$value"; done
 if [[ "$ultrawide" == 1 ]]; then ultrawide_values='Enabled|Disabled'
 else ultrawide_values='Disabled|Enabled'; fi
-if [[ "$fps_override" == 1 ]]; then fps_override_values='Enabled|Disabled'
-else fps_override_values='Disabled|Enabled'; fi
 if [[ "$controller_fix" == 1 ]]; then controller_values='Enabled (recommended)|Disabled'
 else controller_values='Disabled|Enabled (recommended)'; fi
 if [[ "$skip_launcher" == 1 ]]; then launcher_values='Skip Unity launcher|Use original Unity launcher'
@@ -152,23 +145,20 @@ result="$(zenity --forms --title='MGS4 Ultra120 configurator' \
   --text='Changes apply on the next game start. Leave text fields empty to retain their values.' \
   --separator='|' \
   --add-entry="Width (current: $width)" --add-entry="Height (current: $height)" \
-  --add-entry="FOV multiplier (current: $fov; 1.000 = original)" \
+  --add-entry="FOV (current: $fov; 1.000 original; >1 may cause side pop-in)" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
-  --add-combo='FPS limit' --combo-values="$fps_values" \
-  --add-combo='FPS override module' --combo-values="$fps_override_values" \
   --add-combo='Controller profile fix' --combo-values="$controller_values" \
   --add-combo='Steam launch path' --combo-values="$launcher_values" \
   --add-combo='Direct-launch language' --combo-values="$language_values" \
   --add-combo='Unknown executable policy' --combo-values="$unsupported_values" \
   --add-combo='Linux fullscreen launch' --combo-values='Keep current Steam options|Gamescope fullscreen|Native/no Gamescope' \
   --add-entry='Gamescope refresh rate (default: 60)' \
-  --width=820 --height=700)" || exit 0
+  --width=820 --height=640)" || exit 0
 
-IFS='|' read -r new_width new_height new_fov new_ultrawide new_fps new_fps_override new_controller new_launcher new_language new_unsupported steam_mode refresh <<<"$result"
+IFS='|' read -r new_width new_height new_fov new_ultrawide new_controller new_launcher new_language new_unsupported steam_mode refresh <<<"$result"
 new_width="${new_width:-$width}"; new_height="${new_height:-$height}"
-new_fov="${new_fov:-$fov}"; new_fps="${new_fps:-$fps}"; refresh="${refresh:-60}"
+new_fov="${new_fov:-$fov}"; refresh="${refresh:-60}"
 [[ "$new_ultrawide" == Enabled ]] && ultrawide_value=1 || ultrawide_value=0
-[[ "$new_fps_override" == Enabled ]] && fps_override_value=1 || fps_override_value=0
 [[ "$new_controller" == Enabled* ]] && controller_value=1 || controller_value=0
 [[ "$new_launcher" == 'Skip Unity launcher' ]] && launcher_value=1 || launcher_value=0
 [[ "$new_unsupported" == Attempt* ]] && unsupported_value=1 || unsupported_value=0
@@ -179,7 +169,7 @@ if [[ "$unsupported_value" == 1 ]]; then
 fi
 
 set_launcher_wrapper "$launcher_value"
-apply_values "$new_width" "$new_height" "$new_fov" "$new_fps" "$ultrawide_value" "$fps_override_value" "$controller_value" "$launcher_value" "$new_language" "$unsupported_value"
+apply_values "$new_width" "$new_height" "$new_fov" "$ultrawide_value" "$controller_value" "$launcher_value" "$new_language" "$unsupported_value"
 
 launch_note='Steam launch options were left unchanged.'
 if [[ "$steam_mode" != 'Keep current Steam options' ]]; then
@@ -203,4 +193,4 @@ fi
 status='supported executable'
 show_status >/dev/null 2>&1 || status='UNSUPPORTED executable; the DLL will fail safely'
 zenity --info --title='MGS4 Ultra120' \
-  --text="Saved: ultrawide ${new_ultrawide}, ${new_width}x${new_height}, FOV ${new_fov}; FPS override ${new_fps_override}, ${new_fps}, hotkey ${new_hotkey}; controller fix ${new_controller}; ${new_launcher}.\n${launch_note}\nStatus: ${status}."
+  --text="Saved: ultrawide ${new_ultrawide}, ${new_width}x${new_height}, FOV ${new_fov}; controller fix ${new_controller}; ${new_launcher}.\n${launch_note}\nStatus: ${status}."

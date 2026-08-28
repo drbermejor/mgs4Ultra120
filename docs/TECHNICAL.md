@@ -24,6 +24,12 @@ setter at `0x65f050` substitutes them when resolution state changes. This is
 event-driven and replaces an early diagnostic prototype that rewrote globals
 periodically.
 
+This hook changes the render projection, not the game's world visibility or
+occlusion bounds. A reported side-pop-in problem at `FOVMultiplier > 1.000` is
+therefore consistent with culling still using the original FOV. Until a
+separate culling structure is identified and validated, `1.000` is the safe
+recommendation; widening the projection is considered experimental.
+
 ## Frame rate ownership
 
 The current Windows MGS4Ultra120 ASI does not write the frame-limit field and

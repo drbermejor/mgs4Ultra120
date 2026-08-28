@@ -225,7 +225,7 @@ $Ui = @{
         ImprovedFpsOff = "Core mode: optional MGSFPSUnlock is not installed"
         Width = "Render width"; Height = "Render height"
         AutoSize = "Primary monitor physical size"
-        Fov = "FOV multiplier (1.00 = original)"
+        Fov = "FOV (1.00 original; >1 may cause side pop-in)"
         Presentation = "Windows presentation"
         DisplayItems = @("Windowed at native size (recommended)", "Exclusive fullscreen (advanced)")
         FrameRate = "Frame-rate limit"

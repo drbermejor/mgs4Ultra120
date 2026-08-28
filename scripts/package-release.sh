@@ -133,6 +133,11 @@ fi
 
 if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
   linux_root="$(make_tree linux)"
+  # A package created from a Windows checkout must still contain executable
+  # Unix scripts with LF line endings. Git's global core.autocrlf setting must
+  # never leak CRLF shebangs into the Linux tarball.
+  sed -i 's/\r$//' "$linux_root/scripts/linux/"*.sh \
+    "$linux_root/scripts/linux/"*.py
   chmod +x "$linux_root/scripts/linux/"*.sh "$linux_root/scripts/linux/"*.py
   find "$linux_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
   linux_asset="$DIST/MGS4Ultra120-$VERSION-linux.tar.gz"

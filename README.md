@@ -44,6 +44,9 @@ unlock implementation.
 - A user reported a missing aiming crosshair and apparently zoomed FOV at
   5120x2160. That ultrawide case is still under investigation; it is not
   presented as fixed in this refresh.
+- `FOVMultiplier > 1.000` can expose side pop-in/culling because widening the
+  render projection does not yet widen the game's visibility bounds. Keep
+  `1.000` for the recommended native presentation.
 
 ## Windows downloads
 
@@ -109,13 +112,13 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-Linux remains a separate validation line: the release page retains the
-`v0.3.1-alpha.2` Linux tarball. Do not run the Windows installer under Proton.
-The Linux source documentation now removes an unconditional `gamemoderun`
-dependency that could prevent launch when GameMode was absent. Nested Gamescope
-can still have KDE/Wayland fullscreen issues; verify `gamescope --help`, use
-`Super+F` to toggle fullscreen, or return to the native command. See
-[Linux installation](docs/INSTALL_LINUX.md).
+Linux remains a separate Proton line. The alpha.5 Linux core package removes
+the unconditional `gamemoderun` dependency and refuses to write a Gamescope
+command when Gamescope is missing. It uses the game's normal FPS behavior; the
+external corrected-120 route stays Windows-only until validated under Proton.
+Nested Gamescope can still have KDE/Wayland fullscreen issues; verify
+`gamescope --help`, use `Super+F` to toggle fullscreen, or return to the native
+command. See [Linux installation](docs/INSTALL_LINUX.md).
 
 ## Technical outline
 

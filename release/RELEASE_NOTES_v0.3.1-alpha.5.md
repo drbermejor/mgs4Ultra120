@@ -1,9 +1,9 @@
-# MGS4 Ultra120 v0.3.1-alpha.5 - refreshed Windows release
+# MGS4 Ultra120 v0.3.1-alpha.5 - refreshed Windows and Linux release
 
 This release was refreshed in place so previously shared alpha.5 links remain
 valid. **Redownload the Windows asset you use and verify its new adjacent
-SHA-256 file.** The Linux alpha.2 tarball on this page remains a separate
-release line.
+SHA-256 file.** Linux remains a separate Proton release line; use the alpha.5
+Linux tarball for the corrected current scripts.
 
 ## What it does
 
@@ -66,6 +66,16 @@ provides Ultimate ASI Loader as `winmm.dll`. Confirm the external INI contains
 Contains the portable route, a ready-to-copy `Manual-Install` folder and all
 documentation, licences and notices. Choose one installation route.
 
+### Linux core tarball
+
+`MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz` is the current separate Proton
+package. It fixes the unconditional `gamemoderun` launch failure and does not
+write Gamescope options when Gamescope is missing. It provides ultrawide/FOV,
+controller correction and launcher choice using the game's normal FPS behavior.
+The external corrected-120 ASI route remains Windows-only until tested under
+Proton. The older alpha.2 Linux asset is retained only as the previously tested
+legacy line.
+
 ## Fixes in this refresh
 
 - Preserves the working core/normal-FPS route; improved 120 is additive and
@@ -91,15 +101,17 @@ documentation, licences and notices. Choose one installation route.
 
 - 3440x1440 is the validated ultrawide target. A 5120x2160 report of a missing
   aiming crosshair and apparently zoomed FOV is still under investigation.
+- `FOVMultiplier > 1.000` can reveal side pop-in/culling. The projection widens
+  but the game's visibility bounds have not been identified; keep `1.000` for
+  the recommended native presentation.
 - A full playthrough at corrected 120 FPS has not yet been certified by this
   project. Include both plugin logs when reporting timing issues.
 - On one mixed-refresh NVIDIA multi-monitor Windows setup, G-SYNC/VRR focus
   changes caused red sweep/flicker; the configurator warns but changes no system
   setting.
-- The retained Linux alpha.2 package is not replaced by this Windows refresh.
-  Its old Gamescope example used `gamemoderun` unconditionally; if GameMode is
-  absent, remove that word. KDE/Wayland users can try `Super+F` when the desktop
-  panel remains visible or return to the native launch option.
+- The refreshed Linux scripts have not yet received an end-to-end CachyOS
+  retest. KDE/Wayland users can try `Super+F` when the desktop panel remains
+  visible or return to the native launch option.
 
 Download only from this official release and verify every asset with its
 adjacent `.sha256` file.

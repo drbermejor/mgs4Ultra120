@@ -1,49 +1,35 @@
 # Linux / Proton installation
 
-> **Separate release line:** use the `v0.3.1-alpha.2` Linux tarball. The
-> alpha.5 release page includes this separately validated
-> `v0.3.1-alpha.2` Linux tarball for convenience. Do not run its Windows
-> setup/ZIP under Proton.
+Linux is a separate release line. Use
+`MGS4Ultra120-v0.3.1-alpha.5-linux.tar.gz` for the current core patch. Do not
+run the Windows setup EXE or CMD under Proton.
 
-The tested path is Steam, GE-Proton10-34, the original Unity launcher, and the
-DirectX 12 renderer. Keeping the launcher preserves the normal Steam/Cloud
-workflow.
+The current Linux core provides ultrawide/Hor+ rendering, FOV adjustment, the
+controller-profile correction and the optional direct-launch wrapper. It uses
+the game's normal frame-rate behavior. The external MGSFPSUnlock integration
+is Windows-only until its ASI-loader path has been validated under Proton.
 
-1. Download and extract the release package.
-2. Exit Steam completely. Do not merely close its window.
-3. From the extracted package, run:
+The previously tested environment was Steam, GE-Proton10-34, the original
+Unity launcher and DirectX 12. The alpha.5 Linux scripts fix the unconditional
+`gamemoderun` dependency reported by users, but this refreshed package has not
+yet received an end-to-end CachyOS retest.
+
+## Install
+
+1. Download the Linux tarball and its adjacent `.sha256` file.
+2. Verify the archive, then extract it.
+3. Exit Steam completely; do not merely close its window.
+4. In a terminal inside the extracted folder, run:
 
    ```bash
    ./scripts/linux/install.sh
    ```
 
-4. In Steam, force `GE-Proton10-34` for the game if it is installed.
-5. Launch through Steam. The installer adds
-   `WINEDLLOVERRIDES="winmm=n,b"` without discarding existing launch options.
+5. Force `GE-Proton10-34` for the game if it is installed.
+6. Launch normally through Steam.
 
-If a desktop panel remains visible under KDE/Wayland, wrap the existing Steam
-launch command in Gamescope, substituting the monitor's native mode:
-
-```text
-WINEDLLOVERRIDES="winmm=n,b" gamescope -f --force-windows-fullscreen \
-  -W 3440 -H 1440 -w 3440 -h 1440 -r 240 -- %command%
-```
-
-Confirm that `gamescope --help` works before adding this command. The older
-alpha.2 command included `gamemoderun` unconditionally, so systems without
-GameMode installed could fail to launch at all. GameMode is optional and is no
-longer part of the generated command. Nested Gamescope fullscreen also has
-known compositor-specific problems on KDE/Wayland; press `Super+F` to toggle
-the Gamescope window if the panel remains visible, or return to the native
-`WINEDLLOVERRIDES="winmm=n,b" %command%` launch option.
-
-Run `./scripts/linux/configure.sh gui` for the graphical configurator. It
-controls independent ultrawide/FOV, FPS, controller-profile, launcher and UI
-modules. It can also switch Steam
-between native and Gamescope fullscreen commands without losing the launch
-options backed up by the installer. Steam must be fully closed for that last
-operation. The stable profile keeps FOV 1.000, original UI and 60 FPS;
-centered UI and 120 FPS are separate experiments.
+The installer adds `WINEDLLOVERRIDES="winmm=n,b"` without discarding existing
+Steam launch options.
 
 The default game directory is:
 
@@ -51,14 +37,60 @@ The default game directory is:
 ~/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4
 ```
 
-For another library, pass the directory containing `mgs4.exe`:
+For another Steam library, pass the folder containing `mgs4.exe`:
 
 ```bash
 MGS4_GAME_DIR="/path/to/METAL GEAR SOLID 4/MGS4" ./scripts/linux/install.sh
 ```
 
-To remove the patch, exit Steam and run `./scripts/linux/uninstall.sh` with the
-same `MGS4_GAME_DIR` if one was used. The uninstaller restores files and Steam
-launch options only when they still match the installer's recorded state.
-The optional Unity launcher replacement receives the same hash-checked restore
-protection, so a launcher updated by Steam is never overwritten blindly.
+## Configure
+
+Run:
+
+```bash
+./scripts/linux/configure.sh gui
+```
+
+The GUI controls ultrawide/FOV, the controller fix, the optional Unity-launcher
+bypass and the Linux fullscreen command. The stable profile is available
+without a GUI:
+
+```bash
+./scripts/linux/configure.sh stable
+```
+
+## KDE / Wayland panel remains visible
+
+First confirm that this command works:
+
+```bash
+gamescope --help
+```
+
+Then select **Gamescope fullscreen** in the configurator, or use the following
+Steam launch option with the monitor's native size and refresh rate:
+
+```text
+WINEDLLOVERRIDES="winmm=n,b" gamescope -f --force-windows-fullscreen \
+  -W 3440 -H 1440 -w 3440 -h 1440 -r 240 -- %command%
+```
+
+GameMode is optional and is not inserted. The configurator leaves Steam launch
+options unchanged if `gamescope` is missing. If the KDE panel remains visible,
+try `Super+F` to toggle the Gamescope window or return to the native option:
+
+```text
+WINEDLLOVERRIDES="winmm=n,b" %command%
+```
+
+## Uninstall
+
+Exit Steam and run:
+
+```bash
+./scripts/linux/uninstall.sh
+```
+
+Use the same `MGS4_GAME_DIR` override if one was used for installation. The
+uninstaller restores files, launcher and Steam options only when their recorded
+state still matches, so an external update is not overwritten blindly.

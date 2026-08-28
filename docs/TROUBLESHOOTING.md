@@ -20,7 +20,13 @@ a complete quoted path such as:
 ```
 
 is expected. Choose **Continue** to proceed. `-ctrltype AUTO` identifies the
-original launcher path; it does not mean that the patch failed.
+original launcher path; it does not mean that the main DLL patch failed.
+
+If approving the arguments opens the Unity launcher again and produces the
+same prompt repeatedly, stop the loop and enable **Skip the Unity launcher** in
+the MGS4 Ultra120 configurator. Steam then starts the packaged wrapper at its
+normal launcher path, and the wrapper starts `mgs4.exe` directly instead of
+submitting another child-launch request to Steam.
 
 The optional direct-launch wrapper is disabled by default. It is a separate
 module from the main `winmm.dll` patch and can be enabled under **Skip the Unity
@@ -34,6 +40,10 @@ launcher** in the configurator.
 The main log should contain `Configuration:` and the enabled hook messages. If
 it is missing, confirm that `winmm.dll` and `mgs4_ultrawide.ini` are beside
 `mgs4.exe`, not beside the top-level Unity launcher.
+
+Repeated `Configuration:` lines without the later hook messages can mean that
+`mgs4.exe` is being started and immediately sent back to the original launcher.
+Use the direct-launch option above, then check the wrapper log.
 
 ## What to attach to an issue
 

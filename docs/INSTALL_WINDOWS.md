@@ -19,7 +19,10 @@ Steam can display **Launch Game with custom arguments** after the original
 Unity launcher starts the game. This is Steam's confirmation dialog, not an
 MGS4 Ultra120 error. If the displayed command contains a complete quoted
 `-launcherroot "...\\METAL GEAR SOLID 4\\launcher"` path, choose **Continue**.
-Choosing **Cancel** cancels the launch.
+Choosing **Cancel** cancels the launch. If **Continue** returns to the Unity
+launcher and the same prompt repeats, close it, reopen the configurator and
+enable **Skip the Unity launcher** before saving. This avoids Steam routing the
+child request back through the launcher entry again.
 
 `-ctrltype AUTO` in that dialog means the original Unity launcher is active.
 The separate **Skip the Unity launcher** module is opt-in: enable it in the

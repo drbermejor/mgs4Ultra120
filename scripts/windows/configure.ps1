@@ -191,7 +191,7 @@ $ControllerFixBox = [Windows.Forms.CheckBox]@{
     Checked = (Get-IniValue "ControllerProfileFixEnabled") -eq "1"
 }
 $SkipLauncherBox = [Windows.Forms.CheckBox]@{
-    Text = "Skip the Unity launcher while keeping the normal Steam launch path"
+    Text = "Skip the Unity launcher (recommended if Steam launch loops)"
     Location = [Drawing.Point]::new(30, 397); Size = [Drawing.Size]::new(560, 27)
     Checked = (Get-IniValue "SkipUnityLauncher") -eq "1"
 }
@@ -213,7 +213,7 @@ $Status = [Windows.Forms.Label]@{
     Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold)
 }
 $Warning = [Windows.Forms.Label]@{
-    Text = "All checkboxes are independent. 120 FPS can stall scripted scenes. The controller fix preserves the active native pad profile; it does not emulate a controller. UI safe area remains experimental."
+    Text = "All checkboxes are independent. 120 FPS can stall scripted scenes. If Steam repeatedly returns to the Unity launcher, enable Skip the Unity launcher. The controller fix preserves the native pad profile. UI safe area remains experimental."
     Location = [Drawing.Point]::new(30, 519); Size = [Drawing.Size]::new(550, 82)
 }
 $Form.Controls.AddRange(@($Status, $Warning))

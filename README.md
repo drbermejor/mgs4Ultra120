@@ -40,6 +40,16 @@ the game and releases that state after all controllers disconnect.
   forced-16:9 compositor path is still under investigation; real-time engine
   cinematics already use the corrected projection.
 
+## Screenshots
+
+[![3440x1440 ultrawide gameplay](https://i.imgur.com/LTIi1EJ.png)](https://imgur.com/LTIi1EJ)
+
+[![3440x1440 ultrawide gameplay and UI](https://i.imgur.com/tmhkhzc.jpg)](https://imgur.com/tmhkhzc)
+
+These 3440x1440 captures show the stable Hor+ world-rendering mode. They use
+the game's original UI behavior; they do **not** show the unfinished
+proportional/anchored UI prototype.
+
 ## Important limitations
 
 - **120 FPS is not gameplay-safe yet.** It reaches 120 FPS, but a scripted
@@ -67,6 +77,7 @@ and opens the graphical configurator. No PowerShell commands or manual file
 copying are required for the normal path.
 
 - [Windows installation](docs/INSTALL_WINDOWS.md)
+- [Troubleshooting and log files](docs/TROUBLESHOOTING.md)
 - [Linux / Proton installation](docs/INSTALL_LINUX.md)
 - [Configuration and independent combinations](docs/CONFIGURATION.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)

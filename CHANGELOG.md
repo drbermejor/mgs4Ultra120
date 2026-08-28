@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.1-alpha.2
+
+- Fixed the Windows configurator crashing while initializing render widths
+  above the WinForms default maximum of 100.
+- Confirmed the width and height controls accept values through 16384,
+  including 5120x1440 displays.
+
 ## v0.3.1-alpha.1
 
 - Added a Windows easy-setup window launched by double-clicking

@@ -134,10 +134,18 @@ function Add-Label([string]$Text, [int]$Y) {
 }
 function Add-Numeric([int]$Y, [decimal]$Minimum, [decimal]$Maximum, [decimal]$Value, [int]$Decimals = 0) {
     $Control = [Windows.Forms.NumericUpDown]@{
-        Location = [Drawing.Point]::new(270, $Y - 3); Size = [Drawing.Size]::new(150, 26)
-        Minimum = $Minimum; Maximum = $Maximum; Value = $Value; DecimalPlaces = $Decimals
+        Location = [Drawing.Point]::new(270, $Y - 3)
+        Size = [Drawing.Size]::new(150, 26)
     }
+    # PowerShell hashtable property assignment order is not guaranteed. Setting
+    # Value in the initializer can therefore happen before Maximum, while the
+    # WinForms control still has its default maximum of 100. That made valid
+    # widths such as 3440 or 5120 abort the configurator at startup.
+    $Control.DecimalPlaces = $Decimals
+    $Control.Minimum = $Minimum
+    $Control.Maximum = $Maximum
     if ($Decimals -gt 0) { $Control.Increment = 0.05 }
+    $Control.Value = $Value
     $Form.Controls.Add($Control); return $Control
 }
 

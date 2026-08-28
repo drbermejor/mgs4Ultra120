@@ -6,7 +6,7 @@ user can enable ultrawide only, 120 FPS only, the controller fix only, any
 combination of them, or all modules together.
 
 > **Public alpha.** Back up your saves and read the limitations. Version
-> `v0.3.1-alpha.1` is verified against one Steam executable. Other builds are
+> `v0.3.1-alpha.2` is verified against one Steam executable. Other builds are
 > blocked by default but can be attempted with an explicit unsafe override.
 
 ## Modules

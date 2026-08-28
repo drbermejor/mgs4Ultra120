@@ -9,6 +9,8 @@ if (-not [IO.File]::Exists([IO.Path]::Combine($GameDir, "mgs4.exe"))) {
 }
 
 $PatchFilesExist = (Test-Path -LiteralPath (Join-Path $GameDir "winmm.dll")) -or
+    (Test-Path -LiteralPath (Join-Path (Join-Path $GameDir "scripts") `
+        "MGS4Ultra120.asi")) -or
     (Test-Path -LiteralPath (Join-Path $GameDir "mgs4_ultrawide.ini")) -or
     (Test-Path -LiteralPath (Join-Path $GameDir ".mgs4ultra120-backup"))
 if ($PatchFilesExist) {

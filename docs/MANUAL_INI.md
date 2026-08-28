@@ -1,19 +1,22 @@
 # Manual DLL and INI installation
 
-The portable manual route uses the same two files as the graphical installer:
+The alpha.4 ASI preview manual route uses these files from the Windows ZIP:
 
 - `bin/winmm.dll`
+- `bin/MGS4Ultra120.asi`
 - `config/mgs4_ultrawide.ini`
 
-Close the game, copy both files into the folder containing `mgs4.exe` (normally
-`...steamapps\common\METAL GEAR SOLID 4\MGS4`) and start the game through
-Steam. The patch never replaces `mgs4.exe`.
+Close the game. Copy `winmm.dll` and the INI into the folder containing
+`mgs4.exe` (normally `...steamapps\common\METAL GEAR SOLID 4\MGS4`). Create a
+`scripts` folder there and copy `MGS4Ultra120.asi` into it. Then start the game
+through Steam. The patch never replaces `mgs4.exe`.
 
 This copy-only route does not enable the direct-launch wrapper. To skip Unity,
 use the GUI/CMD setup once or follow the separately documented reversible
-launcher procedure. Do not overwrite an existing `winmm.dll` from another mod
-without backing it up; DLL proxy mods at the same filename must be combined by
-their authors rather than stacked.
+launcher procedure. `winmm.dll` is pinned Ultimate ASI Loader `v9.7.4`; if a
+compatible x64 Ultimate ASI Loader already exists under another supported proxy
+name, use only one loader and follow that mod's plugin instructions. Do not
+overwrite an unknown proxy without a backup.
 
 ## Editing the shared configuration
 
@@ -52,6 +55,7 @@ open the configurator and click **Save settings** once when changing
 presentation mode. Do not map `DisplayMode` to the wrapper's `-resolution`
 token: native tracing shows that token remains slot `0` in both modes.
 
-To remove a purely manual installation, close the game and remove only the
-`winmm.dll` and `mgs4_ultrawide.ini` that you copied. If either filename
-existed before installation, restore your own backup instead.
+To remove a purely manual alpha.4 installation, close the game and remove only
+`scripts/MGS4Ultra120.asi`, `mgs4_ultrawide.ini`, and the `winmm.dll` you
+personally copied. Do not remove `winmm.dll` when it was already used by
+another ASI mod. Restore your own backups for every pre-existing filename.

@@ -57,9 +57,33 @@ set_target_properties(mgs4_ultrawide PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 target_compile_features(mgs4_ultrawide PRIVATE cxx_std_17)
-target_compile_definitions(mgs4_ultrawide PRIVATE _WIN32_WINNT=0x0A00)
+target_compile_definitions(mgs4_ultrawide PRIVATE
+    _WIN32_WINNT=0x0A00
+    MGS4ULTRA120_WINMM_PROXY=1
+)
 target_include_directories(mgs4_ultrawide PRIVATE "${WINMM_GENERATED_DIR}")
 target_link_libraries(mgs4_ultrawide PRIVATE minhook)
+
+# Preview Windows distribution: the patch is a conventional ASI plugin and a
+# pinned Ultimate ASI Loader supplies the independently maintained WinMM proxy.
+# Keep the legacy proxy target above so alpha.3 remains reproducible and its
+# full export-table regression test continues to run.
+add_library(mgs4_ultrawide_asi SHARED
+    src/mgs4_ultrawide.cpp
+)
+set_target_properties(mgs4_ultrawide_asi PROPERTIES
+    OUTPUT_NAME MGS4Ultra120
+    PREFIX ""
+    SUFFIX ".asi"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+target_compile_features(mgs4_ultrawide_asi PRIVATE cxx_std_17)
+target_compile_definitions(mgs4_ultrawide_asi PRIVATE
+    _WIN32_WINNT=0x0A00
+    MGS4ULTRA120_ASI=1
+)
+target_link_libraries(mgs4_ultrawide_asi PRIVATE minhook)
 
 add_executable(mgs4_direct_launcher WIN32
     launcher_wrapper/mgs4_direct_launcher.cpp
@@ -94,10 +118,26 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
             -Wrapper "$<TARGET_FILE:mgs4_direct_launcher>"
             -Probe "$<TARGET_FILE:launcher_args_probe>"
     )
+    add_executable(asi_plugin_smoke tests/asi_plugin_smoke.cpp)
+    target_compile_features(asi_plugin_smoke PRIVATE cxx_std_17)
+    set_target_properties(asi_plugin_smoke PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+    add_test(NAME asi_plugin_smoke
+        COMMAND asi_plugin_smoke "$<TARGET_FILE:mgs4_ultrawide_asi>"
+    )
+    add_executable(asi_loader_probe tests/asi_loader_probe.cpp)
+    target_compile_features(asi_loader_probe PRIVATE cxx_std_17)
+    set_target_properties(asi_loader_probe PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
 endif()
 
 if(MINGW)
     target_link_options(mgs4_ultrawide PRIVATE -static -static-libgcc -static-libstdc++)
+    target_link_options(mgs4_ultrawide_asi PRIVATE
+        -static -static-libgcc -static-libstdc++
+    )
     target_link_options(mgs4_direct_launcher PRIVATE
         -municode -static -static-libgcc -static-libstdc++
     )

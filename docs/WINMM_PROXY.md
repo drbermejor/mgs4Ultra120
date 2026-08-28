@@ -1,5 +1,10 @@
 # WinMM proxy release gate
 
+> This remains the reproducibility gate for the recommended alpha.3 combined
+> proxy. Alpha.4 keeps this build/test target but distributes pinned Ultimate
+> ASI Loader plus `MGS4Ultra120.asi`; see
+> [ASI migration preview](ASI_MIGRATION.md).
+
 ## Windows failure found in v0.3.1-alpha.2
 
 The original proxy exported only `timeBeginPeriod` and `timeGetTime`. That was

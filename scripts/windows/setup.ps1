@@ -6,8 +6,8 @@ Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $Ui = @{
         Form = "MGS4 Ultra120 - Easy setup"
-        Title = "Install and configure MGS4 Ultra120"
-        Help = "Recommended path: verify the detected folder and click the blue button. The game must be closed. You do not need to copy files or use PowerShell."
+        Title = "Install MGS4 Ultra120 - ASI migration preview"
+        Help = "Alpha.3 remains the recommended release. To test this preview, verify the detected folder and click the blue button. The game must be closed."
         Path = "Game folder (must contain mgs4.exe):"
         Found = "Game detected correctly"
         Missing = "mgs4.exe was not found: correct the folder before continuing"

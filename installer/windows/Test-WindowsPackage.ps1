@@ -8,6 +8,7 @@ $PackageDir = (Resolve-Path -LiteralPath $PackageDir).Path
 $RequiredFiles = @(
     "MGS4Ultra120-Setup.cmd",
     "bin\winmm.dll",
+    "bin\MGS4Ultra120.asi",
     "bin\launcher.exe",
     "config\mgs4_ultrawide.ini",
     "scripts\windows\setup.ps1",
@@ -15,13 +16,40 @@ $RequiredFiles = @(
     "scripts\windows\install.ps1",
     "scripts\windows\configure.ps1",
     "scripts\windows\uninstall.ps1",
-    "scripts\windows\uninstall-installed-package.ps1"
+    "scripts\windows\uninstall-installed-package.ps1",
+    "third_party\ultimate_asi_loader\LICENSE.txt",
+    "third_party\ultimate_asi_loader\README.md"
 )
 
 foreach ($RelativePath in $RequiredFiles) {
     $Path = Join-Path $PackageDir $RelativePath
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "Required package file is missing: $RelativePath"
+    }
+}
+
+$ExpectedLoaderHash =
+    "031A3E5576D91DCE1E438D36B9A3D462C7334AB4791990A8FF1E3DDC0E132DAF"
+$LoaderPath = Join-Path $PackageDir "bin\winmm.dll"
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath $LoaderPath).Hash -ne
+    $ExpectedLoaderHash) {
+    throw "The package does not contain the pinned Ultimate ASI Loader v9.7.4."
+}
+$LoaderInfo = (Get-Item -LiteralPath $LoaderPath).VersionInfo
+if ($LoaderInfo.FileDescription -ne "Ultimate ASI Loader" -or
+    $LoaderInfo.ProductVersion -notlike "9.7.4*") {
+    throw "Ultimate ASI Loader version metadata is incorrect."
+}
+foreach ($RelativePath in @("bin\winmm.dll", "bin\MGS4Ultra120.asi")) {
+    $Bytes = [IO.File]::ReadAllBytes((Join-Path $PackageDir $RelativePath))
+    if ($Bytes.Length -lt 256 -or $Bytes[0] -ne 0x4d -or $Bytes[1] -ne 0x5a) {
+        throw "$RelativePath is not a valid PE image."
+    }
+    $PeOffset = [BitConverter]::ToInt32($Bytes, 0x3c)
+    if ($PeOffset -lt 0 -or $PeOffset + 6 -gt $Bytes.Length -or
+        [BitConverter]::ToUInt32($Bytes, $PeOffset) -ne 0x00004550 -or
+        [BitConverter]::ToUInt16($Bytes, $PeOffset + 4) -ne 0x8664) {
+        throw "$RelativePath is not an x86-64 PE image."
     }
 }
 
@@ -49,6 +77,7 @@ $LauncherDir = Join-Path $SmokeRoot "steamapps\common\METAL GEAR SOLID 4\Launche
 $LauncherSettingsDir = Join-Path $SmokeRoot `
     "steamapps\common\METAL GEAR SOLID 4\mgs4_savedata_win\123\launcher"
 $PreexistingDll = [Text.Encoding]::UTF8.GetBytes("pre-existing winmm test file")
+$PreexistingAsi = [Text.Encoding]::UTF8.GetBytes("pre-existing ASI test file")
 $PreexistingIni = [Text.Encoding]::UTF8.GetBytes("pre-existing ini test file")
 $PreexistingLauncher = [Text.Encoding]::UTF8.GetBytes("pre-existing launcher test file")
 
@@ -59,6 +88,11 @@ try {
     [IO.File]::WriteAllBytes((Join-Path $GameDir "mgs4.exe"),
         [Text.Encoding]::UTF8.GetBytes("MGS4 Ultra120 smoke-test placeholder"))
     [IO.File]::WriteAllBytes((Join-Path $GameDir "winmm.dll"), $PreexistingDll)
+    New-Item -ItemType Directory -Path (Join-Path $GameDir "scripts") `
+        -Force | Out-Null
+    [IO.File]::WriteAllBytes(
+        (Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi"),
+        $PreexistingAsi)
     [IO.File]::WriteAllBytes((Join-Path $GameDir "mgs4_ultrawide.ini"), $PreexistingIni)
     [IO.File]::WriteAllBytes((Join-Path $LauncherDir "launcher.exe"),
         $PreexistingLauncher)
@@ -89,6 +123,21 @@ try {
         ".mgs4ultra120-backup\winmm-installed.sha256"
     if ((Get-Content -Raw -LiteralPath $DllMarker).Trim() -ne $PackageDllHash) {
         throw "The installed DLL hash marker is missing or incorrect."
+    }
+    $InstalledAsi = Join-Path (Join-Path $GameDir "scripts") `
+        "MGS4Ultra120.asi"
+    $PackageAsi = Join-Path $PackageDir "bin\MGS4Ultra120.asi"
+    $InstalledAsiHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $InstalledAsi).Hash
+    $PackageAsiHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $PackageAsi).Hash
+    if ($InstalledAsiHash -ne $PackageAsiHash) {
+        throw "Installed MGS4Ultra120.asi does not match the bundled plugin."
+    }
+    $AsiMarker = Join-Path $GameDir `
+        ".mgs4ultra120-backup\asi-installed.sha256"
+    if ((Get-Content -Raw -LiteralPath $AsiMarker).Trim() -ne $PackageAsiHash) {
+        throw "The installed ASI hash marker is missing or incorrect."
     }
 
     & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
@@ -155,7 +204,25 @@ try {
     }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $InstalledDll).Hash -ne
         $PackageDllHash) {
-        throw "A DLL update did not install the current packaged proxy."
+        throw "A DLL update did not install the current packaged ASI loader."
+    }
+    $OriginalAsiBackup = Join-Path $GameDir `
+        ".mgs4ultra120-backup\MGS4Ultra120.asi.preinstall"
+    $SimulatedOldAsi = [Text.Encoding]::UTF8.GetBytes(
+        "simulated older managed ASI plugin")
+    [IO.File]::WriteAllBytes($InstalledAsi, $SimulatedOldAsi)
+    $SimulatedOldAsiHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $InstalledAsi).Hash
+    [IO.File]::WriteAllText($AsiMarker, $SimulatedOldAsiHash,
+        [Text.Encoding]::ASCII)
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
+        $OriginalAsiBackup)) -ne [Convert]::ToBase64String($PreexistingAsi)) {
+        throw "An ASI update replaced the original pre-install backup."
+    }
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $InstalledAsi).Hash -ne
+        $PackageAsiHash) {
+        throw "An ASI update did not install the current packaged plugin."
     }
     $UpdatedLauncherSettings = Get-Content -Raw -LiteralPath `
         $LauncherSettingsPath | ConvertFrom-Json
@@ -200,6 +267,11 @@ try {
         throw "Uninstall did not restore the pre-existing winmm.dll."
     }
     if ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
+        (Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi"))) -ne
+        [Convert]::ToBase64String($PreexistingAsi)) {
+        throw "Uninstall did not restore the pre-existing ASI plugin."
+    }
+    if ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
         (Join-Path $GameDir "mgs4_ultrawide.ini"))) -ne
         [Convert]::ToBase64String($PreexistingIni)) {
         throw "Uninstall did not restore the pre-existing INI file."
@@ -229,11 +301,67 @@ try {
     }
 
     Remove-Item -Force -LiteralPath (Join-Path $GameDir "winmm.dll")
+    Remove-Item -Force -LiteralPath `
+        (Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi")
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir
     if (Test-Path -LiteralPath (Join-Path $GameDir "winmm.dll")) {
         throw "Clean install/uninstall left the managed winmm.dll behind."
     }
+    if (Test-Path -LiteralPath `
+        (Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi")) {
+        throw "Clean install/uninstall left the managed ASI plugin behind."
+    }
+
+    # A loader supplied by another mod must be reused and left in place. Add a
+    # harmless overlay byte so its hash differs while PE version metadata still
+    # identifies it as Ultimate ASI Loader.
+    $ExternalLoader = [Collections.Generic.List[byte]]::new()
+    $ExternalLoader.AddRange([byte[]][IO.File]::ReadAllBytes($PackageDll))
+    $ExternalLoader.Add(0)
+    [IO.File]::WriteAllBytes((Join-Path $GameDir "winmm.dll"),
+        $ExternalLoader.ToArray())
+    $ExternalLoaderHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $GameDir "winmm.dll")).Hash
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if ((Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $GameDir "winmm.dll")).Hash -ne
+        $ExternalLoaderHash) {
+        throw "Setup replaced an existing compatible Ultimate ASI Loader."
+    }
+    & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir
+    if ((Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $GameDir "winmm.dll")).Hash -ne
+        $ExternalLoaderHash) {
+        throw "Uninstall removed or changed another mod's ASI loader."
+    }
+    Remove-Item -Force -LiteralPath (Join-Path $GameDir "winmm.dll")
+
+    # Version metadata alone is insufficient: an x86 loader cannot be reused
+    # by this x64 game. Corrupt only the PE machine field while retaining the
+    # upstream version resource, then verify setup replaces it safely.
+    $WrongArchitectureLoader = [IO.File]::ReadAllBytes($PackageDll)
+    $WrongArchitecturePeOffset = [BitConverter]::ToInt32(
+        $WrongArchitectureLoader, 0x3c)
+    [BitConverter]::GetBytes([UInt16]0x014c).CopyTo(
+        $WrongArchitectureLoader, $WrongArchitecturePeOffset + 4)
+    [IO.File]::WriteAllBytes((Join-Path $GameDir "winmm.dll"),
+        $WrongArchitectureLoader)
+    $WrongArchitectureHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $GameDir "winmm.dll")).Hash
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if ((Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $GameDir "winmm.dll")).Hash -ne
+        $PackageDllHash) {
+        throw "Setup reused an incompatible x86 Ultimate ASI Loader."
+    }
+    & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir
+    if ((Get-FileHash -Algorithm SHA256 `
+        -LiteralPath (Join-Path $GameDir "winmm.dll")).Hash -ne
+        $WrongArchitectureHash) {
+        throw "Uninstall did not restore the incompatible pre-existing loader."
+    }
+    Remove-Item -Force -LiteralPath (Join-Path $GameDir "winmm.dll")
 
     Write-Host "Windows package smoke test passed."
 } finally {

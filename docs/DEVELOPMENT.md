@@ -9,6 +9,7 @@
 Native Windows build:
 
 ```powershell
+./scripts/windows/fetch-ultimate-asi-loader.ps1
 cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
@@ -22,8 +23,10 @@ cmake -S . -B build-mingw \
 cmake --build build-mingw -j
 ```
 
-Outputs are written under `build*/bin`. MinHook is pinned to commit
-`d94c64d32ea37bc4f5ee47d580709f70c6fb6080`.
+Outputs are written under `build*/bin`: the legacy `winmm.dll`, preview
+`MGS4Ultra120.asi`, direct `launcher.exe` and test probes. MinHook is pinned to
+commit `d94c64d32ea37bc4f5ee47d580709f70c6fb6080`. Ultimate ASI Loader is pinned
+to `v9.7.4`; its fetch script verifies the upstream archive and extracted DLL.
 
 ## Required native-Windows validation
 
@@ -36,6 +39,10 @@ ctest --test-dir build -C Release --output-on-failure
 powershell -NoProfile -File scripts\windows\verify-winmm-proxy.ps1 `
   -ProxyDll build\bin\Release\winmm.dll `
   -SmokeTestExe build\bin\Release\winmm_proxy_smoke.exe
+powershell -NoProfile -File tests\asi_loader_smoke.ps1 `
+  -Loader build-third-party\ultimate-asi-loader\winmm.dll `
+  -Plugin build\bin\Release\MGS4Ultra120.asi `
+  -Probe build\bin\Release\asi_loader_probe.exe
 ```
 
 Then complete the in-game checklist in [WinMM proxy release gate](WINMM_PROXY.md).
@@ -55,19 +62,19 @@ After a clean successful build, create the platform packages from the repo
 root with:
 
 ```bash
-./scripts/package-release.sh v0.3.1-alpha.3 windows
+./scripts/package-release.sh v0.3.1-alpha.4 windows
 ```
 
 To package MSVC output from Git Bash instead of the default MinGW directory:
 
 ```bash
 MGS4ULTRA120_BIN_DIR="$PWD/build/bin/Release" \
-  ./scripts/package-release.sh v0.3.1-alpha.3 windows
+MGS4ULTRA120_ASI_LOADER="$PWD/build-third-party/ultimate-asi-loader/winmm.dll" \
+  ./scripts/package-release.sh v0.3.1-alpha.4 windows
 ```
 
-The script refuses to package a missing DLL or direct-launch wrapper, copies
-only redistributable project files, and emits a SHA-256 checksum beside each
-selected platform archive. Use `linux` for a Linux-only package or `all` when a
-release intentionally contains both platform lines. Alpha.3 is packaged as a
-Windows-only repair; Linux users remain on the prior validated line. GitHub's
-automatically generated source archives remain the canonical source packages.
+The script refuses to package a missing loader, ASI or direct-launch wrapper,
+copies only redistributable files and emits a SHA-256 checksum beside each
+selected archive. The alpha.4 preview is Windows-only. Alpha.3 remains the
+recommended native release and Linux users remain on the prior separately
+validated line. GitHub's generated archives remain the source packages.

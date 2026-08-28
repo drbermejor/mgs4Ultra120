@@ -43,11 +43,67 @@ if (Test-Path -LiteralPath $LauncherBackup) {
         Write-Warning "Launcher changed outside MGS4 Ultra120; preserving it and the launcher backup."
     }
 }
+$AsiConflict = $false
+$AsiTarget = Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi"
+$AsiBackup = Join-Path $BackupDir "MGS4Ultra120.asi.preinstall"
+$AsiHashMarker = Join-Path $BackupDir "asi-installed.sha256"
+if (Test-Path -LiteralPath $AsiTarget) {
+    $BundledAsi = Join-Path $PackageDir "bin\MGS4Ultra120.asi"
+    $ManagedHashes = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::OrdinalIgnoreCase)
+    if (Test-Path -LiteralPath $BundledAsi) {
+        [void]$ManagedHashes.Add((Get-FileHash -Algorithm SHA256 `
+            -LiteralPath $BundledAsi).Hash)
+    }
+    if (Test-Path -LiteralPath $AsiHashMarker) {
+        $RecordedHash = (Get-Content -Raw -LiteralPath $AsiHashMarker).Trim()
+        if ($RecordedHash -match '^[0-9a-fA-F]{64}$') {
+            [void]$ManagedHashes.Add($RecordedHash)
+        }
+    }
+    if ($ManagedHashes.Contains((Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $AsiTarget).Hash)) {
+        if (Test-Path -LiteralPath $AsiBackup) {
+            Move-Item -Force -LiteralPath $AsiBackup -Destination $AsiTarget
+        } else {
+            Remove-Item -Force -LiteralPath $AsiTarget
+        }
+        Remove-Item -Force -LiteralPath $AsiHashMarker `
+            -ErrorAction SilentlyContinue
+    } else {
+        $AsiConflict = $true
+        Write-Warning "MGS4Ultra120.asi changed outside setup; preserving it and its backup."
+    }
+} elseif (Test-Path -LiteralPath $AsiBackup) {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $AsiTarget) |
+        Out-Null
+    Move-Item -Force -LiteralPath $AsiBackup -Destination $AsiTarget
+    Remove-Item -Force -LiteralPath $AsiHashMarker -ErrorAction SilentlyContinue
+} else {
+    Remove-Item -Force -LiteralPath $AsiHashMarker -ErrorAction SilentlyContinue
+}
+$ScriptsDir = Join-Path $GameDir "scripts"
+if ((Test-Path -LiteralPath $ScriptsDir -PathType Container) -and
+    -not (Get-ChildItem -Force -LiteralPath $ScriptsDir | Select-Object -First 1)) {
+    Remove-Item -Force -LiteralPath $ScriptsDir
+}
+
 $DllConflict = $false
 $DllTarget = Join-Path $GameDir "winmm.dll"
 $DllBackup = Join-Path $BackupDir "winmm.dll.preinstall"
 $DllHashMarker = Join-Path $BackupDir "winmm-installed.sha256"
-if (Test-Path -LiteralPath $DllTarget) {
+$DllReuseMarker = Join-Path $BackupDir "winmm-reused.sha256"
+$ReusedLoader = Test-Path -LiteralPath $DllReuseMarker
+if ($ReusedLoader) {
+    # The loader belonged to another mod before this installation. Never
+    # remove or restore over it, even if that other mod updated it meanwhile.
+    if (Test-Path -LiteralPath $DllBackup) {
+        $DllConflict = $true
+        Write-Warning "A reused ASI loader is active while an older winmm.dll backup still exists; preserving both and the setup files."
+    }
+    Remove-Item -Force -LiteralPath $DllReuseMarker -ErrorAction SilentlyContinue
+    Remove-Item -Force -LiteralPath $DllHashMarker -ErrorAction SilentlyContinue
+} elseif (Test-Path -LiteralPath $DllTarget) {
     $BundledDll = Join-Path $PackageDir "bin\winmm.dll"
     $ManagedHashes = [Collections.Generic.HashSet[string]]::new(
         [StringComparer]::OrdinalIgnoreCase)
@@ -90,7 +146,7 @@ if (Test-Path -LiteralPath $IniBackup) {
 } else {
     Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $IniTarget
 }
-if (-not $LauncherConflict -and -not $DllConflict) {
+if (-not $LauncherConflict -and -not $DllConflict -and -not $AsiConflict) {
     Remove-Item -Force -Recurse -ErrorAction SilentlyContinue -LiteralPath $BackupDir
 }
 Clear-Mgs4Ultra120GameDir $GameDir
@@ -99,5 +155,8 @@ if ($LauncherConflict) {
     throw "The launcher changed outside MGS4 Ultra120. The launcher and its backup were preserved; setup files must remain installed until this conflict is resolved."
 }
 if ($DllConflict) {
-    throw "winmm.dll changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
+    throw "winmm.dll ownership changed outside MGS4 Ultra120. Active and backed-up files were preserved; setup files must remain installed until this conflict is resolved."
+}
+if ($AsiConflict) {
+    throw "MGS4Ultra120.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
 }

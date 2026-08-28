@@ -8,6 +8,8 @@ combination of them, or all modules together.
 > **Public alpha.** Back up your saves and read the limitations. Version
 > `v0.3.1-alpha.3` is verified against one Steam executable. Other builds are
 > blocked by default but can be attempted with an explicit unsafe override.
+> The `v0.3.1-alpha.4` ASI migration is a separately published preview from an
+> open PR. **Alpha.3 remains the recommended validated Windows release.**
 
 ## Modules
 
@@ -63,7 +65,8 @@ Windows and Linux/Proton are maintained as separate validated release lines:
 
 | Platform | Validated release | Download |
 |---|---|---|
-| Native Windows | `v0.3.1-alpha.3` | Unsigned setup EXE (recommended) or portable Windows ZIP |
+| Native Windows (recommended) | `v0.3.1-alpha.3` | Validated unsigned setup EXE or portable Windows ZIP |
+| Native Windows ASI preview | `v0.3.1-alpha.4` | PR prerelease; does not supersede alpha.3 |
 | Linux / Proton | `v0.3.1-alpha.2` | Linux tarball from the previous release |
 
 The alpha.3 release intentionally contains only Windows assets. Linux users
@@ -84,11 +87,19 @@ and requests a native-size window. In the tested 3440x1440 setup this occupied
 the complete monitor without a title bar while avoiding an exclusive display
 mode switch. Exclusive fullscreen remains available as an advanced option.
 
+The alpha.4 preview follows the conventional Lyall-style ASI layout: pinned
+Ultimate ASI Loader `v9.7.4` is the independent `winmm.dll` proxy and the patch
+is `scripts/MGS4Ultra120.asi`. The INI remains beside `mgs4.exe`, so the GUI,
+portable CMD and manual editor stay compatible. Setup migrates alpha.3 in
+place, preserves its original backups, and reuses a compatible ASI loader from
+another mod without claiming or removing it.
+
 **Linux / Proton:** use only the Linux tarball and follow the separate Linux
 guide. Its shell installer, Steam launch options and Gamescope path are not used
 by the native-Windows installer.
 
 - [Windows installation](docs/INSTALL_WINDOWS.md)
+- [ASI migration preview and acceptance record](docs/ASI_MIGRATION.md)
 - [Manual DLL and INI installation](docs/MANUAL_INI.md)
 - [Windows troubleshooting](docs/TROUBLESHOOTING_WINDOWS.md)
 - [Linux / Proton installation](docs/INSTALL_LINUX.md)
@@ -97,9 +108,11 @@ by the native-Windows installer.
 - [Controller profile fix](docs/CONTROLLER_FIX.md)
 - [UI and pre-rendered video status](docs/UI_AND_VIDEO.md)
 
-The patch never edits `mgs4.exe`. It loads through a reversible `winmm.dll`
-proxy beside the executable. The optional direct-launch feature temporarily
-replaces `Launcher/launcher.exe`, retains a private backup and restores it only
+The patch never edits `mgs4.exe`. Alpha.3 loads through the project's
+reversible `winmm.dll` proxy. The alpha.4 preview uses Ultimate ASI Loader as
+`winmm.dll` and keeps project code in `scripts/MGS4Ultra120.asi`. The optional
+direct-launch feature temporarily replaces `Launcher/launcher.exe`, retains a
+private backup and restores it only
 after verifying that the active file is our wrapper.
 
 The alpha.3 wrapper uses the game's official `mgs4_param` bootstrap without
@@ -113,6 +126,10 @@ a native-size window with all patch modules disabled. Auto HDR and windowed-game
 optimizations did not eliminate it; Windows recorded display `WATCHDOG`
 `LiveKernelEvent` reports. With **G-SYNC/VRR disabled**, ten focus transitions
 were clean, including the final 3440x1440 test with every stable module enabled.
+The ASI preview also passed 20 programmatically confirmed foreground changes
+across the same monitors with zero new crash dumps or reliability/display
+events. This is encouraging but does not establish the loader architecture as
+a universal fix for a scan-out/VRR problem that desktop capture may miss.
 The configurator warns on NVIDIA multi-monitor systems but never alters driver
 settings. If a display remains affected after closing the game,
 `Win+Ctrl+Shift+B` resets the Windows graphics pipeline. See the troubleshooting
@@ -135,8 +152,9 @@ rewrite loop. See [Technical notes](docs/TECHNICAL.md) for safeguards and
 known offsets.
 
 Build instructions are in [Development](docs/DEVELOPMENT.md). Contributions
-are welcome under the [MIT License](LICENSE). MinHook retains its BSD license;
-see [third-party notices](THIRD_PARTY_NOTICES.md).
+are welcome under the [MIT License](LICENSE). MinHook retains its BSD license
+and Ultimate ASI Loader its MIT license; see
+[third-party notices](THIRD_PARTY_NOTICES.md).
 
 This is an unofficial community project. It contains no game files and is not
 affiliated with or endorsed by KONAMI.

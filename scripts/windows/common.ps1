@@ -3,8 +3,33 @@ $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
     # in-place alpha.3 update adopt the old project DLL instead of backing it
     # up as if it belonged to another mod.
-    "C3B28D0307EF4DF2E029930168FF691224923A7F84F8CC6DD5522CDF002C7D9B"
+    "C3B28D0307EF4DF2E029930168FF691224923A7F84F8CC6DD5522CDF002C7D9B",
+    # Final native alpha.3 proxy. Manual alpha.3 installations did not always
+    # have an ownership marker, so alpha.4 must still migrate them safely.
+    "9BB4022045C63EA94868C3AA4D9DA52D3E37CA56CFC0E859AFF122F6EB818BEB"
 )
+
+function Test-UltimateAsiLoader([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    try {
+        $Info = (Get-Item -LiteralPath $Path).VersionInfo
+        if ($Info.FileDescription -ne "Ultimate ASI Loader" -or
+            $Info.ProductName -notlike "Ultimate-ASI-Loader-x64*") {
+            return $false
+        }
+        $Bytes = [IO.File]::ReadAllBytes($Path)
+        if ($Bytes.Length -lt 256 -or $Bytes[0] -ne 0x4d -or
+            $Bytes[1] -ne 0x5a) {
+            return $false
+        }
+        $PeOffset = [BitConverter]::ToInt32($Bytes, 0x3c)
+        return $PeOffset -ge 0 -and $PeOffset + 6 -le $Bytes.Length -and
+            [BitConverter]::ToUInt32($Bytes, $PeOffset) -eq 0x00004550 -and
+            [BitConverter]::ToUInt16($Bytes, $PeOffset + 4) -eq 0x8664
+    } catch {
+        return $false
+    }
+}
 
 function Test-Mgs4Ultra120Config([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
@@ -220,7 +245,9 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
     $DllBackup = Join-Path $BackupDir "winmm.dll.preinstall"
     $DllSource = Join-Path $PackageDir "bin\winmm.dll"
     $DllHashMarker = Join-Path $BackupDir "winmm-installed.sha256"
+    $DllReuseMarker = Join-Path $BackupDir "winmm-reused.sha256"
     $SourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $DllSource).Hash
+    $InstallBundledLoader = $true
     if (Test-Path -LiteralPath $DllDestination) {
         $TargetHash = (Get-FileHash -Algorithm SHA256 `
             -LiteralPath $DllDestination).Hash
@@ -232,7 +259,15 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
         $Managed = $TargetHash -eq $SourceHash -or
             ($RecordedHash -and $TargetHash -eq $RecordedHash) -or
             $TargetHash -in $Mgs4Ultra120LegacyDllHashes
-        if (-not $Managed -and -not (Test-Path -LiteralPath $DllBackup)) {
+        if (-not $Managed -and (Test-UltimateAsiLoader $DllDestination)) {
+            # Cooperate with a loader installed by another mod. Record the
+            # exact reused file so uninstall can leave it untouched.
+            $InstallBundledLoader = $false
+            [IO.File]::WriteAllText($DllReuseMarker, $TargetHash,
+                [Text.Encoding]::ASCII)
+            Remove-Item -Force -LiteralPath $DllHashMarker `
+                -ErrorAction SilentlyContinue
+        } elseif (-not $Managed -and -not (Test-Path -LiteralPath $DllBackup)) {
             Copy-Item -LiteralPath $DllDestination -Destination $DllBackup
         } elseif (-not $Managed) {
             $Timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
@@ -240,8 +275,44 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
                 (Join-Path $BackupDir "winmm.dll.displaced.$Timestamp")
         }
     }
-    Copy-Item -Force -LiteralPath $DllSource -Destination $DllDestination
-    [IO.File]::WriteAllText($DllHashMarker, $SourceHash,
+    if ($InstallBundledLoader) {
+        Copy-Item -Force -LiteralPath $DllSource -Destination $DllDestination
+        [IO.File]::WriteAllText($DllHashMarker, $SourceHash,
+            [Text.Encoding]::ASCII)
+        Remove-Item -Force -LiteralPath $DllReuseMarker `
+            -ErrorAction SilentlyContinue
+    }
+
+    $ScriptsDir = Join-Path $GameDir "scripts"
+    New-Item -ItemType Directory -Force -Path $ScriptsDir | Out-Null
+    $AsiDestination = Join-Path $ScriptsDir "MGS4Ultra120.asi"
+    $AsiSource = Join-Path $PackageDir "bin\MGS4Ultra120.asi"
+    $AsiBackup = Join-Path $BackupDir "MGS4Ultra120.asi.preinstall"
+    $AsiHashMarker = Join-Path $BackupDir "asi-installed.sha256"
+    $AsiSourceHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $AsiSource).Hash
+    if (Test-Path -LiteralPath $AsiDestination) {
+        $AsiTargetHash = (Get-FileHash -Algorithm SHA256 `
+            -LiteralPath $AsiDestination).Hash
+        $AsiRecordedHash = $null
+        if (Test-Path -LiteralPath $AsiHashMarker) {
+            $Candidate = (Get-Content -Raw -LiteralPath $AsiHashMarker).Trim()
+            if ($Candidate -match '^[0-9a-fA-F]{64}$') {
+                $AsiRecordedHash = $Candidate
+            }
+        }
+        $AsiManaged = $AsiTargetHash -eq $AsiSourceHash -or
+            ($AsiRecordedHash -and $AsiTargetHash -eq $AsiRecordedHash)
+        if (-not $AsiManaged -and -not (Test-Path -LiteralPath $AsiBackup)) {
+            Copy-Item -LiteralPath $AsiDestination -Destination $AsiBackup
+        } elseif (-not $AsiManaged) {
+            $Timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
+            Copy-Item -LiteralPath $AsiDestination -Destination `
+                (Join-Path $BackupDir "MGS4Ultra120.asi.displaced.$Timestamp")
+        }
+    }
+    Copy-Item -Force -LiteralPath $AsiSource -Destination $AsiDestination
+    [IO.File]::WriteAllText($AsiHashMarker, $AsiSourceHash,
         [Text.Encoding]::ASCII)
 
     $IniDestination = Join-Path $GameDir "mgs4_ultrawide.ini"

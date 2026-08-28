@@ -67,7 +67,20 @@ The official launcher's `-resolution 0` token is a resolution slot, not its
 window/fullscreen flag. Presentation is stored separately as `WindowMode` in
 `launcher_sv`; a traced stock windowed launch retained `-resolution 0`.
 
-## Proxy safeguards
+## Loader architecture and proxy safeguards
+
+The recommended alpha.3 release keeps the patch and complete WinMM forwarding
+table in one project-built DLL. The alpha.4 preview separates them:
+
+```text
+mgs4.exe -> winmm.dll (Ultimate ASI Loader v9.7.4)
+                    -> scripts/MGS4Ultra120.asi (project hooks)
+```
+
+Ultimate ASI Loader is fetched from its official release with pinned archive
+and extracted-DLL SHA-256 values. The project plugin contains no WinMM exports.
+The legacy proxy target remains buildable and tested so alpha.3 stays
+reproducible while the PR is reviewed.
 
 `winmm.dll` mirrors the complete 64-bit system WinMM export table, not only the
 two imports visible in `mgs4.exe`. This is required because native Steam's
@@ -80,10 +93,10 @@ has a transient non-executable protection. Successful hooks keep that code
 executable; restoring the transient value caused a native-Windows execute
 violation at projection RVA `0x0e3410` while Proton had tolerated it.
 
-The proxy uses a pinned MinHook revision. Each major module has a separate enable flag. Disabling
+The patch uses a pinned MinHook revision. Each major module has a separate enable flag. Disabling
 ultrawide avoids all resolution/projection/UI hooks; disabling FPS avoids the
 frame field and hotkey; disabling the controller fix avoids its profile hook.
 
-The DLL and INI normally survive ordinary Steam verification because
+The loader, ASI and INI normally survive ordinary Steam verification because
 `mgs4.exe` is not edited. Compatibility with a replaced executable is never
 assumed; its identity and hook signatures must be analyzed and tested.

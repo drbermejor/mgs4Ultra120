@@ -1,5 +1,9 @@
 # Windows installation
 
+> **Recommended release:** use `v0.3.1-alpha.3` unless you intentionally want
+> to test the `v0.3.1-alpha.4` ASI migration preview. Alpha.4 is published from
+> an open PR and does not supersede the previously validated release.
+
 ## Easy installation (recommended)
 
 1. Download the **Windows setup EXE** from Releases.
@@ -41,6 +45,13 @@ came from this repository's official Releases page and its SHA-256 matches.
 Do not disable SmartScreen or antivirus protection globally. Cancel if the
 source or hash is different.
 
+Chrome may also block the EXE as dangerous or suspicious because it is a new,
+unsigned executable with little reputation. This can be a false positive, but
+never bypass it blindly: use only the official release, verify the adjacent
+SHA-256 and keep antivirus enabled. If you do not trust the EXE, download the
+Windows ZIP, verify it, extract the complete folder and double-click
+`MGS4Ultra120-Setup.cmd`. The CMD opens the same inspectable PowerShell setup.
+
 The ZIP remains available as the portable alternative: extract it and
 double-click **`MGS4Ultra120-Setup.cmd`**. This CMD path is unchanged and opens
 the same setup used by the EXE.
@@ -68,9 +79,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\install.ps1 `
 ```
 
 Launch normally through Steam and select DirectX 12 for the validated world
-path. The centered 16:9 UI path is experimental and disabled by default. The
-installer copies `winmm.dll` and
-`mgs4_ultrawide.ini` next to `mgs4.exe`; it never modifies the executable.
+path. The centered 16:9 UI path is experimental and disabled by default.
+Alpha.3 copies its combined `winmm.dll` patch and `mgs4_ultrawide.ini` next to
+`mgs4.exe`. The alpha.4 preview instead installs Ultimate ASI Loader as
+`winmm.dll`, the project plugin as `scripts/MGS4Ultra120.asi`, and keeps the
+same root INI. Neither layout modifies the executable.
+
+Alpha.4 recognizes an installed alpha.3 ownership marker and migrates it
+without replacing the true pre-alpha backup. If another mod already supplied
+a compatible x64 Ultimate ASI Loader, setup leaves that loader in place and
+installs only the project ASI. Unknown `winmm.dll` and same-name ASI files are
+backed up before replacement; uninstall removes only recorded project files.
 
 Open the graphical configurator while the game is closed:
 

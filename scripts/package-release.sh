@@ -15,10 +15,18 @@ SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-946684800}"
   exit 1
 }
 BIN_DIR="${MGS4ULTRA120_BIN_DIR:-$REPO_DIR/build-mingw/bin}"
-DLL="$BIN_DIR/winmm.dll"
+LEGACY_DLL="$BIN_DIR/winmm.dll"
+ASI_PLUGIN="$BIN_DIR/MGS4Ultra120.asi"
+ASI_LOADER="${MGS4ULTRA120_ASI_LOADER:-$REPO_DIR/build-third-party/ultimate-asi-loader/winmm.dll}"
 WRAPPER="$BIN_DIR/launcher.exe"
-[[ -f "$DLL" ]] || { echo "Build the release DLL first: $DLL" >&2; exit 1; }
 [[ -f "$WRAPPER" ]] || { echo "Build the direct-launch wrapper first: $WRAPPER" >&2; exit 1; }
+if [[ "$PLATFORM" == windows || "$PLATFORM" == all ]]; then
+  [[ -f "$ASI_PLUGIN" ]] || { echo "Build the ASI plugin first: $ASI_PLUGIN" >&2; exit 1; }
+  [[ -f "$ASI_LOADER" ]] || { echo "Fetch the pinned ASI loader first: $ASI_LOADER" >&2; exit 1; }
+fi
+if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
+  [[ -f "$LEGACY_DLL" ]] || { echo "Build the legacy Proton DLL first: $LEGACY_DLL" >&2; exit 1; }
+fi
 
 DIST="$REPO_DIR/dist"
 STAGE="$(mktemp -d)"
@@ -29,7 +37,17 @@ make_tree() {
   local platform="$1"
   local root="$STAGE/MGS4Ultra120-$VERSION-$platform"
   mkdir -p -- "$root/bin" "$root/config" "$root/docs" "$root/scripts/$platform"
-  install -m0644 "$DLL" "$root/bin/winmm.dll"
+  if [[ "$platform" == windows ]]; then
+    install -m0644 "$ASI_LOADER" "$root/bin/winmm.dll"
+    install -m0644 "$ASI_PLUGIN" "$root/bin/MGS4Ultra120.asi"
+    mkdir -p -- "$root/third_party/ultimate_asi_loader"
+    install -m0644 "$REPO_DIR/third_party/ultimate_asi_loader/README.md" \
+      "$root/third_party/ultimate_asi_loader/README.md"
+    install -m0644 "$REPO_DIR/third_party/ultimate_asi_loader/LICENSE.txt" \
+      "$root/third_party/ultimate_asi_loader/LICENSE.txt"
+  else
+    install -m0644 "$LEGACY_DLL" "$root/bin/winmm.dll"
+  fi
   install -m0755 "$WRAPPER" "$root/bin/launcher.exe"
   local config_source="$REPO_DIR/config/mgs4_ultrawide.ini"
   if [[ "$platform" == windows ]]; then

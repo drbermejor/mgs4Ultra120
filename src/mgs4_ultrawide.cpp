@@ -10,9 +10,9 @@
 
 #include "MinHook.h"
 
-extern "C" IMAGE_DOS_HEADER __ImageBase;
-
+#if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" FARPROC winmm_proxy_resolve_by_name(const char* name);
+#endif
 static float g_target_aspect = 43.0f / 18.0f;
 static volatile LONG g_projection_patches;
 static std::uintptr_t g_executable_base;
@@ -153,7 +153,10 @@ static void __fastcall hooked_set_detected_profile(std::int32_t profile) {
 
 static void log_line(const char* message) {
     char module_path[MAX_PATH] = {};
-    GetModuleFileNameA(reinterpret_cast<HMODULE>(&__ImageBase), module_path, MAX_PATH);
+    // Store the log and INI beside mgs4.exe for both distribution layouts.
+    // The ASI itself lives under scripts, while the legacy alpha.3 proxy lived
+    // in the executable directory.
+    GetModuleFileNameA(nullptr, module_path, MAX_PATH);
     char* slash = std::strrchr(module_path, '\\');
     if (slash) std::strcpy(slash + 1, "mgs4_ultrawide.log");
     HANDLE file = CreateFileA(module_path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -517,7 +520,7 @@ static bool ui_hook_requested_from_config() {
     const LONG cached = InterlockedCompareExchange(&g_ui_hook_requested_state, 0, 0);
     if (cached != 0) return cached > 0;
     char ini_path[MAX_PATH] = {};
-    GetModuleFileNameA(reinterpret_cast<HMODULE>(&__ImageBase), ini_path, MAX_PATH);
+    GetModuleFileNameA(nullptr, ini_path, MAX_PATH);
     if (char* slash = std::strrchr(ini_path, '\\'))
         std::strcpy(slash + 1, "mgs4_ultrawide.ini");
     const bool requested =
@@ -527,6 +530,7 @@ static bool ui_hook_requested_from_config() {
     return requested;
 }
 
+#if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" MMRESULT WINAPI mgs4_timeBeginPeriod(UINT period) {
     // This synchronous path is early enough to catch renderer creation when the
     // optional UI module is requested. FPS-only and ordinary ultrawide profiles
@@ -545,6 +549,7 @@ extern "C" DWORD WINAPI mgs4_timeGetTime() {
         winmm_proxy_resolve_by_name("timeGetTime"));
     return fn ? fn() : GetTickCount();
 }
+#endif
 
 static bool near_zero(float x) {
     return std::isfinite(x) && std::fabs(x) < 0.00001f;
@@ -829,8 +834,13 @@ static void apply_resolution_state() {
 }
 
 static DWORD WINAPI patch_thread(void*) {
+#if defined(MGS4ULTRA120_ASI)
+    log_line("Module layout: MGS4Ultra120.asi loaded by an external ASI loader.");
+#else
+    log_line("Module layout: combined MGS4 Ultra120 WinMM proxy.");
+#endif
     char ini_path[MAX_PATH] = {};
-    GetModuleFileNameA(reinterpret_cast<HMODULE>(&__ImageBase), ini_path, MAX_PATH);
+    GetModuleFileNameA(nullptr, ini_path, MAX_PATH);
     if (char* slash = std::strrchr(ini_path, '\\'))
         std::strcpy(slash + 1, "mgs4_ultrawide.ini");
     const bool enable_ultrawide =

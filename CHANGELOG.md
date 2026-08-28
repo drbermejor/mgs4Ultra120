@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.1-alpha.4 - ASI migration preview
+
+- Split the Windows patch into pinned Ultimate ASI Loader `v9.7.4` as the x64
+  `winmm.dll` proxy and `scripts/MGS4Ultra120.asi` as the project plugin.
+- Added hash-verified upstream fetching, MIT attribution and redistributable
+  metadata without committing the third-party executable to source control.
+- Preserved the alpha.3 proxy build/test target so the validated release stays
+  reproducible and recommended while this preview is reviewed.
+- Migrated installed alpha.3 ownership and original backups in place; retained
+  supported INI values and the existing GUI/CMD configuration path.
+- Added collision-safe ASI backup/restore and compatible-loader reuse so setup
+  does not overwrite or uninstall an Ultimate ASI Loader owned by another mod.
+- Added direct plugin load, loader-to-ASI integration, update/uninstall and
+  external-loader coexistence smoke tests.
+- Passed a native Steam launch at physical 3440x1440/60 with every stable hook,
+  20 confirmed cross-monitor foreground changes, zero new dumps and zero new
+  reliability/display events. G-SYNC remained disabled; no universal flicker
+  fix is claimed.
+
 ## v0.3.1-alpha.3
 
 - Replaced the two-export WinMM shim with a complete 181-export x64 proxy, so

@@ -4,6 +4,11 @@ This installer is not digitally signed. Windows SmartScreen may identify it as
 an unrecognized app or show "Unknown publisher". That warning is expected for
 this release, but it must not be ignored blindly.
 
+Google Chrome may also label or block this new unsigned download as dangerous.
+That can be a reputation-based false positive, but verify the official source,
+filename and SHA-256 before deciding to keep it. Never disable Safe Browsing,
+SmartScreen or antivirus globally.
+
 Continue only when all of the following are true:
 
   1. You downloaded the EXE from the official release page:
@@ -13,12 +18,17 @@ Continue only when all of the following are true:
 
      Get-FileHash .\MGS4Ultra120-vX.Y.Z-alpha.N-windows-setup.exe -Algorithm SHA256
 
-  3. You understand that this is an unofficial public alpha which loads a
-     winmm.dll proxy into the game process.
+  3. You understand that this ASI preview loads Ultimate ASI Loader as
+     winmm.dll and scripts\MGS4Ultra120.asi into the game process.
 
 Do not disable SmartScreen or antivirus protection globally. If the source is
 different, the hash does not match, or the warning is unexpected, cancel and
 delete the file.
+
+If you do not trust the EXE, use the Windows ZIP published beside it. Verify
+the ZIP checksum, extract the complete folder, and double-click
+MGS4Ultra120-Setup.cmd. It runs the same plain-text PowerShell setup and keeps
+the same reversible backups without installing this persistent setup wrapper.
 
 This installer does not request administrator rights and does not modify
 mgs4.exe. It installs the setup manager for the current user and creates

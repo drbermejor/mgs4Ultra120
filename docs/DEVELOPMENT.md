@@ -64,7 +64,7 @@ After a clean successful build, create the platform packages from the repo
 root with:
 
 ```bash
-./scripts/package-release.sh v0.3.2-alpha.2 all
+./scripts/package-release.sh v0.3.3-alpha.1 all
 ```
 
 To package MSVC output from Git Bash instead of the default MinGW directory:
@@ -72,23 +72,23 @@ To package MSVC output from Git Bash instead of the default MinGW directory:
 ```bash
 MGS4ULTRA120_BIN_DIR="$PWD/build/bin/Release" \
 MGS4ULTRA120_ASI_LOADER="$PWD/build-third-party/ultimate-asi-loader/winmm.dll" \
-  ./scripts/package-release.sh v0.3.2-alpha.2 all
+  ./scripts/package-release.sh v0.3.3-alpha.1 all
 ```
 
 The script refuses to package a missing loader, ASI or direct-launch wrapper,
-copies only redistributable files, creates the ready-to-drag `Manual-Install`
-tree and emits local SHA-256 checksums for developer validation. Checksum files
-are intentionally not uploaded as release assets. Alpha.5 contains separate
-current Windows and Linux packages. GitHub's generated archives remain the
-source packages.
+copies only redistributable files and creates the ready-to-drag
+`Manual-Install` tree. Standalone checksum sidecars are not generated or
+uploaded, keeping the public asset list simple. Developers can calculate a
+temporary build hash directly when required. GitHub's generated archives remain
+the source packages.
 
 To generate the same setup EXE after packaging on Windows:
 
 ```powershell
-$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.2-alpha.2-windows-complete.zip
+$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.3-alpha.1-windows-complete.zip
 $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash
 .\installer\windows\Build-Installer.ps1 `
-  -Version v0.3.2-alpha.2 `
+  -Version v0.3.3-alpha.1 `
   -WindowsZip $zip `
   -ExpectedZipSha256 $sha
 ```

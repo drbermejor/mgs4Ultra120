@@ -8,8 +8,10 @@ mgs4_ultrawide.ini
 scripts\MGS4Ultra120.asi
 ```
 
-Close the game and copy everything inside the extracted manual folder into the
-folder that directly contains `mgs4.exe`. Keep the `scripts` folder.
+Remove old MGS4 Ultra120 builds first. Do not combine release files or retain a
+second proxy loader/renamed project ASI. Close the game and copy everything
+inside the extracted manual folder into the folder that directly contains
+`mgs4.exe`. Keep the `scripts` folder.
 
 ## Add corrected 120 FPS manually
 
@@ -44,7 +46,8 @@ and two INIs. Use one proxy loader, not several.
 
 The manual route creates no shortcuts and does not install the Unity-launcher
 bypass. The MGS4Ultra120 GUI and manual edits remain compatible because they use
-the same INIs.
+the same INIs. Launch through Steam and choose the language in the official
+Unity launcher; `Language=` affects only the optional guided-setup wrapper.
 
 To remove a purely manual installation, close the game and delete only files
 you personally copied. Never delete a pre-existing loader belonging to another

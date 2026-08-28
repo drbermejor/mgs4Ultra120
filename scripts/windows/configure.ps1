@@ -5,7 +5,7 @@ param(
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
-$Mgs4Ultra120Version = "v0.3.2-alpha.2"
+$Mgs4Ultra120Version = "v0.3.3-alpha.1"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
@@ -57,6 +57,7 @@ function Get-IniValue([string]$Key) {
 }
 
 function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
+                           [int]$NativeCameraFov,
                            [int]$SupersamplingEnabled, [decimal]$RenderScale,
                            [int]$UltrawideEnabled,
                            [int]$ControllerFixEnabled,
@@ -66,7 +67,8 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
     if ($Width -lt 640 -or $Width -gt 16384 -or $Height -lt 480 -or $Height -gt 16384) {
         throw "Width/height are outside the allowed range."
     }
-    if ($Fov -lt 0.5 -or $Fov -gt 1.05) { throw "FOV multiplier must be between 0.5 and 1.05." }
+    if ($Fov -lt 0.5 -or $Fov -gt 1.20) { throw "FOV multiplier must be between 0.5 and 1.20." }
+    if ($NativeCameraFov -notin @(0, 1)) { throw "NativeCameraFOV must be 0 or 1." }
     if ($RenderScale -lt 1.0) { throw "Supersampling render scale must be at least 1.0." }
     if ($SupersamplingEnabled -notin @(0, 1)) { throw "SupersamplingEnabled must be 0 or 1." }
     if ($SupersamplingEnabled -eq 1 -and
@@ -82,7 +84,8 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
         FPSOverrideEnabled = 0
         Width = $Width; Height = $Height
         FOVMultiplier = $Fov.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
-        NativeCameraFOV = 1
+        NativeCameraFOV = $NativeCameraFov
+        FOVModelVersion = 2
         SupersamplingEnabled = $SupersamplingEnabled
         RenderScale = $RenderScale.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
         Limit = 60
@@ -175,10 +178,10 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         $CurrentDisplayMode
     }
     switch ($Profile) {
-        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.050 0 1.50 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
-        "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1.50 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.050 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.200 1 0 1.50 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
+        "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 1.50 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.200 1 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
     }
     if ($Profile -eq "fps-only-120" -and
         -not (Test-MgsFpsUnlockInstalled $GameDir)) {
@@ -249,7 +252,8 @@ $Ui = @{
         ImprovedFpsOff = "Core mode: optional MGSFPSUnlock is not installed"
         Width = "Physical output width"; Height = "Physical output height"
         AutoSize = "Primary monitor physical size"
-        Fov = "FOV (1.05 recommended / maximum)"
+        Fov = "FOV (1.20 tested recommendation / maximum)"
+        NativeFov = "Experimental native FOV (disable if unstable)"
         Supersampling = "Experimental supersampling (off by default)"
         RenderScale = "Internal render scale"
         Presentation = "Windows presentation"
@@ -276,7 +280,7 @@ $Ui = @{
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
-        AggressiveFovMessage = "FOV 1.050 is recommended for the tested 21:9 framing, but it exposes slightly more than the original shot. Some cutscenes may show actors, geometry or animation transitions near the edges before they were meant to enter the frame. Continue?"
+        AggressiveFovMessage = "FOV 1.200 is recommended for the corrected single-owner 21:9 framing, but values above 1.000 expose more than the original shot. Some cutscenes may show actors, geometry or animation transitions near the edges before they were meant to enter the frame. Continue?"
 }
 
 $Form = [Windows.Forms.Form]@{
@@ -360,7 +364,13 @@ if ($AutoResolutionBox.Checked) {
     $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight
     $WidthBox.Enabled = $false; $HeightBox.Enabled = $false
 }
-Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 1.05 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
+Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 1.20 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
+$NativeFovBox = [Windows.Forms.CheckBox]@{
+    Text = $Ui.NativeFov
+    Location = [Drawing.Point]::new(435, 199); Size = [Drawing.Size]::new(175, 42)
+    Checked = (Get-IniValue "NativeCameraFOV") -eq "1"
+}
+$Form.Controls.Add($NativeFovBox)
 
 $SupersamplingBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.Supersampling
@@ -483,7 +493,8 @@ $SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Poin
 $CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 742); Size = [Drawing.Size]::new(105, 38) }
 $StableButton.Add_Click({
     $AutoResolutionBox.Checked = $true
-    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.05
+    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.20
+    $NativeFovBox.Checked = $true
     $DisplayModeBox.SelectedIndex = 0
     $SupersamplingBox.Checked = $false; $RenderScaleBox.Value = 1.50
     $FpsBox.SelectedIndex = 0
@@ -523,7 +534,7 @@ $SaveButton.Add_Click({
             $Ui.SupersamplingTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
-    if ($FovBox.Value -gt [decimal]1.000) {
+    if ($NativeFovBox.Checked -and $FovBox.Value -gt [decimal]1.000) {
         $Answer = [Windows.Forms.MessageBox]::Show(
             $Ui.AggressiveFovMessage, $Ui.AggressiveFovTitle,
             "YesNo", "Warning")
@@ -541,7 +552,8 @@ $SaveButton.Add_Click({
     $DisplayMode = if ($DisplayModeBox.SelectedIndex -eq 1) { "Fullscreen" } else { "Windowed" }
     $LanguageCode = [string]$LanguageCodes[[string]$LanguageBox.SelectedItem]
     Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) `
-        $FovBox.Value ([int]$SupersamplingBox.Checked) $RenderScaleBox.Value `
+        $FovBox.Value ([int]$NativeFovBox.Checked) `
+        ([int]$SupersamplingBox.Checked) $RenderScaleBox.Value `
         ([int]$UltrawideBox.Checked) ([int]$ControllerFixBox.Checked) `
         ([int]$SkipLauncherBox.Checked) $LanguageCode `
         ([int]$UnsupportedBox.Checked) $DisplayMode `

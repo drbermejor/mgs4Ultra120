@@ -1,7 +1,7 @@
 # Experimental supersampling
 
-This optional feature is included in `v0.3.2-alpha.2`, but remains experimental
-and disabled by default. The definitive FOV implementation does not depend on
+This optional feature is included in `v0.3.3-alpha.1`, but remains experimental
+and disabled by default. The single-owner experimental FOV route does not depend on
 supersampling; users who do not need downsampling should leave it off.
 
 Supersampling keeps the configured `Width` and `Height` as the physical Windows
@@ -61,7 +61,8 @@ Native Windows validation covered 3440x1440 output and several internal sizes.
 The final release candidate was exercised at `RenderScale=1.15` (3956x1656),
 with natural proportions, native camera FOV active and no fallback.
 Supersampling itself remains experimental and disabled by default. The public
-FOV configuration uses `1.050` as both its recommendation and maximum.
+FOV configuration uses `1.200` as both its tested recommendation and maximum
+under the corrected single-owner camera model.
 
 Subsequent same-session near/far tests isolated a depth-aware crosshair defect
 to the internal-width boundary. At 3956x1656 the reticle remained visible while

@@ -65,12 +65,8 @@ try {
         throw "The installer was not created: $Installer"
     }
     $InstallerHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Installer).Hash.ToLowerInvariant()
-    $HashFile = "$Installer.sha256"
-    [IO.File]::WriteAllText($HashFile,
-        "$InstallerHash  $([IO.Path]::GetFileName($Installer))`n",
-        [Text.UTF8Encoding]::new($false))
     Write-Host "Created: $Installer"
-    Write-Host "SHA-256: $InstallerHash"
+    Write-Host "Build-only SHA-256 (no separate release asset): $InstallerHash"
 } finally {
     $ResolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
     $ResolvedStage = [IO.Path]::GetFullPath($StageDir)

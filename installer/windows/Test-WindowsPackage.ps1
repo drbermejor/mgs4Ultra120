@@ -42,7 +42,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.2-alpha.2") {
+if ($PackageVersion -ne "v0.3.3-alpha.1") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -157,12 +157,80 @@ try {
         ($LauncherSettings | ConvertTo-Json -Compress),
         [Text.UTF8Encoding]::new($false))
 
+    # A second loader would enumerate the same scripts and can initialize the
+    # patch twice. Setup must stop before mutating the installation.
+    $DuplicateLoader = Join-Path $GameDir "dinput8.dll"
+    Copy-Item -LiteralPath $LoaderPath -Destination $DuplicateLoader
+    $ConflictBlocked = $false
+    try {
+        & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    } catch {
+        $ConflictBlocked = $_.Exception.Message -match
+            'Conflicting old/duplicate loader files'
+    }
+    Remove-Item -Force -LiteralPath $DuplicateLoader
+    if (-not $ConflictBlocked) {
+        throw "Setup did not block a duplicate Ultimate ASI Loader proxy."
+    }
+
+    $OldRenamedAsi = Join-Path $GameDir "scripts\MGS4Ultra120-old.asi"
+    Copy-Item -LiteralPath $AsiVersionPath -Destination $OldRenamedAsi
+    $OldAsiBlocked = $false
+    try {
+        & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    } catch {
+        $OldAsiBlocked = $_.Exception.Message -match
+            'possible old MGS4 Ultra120 ASI'
+    }
+    Remove-Item -Force -LiteralPath $OldRenamedAsi
+    if (-not $OldAsiBlocked) {
+        throw "Setup did not block a renamed old MGS4 Ultra120 ASI."
+    }
+
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
 
     # Simulate a user selecting Spanish before applying the stable profile.
     # Both the direct wrapper INI and the original Unity launcher state must
     # retain the same language.
     $InstalledConfigPath = Join-Path $GameDir "mgs4_ultrawide.ini"
+
+    # A model-1 default must migrate once to the visually equivalent
+    # single-owner value. Once marked as model 2, a deliberate 1.050 choice
+    # must survive future managed updates.
+    $LegacyConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
+    $LegacyConfig = [regex]::Replace(
+        $LegacyConfig, '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.050')
+    $LegacyConfig = [regex]::Replace(
+        $LegacyConfig, '(?m)^FOVModelVersion=.*\r?\n', '')
+    [IO.File]::WriteAllText($InstalledConfigPath, $LegacyConfig,
+        [Text.UTF8Encoding]::new($false))
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    $MigratedConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
+    if ($MigratedConfig -notmatch '(?m)^FOVMultiplier=1\.200$' -or
+        $MigratedConfig -notmatch '(?m)^FOVModelVersion=2$') {
+        throw "The legacy repeated-route FOV default did not migrate to model 2."
+    }
+    $DeliberateConfig = [regex]::Replace(
+        $MigratedConfig, '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.050')
+    [IO.File]::WriteAllText($InstalledConfigPath, $DeliberateConfig,
+        [Text.UTF8Encoding]::new($false))
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
+        '(?m)^FOVMultiplier=1\.050$') {
+        throw "A model-2 update overwrote a deliberate FOV 1.050 choice."
+    }
+
+    $OptOutConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
+    $OptOutConfig = [regex]::Replace(
+        $OptOutConfig, '(?m)^NativeCameraFOV=.*$', 'NativeCameraFOV=0')
+    [IO.File]::WriteAllText($InstalledConfigPath, $OptOutConfig,
+        [Text.UTF8Encoding]::new($false))
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
+        '(?m)^NativeCameraFOV=0$') {
+        throw "A managed update silently re-enabled experimental native FOV."
+    }
+
     $InstalledConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
     $InstalledConfig = [regex]::Replace(
         $InstalledConfig, '(?m)^Language=.*$', 'Language=sp')
@@ -205,8 +273,9 @@ try {
         "FPSOverrideEnabled=0",
         "SupersamplingEnabled=0",
         "RenderScale=1.500",
-        "FOVMultiplier=1.050",
+        "FOVMultiplier=1.200",
         "NativeCameraFOV=1",
+        "FOVModelVersion=2",
         "Limit=60",
         "ControllerProfileFixEnabled=1",
         "Language=sp"

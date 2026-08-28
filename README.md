@@ -4,7 +4,7 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.2-alpha.2` targets the verified Steam executable.
+> **Public alpha.** `v0.3.3-alpha.1` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -40,9 +40,12 @@ unlock implementation.
 
 - 3440x1440 real-time 3D rendering is validated as correctly proportioned and
   Hor+ rather than a stretched 16:9 image.
-- `FOVMultiplier=1.050` is the recommended 21:9 framing and the supported
-  maximum. `1.000` preserves the original vertical FOV but frames Snake more
-  tightly in the tested gameplay view.
+- `FOVMultiplier=1.200` is the tested 21:9 recommendation and supported
+  maximum under the corrected single-owner model. `1.000` preserves the
+  original vertical FOV but frames Snake more tightly in the tested view.
+- Native FOV is still experimental. Disable it independently in the
+  configurator if a new stability or scene-specific issue appears; Hor+ remains
+  active with the original vertical FOV.
 - The unfinished UI/safe-area experiment is not part of the release binary.
   Menus, HUD and full-screen effects retain the game's original behavior.
 - Pre-rendered Bink video is unchanged.
@@ -51,9 +54,9 @@ unlock implementation.
   input; the final renderer hook changes aspect only. This avoids both the old
   render/culling mismatch and the withdrawn alpha.6 double transformation.
 - Native Windows validation at 3440x1440 completed with native mode active, no
-  fallback and natural object proportions. Wider values were useful during
-  development stress tests, but the public range now ends at `1.050`.
-- Even the recommended `1.050` can reveal authored off-camera content: actors,
+  fallback, natural object proportions, an undistorted WeaponWindow and clean
+  problematic cinematics. The public range ends at `1.200`.
+- Any value above `1.000` can reveal authored off-camera content: actors,
   geometry or animation transitions may appear at the edges before the scene
   was directed to introduce them. That is a content-staging limitation, not a
   projection or frustum desynchronization.
@@ -66,7 +69,7 @@ unlock implementation.
 ## Windows downloads
 
 Use the
-[v0.3.2-alpha.2 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.2-alpha.2)
+[v0.3.3-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -92,7 +95,8 @@ their physical output resolution. See
 
 ### Brief manual installation
 
-Close the game, extract the manual ZIP and copy its contents into the folder
+Remove old MGS4 Ultra120 builds first; do not retain another Ultimate ASI Loader
+proxy or a renamed old project ASI. Close the game, extract the manual ZIP and copy its contents into the folder
 that directly contains `mgs4.exe`:
 
 ```text
@@ -112,7 +116,10 @@ MGSFPSUnlock\scripts\MGSFPSUnlock.ini
 
 Do **not** copy its `d3d11.dll`, `winhttp.dll` or `wininet.dll`; our package
 already provides the required ASI loader. Confirm that its INI contains
-`TargetFrameRate = 120`, then launch normally through Steam.
+`TargetFrameRate = 120`, then launch normally through Steam. The manual ZIP
+does not install the optional launcher bypass; choose the game language in the
+official Unity launcher. The `Language=` INI setting controls only the optional
+wrapper installed by guided setup.
 
 See [Windows installation](docs/INSTALL_WINDOWS.md) and
 [manual installation](docs/MANUAL_INI.md) for backup and removal details.
@@ -120,7 +127,7 @@ See [Windows installation](docs/INSTALL_WINDOWS.md) and
 ## Windows defaults and known display issue
 
 The configurator selects the primary monitor's physical resolution, native-size
-windowed presentation, FOV 1.050, corrected 120 FPS, controller-profile fix and
+windowed presentation, FOV 1.200, corrected 120 FPS, controller-profile fix and
 Unity-launcher bypass. Exclusive fullscreen is an advanced option.
 
 On one mixed-refresh NVIDIA multi-monitor system, focus changes produced a red
@@ -131,7 +138,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.2-alpha.2` Linux package uses the same architecture as Windows:
+The `v0.3.3-alpha.1` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`
@@ -162,8 +169,8 @@ owner of its matrices and frustum planes, while the common renderer setter is
 an aspect-only safety net in native mode.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
-`Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and
-restores the original only when ownership hashes still match.
+`Launcher/launcher.exe`, reproduces the official launcher's child-process
+command line, and restores the original only when ownership hashes still match.
 
 Further reading:
 

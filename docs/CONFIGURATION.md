@@ -28,7 +28,8 @@ AllowUnsupportedExecutable=0
 [Ultrawide]
 Width=3440
 Height=1440
-FOVMultiplier=1.050
+FOVMultiplier=1.200
+FOVModelVersion=2
 NativeCameraFOV=1
 
 [FPS]
@@ -50,16 +51,20 @@ UsePrimaryPhysicalResolution=1
 - `UltrawideEnabled=1` enables native resolution and Hor+ projection changes.
 - `Width`/`Height` accept physical output dimensions. The GUI supports
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
-- `FOVMultiplier` accepts `0.500`–`1.050`. `1.050` is the recommended 21:9
-  setting and supported maximum after visual comparison; `1.000` preserves the
-  game's original vertical FOV but frames Snake more tightly in the tested
-  view. Even `1.050` may reveal actors, geometry or transitions at cinematic
+- `FOVMultiplier` accepts `0.500`–`1.200`. `1.200` is the tested 21:9 setting
+  and supported maximum with the corrected single-owner camera route; `1.000`
+  preserves the game's original vertical FOV but frames Snake more tightly in
+  the tested view. Any value above `1.000` may reveal actors, geometry or transitions at cinematic
   edges before the original direction intended them to enter the shot. Native
   camera ownership keeps projection and visibility data synchronized. Both `.`
   and `,` decimal separators are accepted.
-- `NativeCameraFOV=1` is the definitive and recommended implementation. It is
-  written automatically by current configurators; `0` is retained only as a
-  diagnostic fallback.
+- `FOVModelVersion=2` records the single-owner model. Managed Windows updates
+  migrate the old repeated-route default `1.050` to `1.200` once; later manual
+  choices are preserved.
+- `NativeCameraFOV=1` enables the tested single-owner route but remains
+  experimental in this alpha. Set it to `0` first if instability or a
+  scene-specific regression appears; Hor+ remains enabled with the game's
+  original vertical FOV. Both configurators expose this switch.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build

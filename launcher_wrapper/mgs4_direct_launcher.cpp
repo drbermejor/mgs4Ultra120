@@ -4,8 +4,6 @@
 #include <windows.h>
 
 #include <array>
-#include <cstdint>
-#include <cstring>
 #include <string>
 #include <vector>
 
@@ -82,37 +80,6 @@ std::wstring normalize_language(std::wstring value) {
     return L"en";
 }
 
-bool write_launcher_parameters(const std::wstring& launcher_directory,
-                               const std::vector<std::wstring>& arguments) {
-    std::string serialized;
-    for (std::size_t index = 0; index < arguments.size(); ++index) {
-        if (index) serialized.push_back('\x08');
-        serialized += utf8(arguments[index]);
-    }
-    if (serialized.empty() || serialized.size() >= 1024) return false;
-
-    std::array<unsigned char, 1028> output{};
-    const std::uint32_t count = static_cast<std::uint32_t>(arguments.size());
-    std::memcpy(output.data(), &count, sizeof(count));
-    std::memcpy(output.data() + sizeof(count), serialized.data(), serialized.size());
-
-    wchar_t temporary_directory[MAX_PATH] = {};
-    const DWORD length = GetTempPathW(MAX_PATH, temporary_directory);
-    if (!length || length >= MAX_PATH) return false;
-    std::wstring path(temporary_directory, length);
-    path += L"mgs4_param";
-    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
-    DWORD written = 0;
-    const BOOL okay = WriteFile(file, output.data(), static_cast<DWORD>(output.size()),
-                                &written, nullptr);
-    if (okay) FlushFileBuffers(file);
-    CloseHandle(file);
-    return okay && written == output.size();
-}
-
 void append_log(const std::wstring& launcher_directory, const std::string& message) {
     const std::wstring path = launcher_directory + L"\\mgs4_direct_wrapper.log";
     HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA,
@@ -165,32 +132,24 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     append_log(launcher_directory,
                "Game language token: " + utf8(language) +
                    "; bootstrap uses the official -lan pair.");
-    const std::vector<std::wstring> arguments = {
-        L"-region", region,
-        L"-lan", language,
-        L"-selfregion", self_region,
-        L"-resolution", L"0",
-        L"-launcherpath", L"launcher.exe",
-        L"-ctrltype", controller,
-        L"-launcherroot", launcher_directory,
-    };
-    if (!write_launcher_parameters(launcher_directory, arguments)) {
-        show_error(L"Could not write the mgs4_param bootstrap file.", GetLastError());
-        return 3;
-    }
-
     append_log(launcher_directory,
                _wcsicmp(display_mode.c_str(), L"Windowed") == 0
                    ? "Presentation profile: windowed/native; official resolution slot 0."
                    : "Presentation profile: exclusive; official resolution slot 0.");
 
-    // The game consumes these values from the launcher's official mgs4_param
-    // bootstrap file. Repeating them on the mgs4.exe command line makes some
-    // Steam clients treat the child process as a custom app launch, return to
-    // launcher.exe after confirmation, and create an endless prompt loop.
-    // Starting the child without visible custom arguments retains Steam as the
-    // parent path while leaving the bootstrap as the single source of tokens.
-    std::wstring command_line = L"\"" + game_executable + L"\"";
+    // Match BootGameSteam.StartProcess in the original IL2CPP launcher exactly:
+    // lpApplicationName identifies mgs4.exe while lpCommandLine starts with
+    // "-region" (there is deliberately no executable/argv[0] prefix). Steam's
+    // process interception owns %TEMP%\mgs4_param; that file is not the
+    // launcher's option transport and must not be overwritten by this wrapper.
+    std::wstring command_line =
+        L"-region " + region +
+        L" -lan " + language +
+        L" -selfregion " + self_region +
+        L" -resolution 0"
+        L" -launcherpath launcher.exe"
+        L" -ctrltype " + controller +
+        L" -launcherroot \"" + launcher_directory + L"\"";
     SetEnvironmentVariableW(kMarker, L"1");
 
     STARTUPINFOW startup{};
@@ -200,7 +159,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     mutable_command.push_back(L'\0');
     const BOOL created = CreateProcessW(game_executable.c_str(), mutable_command.data(),
                                         nullptr, nullptr, FALSE, 0, nullptr,
-                                        launcher_directory.c_str(), &startup, &process);
+                                        game_directory.c_str(), &startup, &process);
     if (!created) {
         const DWORD error = GetLastError();
         append_log(launcher_directory, "ERROR CreateProcessW=" + std::to_string(error));
@@ -209,8 +168,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     }
 
     append_log(launcher_directory,
-               "Steam-path direct launch from mgs4_param; no child command-line arguments; mgs4.exe PID=" +
-                                   std::to_string(process.dwProcessId));
+               "Original-launcher command-line protocol; language=" + utf8(language) +
+                   "; mgs4.exe PID=" + std::to_string(process.dwProcessId));
     CloseHandle(process.hThread);
     WaitForSingleObject(process.hProcess, INFINITE);
     DWORD exit_code = 0;

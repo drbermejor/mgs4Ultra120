@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.2-alpha.2 - native FOV and language persistence
+## v0.3.3-alpha.1 - single-owner experimental FOV and language persistence
 
 - Replaced post-return matrix/frustum reconstruction with a single native
   camera-input adjustment before the game builds projections, combined
@@ -10,25 +10,38 @@
 - Validated the native-input path at 3440x1440 on Windows, including a wider
   development stress profile: 760 native camera adjustments, 950 final aspect
   corrections, no fallback, correct proportions and no new crash.
-- Set `1.050` as the recommended 21:9 default and public maximum after visual
-  comparison showed that `1.000` framed Snake too tightly. The configurators
-  warn that even this modest increase can reveal content near cinematic edges.
+- Restricted native FOV ownership to the primary camera route (`0x0ba3a3`).
+  This removes repeated multiplication in downstream camera rebuild routes and
+  fixes WeaponWindow distortion without losing gameplay or cinematic FOV.
+- Set `1.200` as the tested 21:9 default and public maximum under the corrected
+  single-owner model. `1.000` framed Snake too tightly. The configurators warn
+  that any value above `1.000` can reveal content near cinematic edges.
 - Fixed the configurator language selector, including the incorrect legacy
   German code (`ge` -> `gr`), added Portuguese, and synchronized the selected
   language with both the direct-launch bootstrap and the official Unity
   launcher's `prevPlayLanguage` state.
 - Fixed **Recommended settings** silently changing the selected game language
   back to English. Rendering defaults now preserve the user's language.
+- Reconstructed the original Unity launcher's exact `CreateProcessW` protocol.
+  The wrapper no longer writes Steam's temporary `mgs4_param` interception
+  file; `-lan` now reaches the game through the original child command line,
+  fixing the English fallback without touching saves.
 - Aligned Linux `stable` and `ultrawide-only` with the documented Windows
-  `1.050` default, and skipped display detection in explicitly non-interactive
+  `1.200` default, and skipped display detection in explicitly non-interactive
   setup runs.
 - Added friendly English language names, migration of legacy settings,
   rollback-safe launcher metadata and regression coverage for all seven
   supported language mappings and the recommended-settings button.
-- Added visible and embedded `v0.3.2-alpha.2` version information to the ASI,
+- Added visible and embedded `v0.3.3-alpha.1` version information to the ASI,
   legacy proxy, direct-launch wrapper, Windows GUIs and Linux shortcuts.
-- Unified the definitive FOV build and optional experimental supersampling in
+- Unified the single-owner FOV build and optional experimental supersampling in
   one Windows/Linux release; supersampling remains off by default.
+- Marked native FOV as experimental and made it independently reversible in
+  both configurators. Disabling it retains Hor+ aspect correction with the
+  game's original vertical FOV.
+- Added a pre-install conflict gate for duplicate Ultimate ASI Loader proxies
+  and old renamed MGS4 Ultra120 ASIs; setup lists the files and never removes
+  third-party DLLs automatically.
 
 ## v0.3.2-alpha.1 - unified Linux ASI setup
 
@@ -117,7 +130,7 @@
   pop-in/culling above `1.000`; projection and visibility bounds are now rebuilt
   together, and `1.150` is the recommended 21:9 framing.
 - Removed standalone checksum files from GitHub release assets to keep the
-  download list simple; local build checksums remain available to developers.
+  download list simple; developers can calculate a temporary hash when needed.
 - Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
 - Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
   unchanged.

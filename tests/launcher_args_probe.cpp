@@ -10,7 +10,9 @@ int wmain(int argc, wchar_t** argv) {
     if (!length || length >= MAX_PATH) return 2;
     std::ofstream stream(output, std::ios::binary | std::ios::trunc);
     if (!stream) return 3;
-    for (int index = 1; index < argc; ++index) {
+    // The original launcher intentionally supplies an lpCommandLine beginning
+    // with "-region", so the CRT exposes that token as argv[0]. Keep it.
+    for (int index = 0; index < argc; ++index) {
         const int size = WideCharToMultiByte(CP_UTF8, 0, argv[index], -1,
                                              nullptr, 0, nullptr, nullptr);
         if (size <= 0) return 4;

@@ -1,7 +1,7 @@
 param([string]$GameDir)
 
 $ErrorActionPreference = "Stop"
-$Mgs4Ultra120Version = "v0.3.2-alpha.2"
+$Mgs4Ultra120Version = "v0.3.3-alpha.1"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()

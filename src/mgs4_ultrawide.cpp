@@ -6,8 +6,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#pragma intrinsic(_ReturnAddress)
+#endif
 
 #include "MinHook.h"
+#include "camera_route_policy.h"
 #include "projection_math.h"
 #include "supersampling_math.h"
 
@@ -27,7 +32,7 @@ static std::uint32_t g_output_width = 3440;
 static std::uint32_t g_output_height = 1440;
 static std::uint32_t g_target_width = 3440;
 static std::uint32_t g_target_height = 1440;
-static float g_fov_multiplier = 1.05f;
+static float g_fov_multiplier = 1.20f;
 static float g_render_scale = 1.0f;
 static bool g_enable_ultrawide = true;
 static bool g_enable_resolution_override = true;
@@ -580,7 +585,9 @@ extern "C" DWORD WINAPI mgs4_timeGetTime() {
 // Renderer-level projection correction used by the published alpha.5 binary.
 // Depending on the engine path, this setter receives either a canonical 16:9
 // matrix or one whose X scale already matches the output aspect. Both are
-// original, unmodified camera states here and must receive the configured FOV.
+// original, unmodified camera states here. They receive configured FOV only as
+// an automatic fallback when the requested native hook cannot start. An
+// explicit NativeCameraFOV=0 keeps aspect correction but preserves vertical FOV.
 //
 // Do not move this rewrite back into the central camera builder without a new
 // native-Windows visual gate. The first alpha.6 package did so and applied an
@@ -599,7 +606,9 @@ static void __fastcall hooked_set_projection(const float* matrix) {
     const float original_x = copy[0];
     const float original_y = copy[5];
     bool exceeded_legacy_limits = false;
-    const bool adjusted = g_native_camera_fov_active
+    const bool adjusted = mgs4_camera::renderer_is_aspect_only(
+                              g_native_camera_fov_active,
+                              g_native_camera_fov_requested)
         ? mgs4_projection::adjust_renderer_aspect_only(
               copy, g_target_aspect, &exceeded_legacy_limits)
         : mgs4_projection::adjust_renderer_projection(
@@ -633,8 +642,23 @@ static void __fastcall hooked_build_camera(void* camera, const void* source,
                                            float parameter4,
                                            float parameter5,
                                            float aspect_scale) {
-    const float adjusted_scale = mgs4_projection::adjust_camera_input_scale(
-        projection_scale, g_fov_multiplier);
+#if defined(_MSC_VER)
+    const auto return_address =
+        reinterpret_cast<std::uintptr_t>(_ReturnAddress());
+#else
+    const auto return_address = reinterpret_cast<std::uintptr_t>(
+        __builtin_return_address(0));
+#endif
+    const std::uintptr_t caller_return_rva =
+        return_address >= g_executable_base
+            ? return_address - g_executable_base
+            : return_address;
+    const bool apply_native_fov =
+        mgs4_camera::owns_native_fov(caller_return_rva);
+    const float adjusted_scale = apply_native_fov
+        ? mgs4_projection::adjust_camera_input_scale(
+              projection_scale, g_fov_multiplier)
+        : projection_scale;
     if (adjusted_scale != projection_scale)
         InterlockedIncrement(&g_native_camera_fov_patches);
     g_original_build_camera(camera, source, adjusted_scale, parameter4,
@@ -951,9 +975,9 @@ static DWORD WINAPI patch_thread(void*) {
     g_native_camera_fov_requested = GetPrivateProfileIntA(
         "Ultrawide", "NativeCameraFOV", 1, ini_path) != 0;
     char fov_text[32] = {};
-    GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.050", fov_text,
+    GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.200", fov_text,
                              sizeof(fov_text), ini_path);
-    float fov_multiplier = 1.05f;
+    float fov_multiplier = 1.20f;
     const bool fov_valid = parse_ini_decimal(fov_text, &fov_multiplier);
     char render_scale_text[32] = {};
     GetPrivateProfileStringA("Supersampling", "RenderScale", "1.50",
@@ -969,11 +993,11 @@ static DWORD WINAPI patch_thread(void*) {
             width, height, render_scale, &render_width, &render_height));
     if (!width || !height ||
         (enable_ultrawide && (!fov_valid || fov_multiplier < 0.5f ||
-                              fov_multiplier > 1.05f)) ||
+                              fov_multiplier > 1.20f)) ||
         !render_extent_valid) {
         char invalid_message[512] = {};
         std::snprintf(invalid_message, sizeof(invalid_message),
-                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (accepted 0.500-1.050), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
+                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (accepted 0.500-1.200), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
                       ini_path, width, height, fov_text,
                       enable_supersampling ? 1u : 0u, render_scale_text);
         log_line(invalid_message);
@@ -1027,7 +1051,11 @@ static DWORD WINAPI patch_thread(void*) {
         if (g_native_camera_fov_requested)
             install_native_camera_fov_hook(base);
         install_engine_hook(base);
-        log_line("Withdrawn post-return camera/frustum reconstruction is absent. Native mode changes only the original camera builder input; common-setter FOV remains the automatic fallback.");
+        if (g_native_camera_fov_requested) {
+            log_line("Experimental native FOV requested. Route 0x0ba3a3 owns the multiplier; common-setter FOV remains the automatic fallback only if the native hook cannot start.");
+        } else {
+            log_line("Experimental native FOV disabled by the user. Ultrawide aspect correction remains active with the game's original vertical FOV.");
+        }
     }
     if (controller_profile_fix)
         install_controller_profile_fix(base);
@@ -1041,7 +1069,8 @@ static DWORD WINAPI patch_thread(void*) {
                   InterlockedCompareExchange(&g_native_camera_fov_patches, 0, 0),
                   InterlockedCompareExchange(&g_projection_patches, 0, 0),
                   InterlockedCompareExchange(&g_extended_projection_patches, 0, 0),
-                  g_native_camera_fov_active ? "active" : "fallback");
+                  g_native_camera_fov_active ? "active" :
+                      (g_native_camera_fov_requested ? "fallback" : "disabled"));
     log_line(projection_message);
     log_line("Initial state applied; patch thread finished without a polling loop.");
     return 0;

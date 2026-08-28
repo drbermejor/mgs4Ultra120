@@ -95,7 +95,7 @@ make_windows_zip() {
   local root="$1"
   local asset="$2"
   find "$root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-  rm -f -- "$asset" "$asset.sha256"
+  rm -f -- "$asset"
   if command -v zip >/dev/null 2>&1; then
     (cd "$STAGE" && find "$(basename "$root")" -print | LC_ALL=C sort |
       TZ=UTC zip -X -q "$asset" -@)
@@ -116,7 +116,6 @@ make_windows_zip() {
     echo "Creating a Windows ZIP requires zip or Windows PowerShell interop." >&2
     exit 1
   fi
-  (cd "$DIST" && sha256sum "$(basename "$asset")" >"$(basename "$asset").sha256")
   printf 'Created:\n%s\n' "$asset"
 }
 
@@ -159,10 +158,9 @@ if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
     "$linux_root/"*.sh
   find "$linux_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
   linux_asset="$DIST/MGS4Ultra120-$VERSION-linux.tar.gz"
-  rm -f -- "$linux_asset" "$linux_asset.sha256"
+  rm -f -- "$linux_asset"
   tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
     --pax-option=delete=atime,delete=ctime -C "$STAGE" -czf "$linux_asset" \
     "$(basename "$linux_root")"
-  (cd "$DIST" && sha256sum "$(basename "$linux_asset")" >"$(basename "$linux_asset").sha256")
   printf 'Created:\n%s\n' "$linux_asset"
 fi

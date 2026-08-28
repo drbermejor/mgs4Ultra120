@@ -33,18 +33,7 @@ try {
             throw "Wrapper probe failed for $($Case.Mode): $($Process.ExitCode)"
         }
         $ChildArguments = @(Get-Content -LiteralPath $Output)
-        if ($ChildArguments.Count -ne 0) {
-            throw "Wrapper exposed custom arguments on the child command line."
-        }
-        $BootstrapPath = Join-Path ([IO.Path]::GetTempPath()) "mgs4_param"
-        $Bootstrap = [IO.File]::ReadAllBytes($BootstrapPath)
-        $Count = [BitConverter]::ToUInt32($Bootstrap, 0)
-        $Payload = [Text.Encoding]::UTF8.GetString(
-            $Bootstrap, 4, $Bootstrap.Length - 4).TrimEnd([char]0)
-        $Arguments = @($Payload.Split([char]8))
-        if ($Count -ne $Arguments.Count) {
-            throw "mgs4_param argument count does not match its payload."
-        }
+        $Arguments = $ChildArguments
         $ResolutionIndex = [Array]::IndexOf($Arguments, "-resolution")
         if ($ResolutionIndex -lt 0 -or
             $Arguments[$ResolutionIndex + 1] -ne $Case.Expected) {
@@ -56,7 +45,7 @@ try {
             throw "Language=$($Case.Language) was not normalized to $($Case.ExpectedLanguage)."
         }
         if ($Arguments.Count -ne 14) {
-            throw "The official bootstrap must contain exactly 14 tokens."
+            throw "The original launcher command line must contain exactly 14 tokens."
         }
         $RootIndex = [Array]::IndexOf($Arguments, "-launcherroot")
         if ($RootIndex -lt 0 -or $Arguments[$RootIndex + 1] -ne $LauncherDir) {

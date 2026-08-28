@@ -11,7 +11,7 @@ option and configurator controls were therefore removed instead of presenting
 an unverified UI mode as a fix.
 
 A 5120x2160 user reported a missing aiming crosshair and apparently zoomed FOV.
-FOV 1.050 addresses the narrow framing through the validated native-camera
+FOV 1.200 addresses the narrow framing through the validated native-camera
 projection path. Native Windows supersampling
 tests reproduced and isolated the separate reticle issue: it remains stable at
 3956x1656 internal, flickers at exactly 4096 pixels wide, and can disappear

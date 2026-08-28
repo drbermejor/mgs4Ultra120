@@ -14,7 +14,18 @@ $LauncherTarget = Join-Path (Join-Path $InstallDir "Launcher") "launcher.exe"
 $LauncherBackup = Join-Path $BackupDir "launcher.exe.preinstall"
 $LauncherHashMarker = Join-Path $BackupDir "launcher-wrapper-installed.sha256"
 $WrapperSource = Join-Path $PackageDir "bin\launcher.exe"
-if (Get-Process mgs4 -ErrorAction SilentlyContinue) { throw "Exit the game before uninstalling." }
+$PackageTestTarget = [string]$env:MGS4ULTRA120_PACKAGE_TEST_GAME_DIR
+$IsIsolatedPackageTest = $PackageTestTarget -and
+    [IO.Path]::GetFullPath($PackageTestTarget).Equals(
+        [IO.Path]::GetFullPath($GameDir),
+        [StringComparison]::OrdinalIgnoreCase) -and
+    [IO.Path]::GetFullPath($GameDir).StartsWith(
+        [IO.Path]::GetFullPath([IO.Path]::GetTempPath()),
+        [StringComparison]::OrdinalIgnoreCase)
+if (-not $IsIsolatedPackageTest -and
+    (Get-Process mgs4 -ErrorAction SilentlyContinue)) {
+    throw "Exit the game before uninstalling."
+}
 $DisplayMetadata = Join-Path $BackupDir "windows-launcher-settings.json"
 if (Test-Path -LiteralPath $DisplayMetadata) {
     Restore-Mgs4Ultra120WindowsDisplaySettings $GameDir

@@ -3,9 +3,10 @@
 The Unity launcher can be skipped without launching `mgs4.exe` from an
 untracked desktop command. When enabled, Steam still starts
 `Launcher/launcher.exe`; MGS4 Ultra120's small wrapper occupies that path,
-uses the official `mgs4_param` bootstrap format needed by the game, starts
-`MGS4/mgs4.exe` without duplicating those tokens on its command line,
-waits for it and returns its exit code to Steam.
+reproduces the original launcher's exact `CreateProcessW` call, waits for
+`MGS4/mgs4.exe` and returns its exit code to Steam. The child command line
+deliberately starts with `-region`; `lpApplicationName` separately contains the
+full executable path, and the working directory is `MGS4`.
 
 This retains the normal Steam application launch relationship for the overlay,
 play-time accounting and the game's normal save location. Steam Cloud behavior
@@ -20,9 +21,16 @@ original launcher. No custom Steam target is required.
 The original Unity launcher can cause Steam to show **Start game with custom
 arguments**. Older MGS4 Ultra120 wrappers duplicated the same bootstrap tokens
 on the child command line and could enter a prompt/launcher loop on some Steam
-clients. Alpha.3 keeps the tokens only in `mgs4_param`; its direct-launch child
-therefore has no custom command-line arguments. Cancel any unexpected Steam
-argument prompt and report it with `Launcher/mgs4_direct_wrapper.log`.
+clients. The current wrapper no longer writes `%TEMP%\mgs4_param`; Steam owns
+that interception file. Static analysis of the original Unity IL2CPP launcher
+showed that its options are passed directly to `CreateProcessW`, and the wrapper
+now uses that same protocol. Start the game from its Steam library entry. A
+direct external execution can trigger Steam's safety prompt and exit with code
+53; cancel that attempt and relaunch normally through Steam.
+
+The language token is read from `mgs4_ultrawide.ini`. Native testing confirmed
+that `Language=sp` reaches the game's parser as id 5 and starts the UI in
+Spanish. The wrapper does not read, rewrite or delete any game save.
 
 ## Windows presentation settings
 

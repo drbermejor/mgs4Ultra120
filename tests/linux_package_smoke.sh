@@ -86,7 +86,13 @@ grep -q "Exec=\"$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh\"" \
 
 MGS4_GAME_DIR="$GAME_DIR" "$LOCAL_PACKAGE/scripts/linux/configure.sh" stable
 grep -q '^FPSOverrideEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
-grep -q '^FOVMultiplier=1.050$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^FOVMultiplier=1.200$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^NativeCameraFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
+
+# Managed updates preserve an explicit experimental-FOV opt-out.
+sed -i 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' "$GAME_DIR/mgs4_ultrawide.ini"
+env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh"
+grep -q '^NativeCameraFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" MGS4_GAME_DIR="$GAME_DIR" \
   XDG_DATA_HOME="$XDG_DATA" MGS4_DESKTOP_DIR="$DESKTOP_DIR" \

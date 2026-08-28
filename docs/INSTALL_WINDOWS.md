@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.2-alpha.2 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.2-alpha.2).
+[v0.3.3-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
@@ -40,11 +40,13 @@ off security tools globally. Use only the official release and avoid reuploads.
 
 This route runs no EXE, CMD or PowerShell:
 
-1. Extract the manual ZIP.
-2. Close the game.
-3. Copy everything inside the extracted folder into the `MGS4` folder
+1. Uninstall/remove old MGS4 Ultra120 builds. Keep exactly one ASI loader and
+   one `scripts\MGS4Ultra120.asi`; do not mix release files.
+2. Extract the manual ZIP.
+3. Close the game.
+4. Copy everything inside the extracted folder into the `MGS4` folder
    containing `mgs4.exe`.
-4. Preserve the included `scripts` folder and launch through Steam.
+5. Preserve the included `scripts` folder and launch through Steam.
 
 Core layout:
 
@@ -65,7 +67,8 @@ approve its normal child launch, but if it returns to the launcher and repeats
 the custom-arguments prompt described in
 [Issue #2](https://github.com/drbermejor/mgs4Ultra120/issues/2), run the portable
 setup once and save with **Skip Unity launcher** enabled. The current wrapper
-uses the official `mgs4_param` bootstrap instead of repeating child arguments.
+reproduces the official launcher's `CreateProcessW` child command line. Steam
+owns its temporary launch interception; the wrapper does not write that file.
 
 ## Complete ZIP
 
@@ -75,13 +78,22 @@ documentation/notices. Choose one installation route; do not perform both.
 ## Defaults and safe updates
 
 The recommended Windows profile uses the primary monitor's physical resolution,
-native-size windowed presentation, FOV 1.050 (the supported maximum), controller-profile correction,
+native-size windowed presentation, FOV 1.200 (the supported maximum), controller-profile correction,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120.
+
+The manual ZIP does not install the launcher bypass. Manual users select the
+game language in the official Unity launcher; `Language=` affects only the
+optional wrapper installed by guided setup.
 
 Setup does not edit `mgs4.exe`. It backs up unknown same-name files, preserves
 supported settings during updates and reuses a compatible x64 Ultimate ASI
 Loader owned by another mod. A stale Steam library on a disconnected drive is
 ignored instead of aborting detection.
+
+Setup blocks a second Ultimate ASI Loader proxy or a renamed old MGS4 Ultra120
+ASI because either can initialize the patch twice. It reports exact candidates
+and never deletes third-party DLLs. Remove the old build or alternative loader
+yourself after confirming which mod owns it, then run setup again.
 
 ## Command line
 

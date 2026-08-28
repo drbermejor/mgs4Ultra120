@@ -1,4 +1,5 @@
 #include "projection_math.h"
+#include "camera_route_policy.h"
 
 #include <cmath>
 #include <cstdio>
@@ -145,6 +146,19 @@ int main() {
         return 30;
     if (mgs4_projection::adjust_camera_input_scale(
             2.0f, std::numeric_limits<float>::denorm_min()) != 2.0f) return 31;
+
+    // Native FOV belongs to route 03 only. The adjacent rebuild routes inherit
+    // its result and must never compound the multiplier.
+    if (!mgs4_camera::owns_native_fov(0x0ba3a3)) return 38;
+    if (mgs4_camera::owns_native_fov(0x0b9ba0)) return 39;
+    if (mgs4_camera::owns_native_fov(0x0b8a43)) return 40;
+    if (mgs4_camera::owns_native_fov(0x0b8b4f)) return 41;
+    if (mgs4_camera::owns_native_fov(0x0eb0eb)) return 42;
+    if (mgs4_camera::owns_native_fov(0x0eb191)) return 43;
+    if (mgs4_camera::owns_native_fov(0)) return 44;
+    if (!mgs4_camera::renderer_is_aspect_only(true, true)) return 45;
+    if (mgs4_camera::renderer_is_aspect_only(false, true)) return 46;
+    if (!mgs4_camera::renderer_is_aspect_only(false, false)) return 47;
 
     // With native FOV active, the final setter changes only X/aspect and is
     // idempotent; Y/FOV must remain untouched on repeated calls.

@@ -1,4 +1,4 @@
-$Mgs4Ultra120Version = "v0.3.2-alpha.2"
+$Mgs4Ultra120Version = "v0.3.3-alpha.1"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
@@ -32,6 +32,50 @@ function Test-UltimateAsiLoader([string]$Path) {
     }
 }
 
+function Get-Mgs4Ultra120ConflictingLoaders([string]$GameDir) {
+    $Conflicts = [Collections.Generic.List[string]]::new()
+    # A second Ultimate ASI Loader proxy can load every ASI twice. Do not guess
+    # from a DLL name alone (ReShade and other tools may legitimately use one
+    # of these names); require Ultimate ASI Loader's PE version metadata.
+    foreach ($Name in @(
+        "d3d8.dll", "d3d9.dll", "d3d11.dll", "dinput8.dll", "dsound.dll",
+        "version.dll", "wininet.dll", "winhttp.dll", "xinput1_3.dll",
+        "xinput9_1_0.dll"
+    )) {
+        $Candidate = Join-Path $GameDir $Name
+        if (Test-UltimateAsiLoader $Candidate) {
+            $Conflicts.Add("$Name (second Ultimate ASI Loader proxy)")
+        }
+    }
+
+    # Old or unpacked builds can leave a second copy of this patch under a
+    # different name/location. Ultimate ASI Loader scans ASIs, so both copies
+    # would install the same hooks.
+    foreach ($Directory in @($GameDir, (Join-Path $GameDir "scripts"))) {
+        if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
+            continue
+        }
+        foreach ($Candidate in Get-ChildItem -LiteralPath $Directory -File `
+                -Filter "*.asi" -ErrorAction SilentlyContinue) {
+            $Canonical = [IO.Path]::Combine($GameDir, "scripts",
+                "MGS4Ultra120.asi")
+            if ($Candidate.FullName.Equals($Canonical,
+                    [StringComparison]::OrdinalIgnoreCase)) { continue }
+            if ($Candidate.BaseName -match
+                    '(?i)(mgs4.*ultra|ultrawide.*mgs4|mgs4ultra120)') {
+                $Relative = if ($Directory.Equals($GameDir,
+                        [StringComparison]::OrdinalIgnoreCase)) {
+                    $Candidate.Name
+                } else {
+                    "scripts\$($Candidate.Name)"
+                }
+                $Conflicts.Add("$Relative (possible old MGS4 Ultra120 ASI)")
+            }
+        }
+    }
+    return @($Conflicts | Select-Object -Unique)
+}
+
 function Test-Mgs4Ultra120Config([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
     $Text = Get-Content -Raw -LiteralPath $Path
@@ -46,9 +90,14 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
                                   [string]$Destination) {
     $TemplateText = Get-Content -Raw -LiteralPath $Template
     $ExistingText = Get-Content -Raw -LiteralPath $Existing
+    $ExistingFovModel = [regex]::Match($ExistingText,
+        '(?m)^FOVModelVersion=(\d+)\s*$')
+    $NeedsSingleOwnerFovMigration = -not $ExistingFovModel.Success -or
+        [int]$ExistingFovModel.Groups[1].Value -lt 2
     foreach ($Key in @(
         "UltrawideEnabled", "FPSOverrideEnabled", "AllowUnsupportedExecutable",
-        "Width", "Height", "FOVMultiplier", "SupersamplingEnabled",
+        "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
+        "SupersamplingEnabled",
         "RenderScale", "Limit", "ControllerProfileFixEnabled",
         "SkipUnityLauncher", "Region", "SelfRegion", "Language", "ControllerType",
         "DisplayMode", "UsePrimaryPhysicalResolution"
@@ -70,13 +119,12 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
         '(?m)^FPSOverrideEnabled=.*$', 'FPSOverrideEnabled=0', 1)
     $TemplateText = [regex]::Replace($TemplateText,
         '(?m)^Limit=120$', 'Limit=60', 1)
-    # The current release owns FOV at the native camera input. Do not preserve
-    # disabled values from private A/B packages during a managed update.
-    $TemplateText = [regex]::Replace($TemplateText,
-        '(?m)^NativeCameraFOV=.*$', 'NativeCameraFOV=1', 1)
-    # v0.3.2-alpha.2 intentionally caps the public native-camera range. Older
-    # alpha files may contain 1.150/1.200; migrate them to the tested maximum so
-    # WinForms can always open and the runtime does not reject the update.
+    # NativeCameraFOV is user-selectable in v0.3.3. Preserve an explicit opt-out
+    # so a managed update never silently re-enables the experimental route.
+    # FOV model 1 applied the multiplier repeatedly in the camera rebuild
+    # chain. Model 2 owns it once at route 03. Migrate the old 1.050 default to
+    # the visually validated single-owner 1.200 exactly once; after the marker
+    # exists, a user may deliberately select 1.050 without it being rewritten.
     $FovMatch = [regex]::Match($TemplateText,
         '(?m)^FOVMultiplier=(.*)$')
     if ($FovMatch.Success) {
@@ -86,9 +134,13 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
                 [Globalization.NumberStyles]::Float,
                 [Globalization.CultureInfo]::InvariantCulture,
                 [ref]$ParsedFov) -or $ParsedFov -lt 0.5 -or
-                $ParsedFov -gt 1.05) {
+                $ParsedFov -gt 1.20) {
             $TemplateText = [regex]::Replace($TemplateText,
-                '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.050', 1)
+                '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.200', 1)
+        } elseif ($NeedsSingleOwnerFovMigration -and
+                  [Math]::Abs($ParsedFov - 1.05) -lt 0.0005) {
+            $TemplateText = [regex]::Replace($TemplateText,
+                '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.200', 1)
         }
     }
     $Temporary = "$Destination.tmp"
@@ -325,6 +377,13 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
     }
     if (-not [IO.File]::Exists([IO.Path]::Combine($GameDir, "mgs4.exe"))) {
         throw "mgs4.exe was not found in the selected MGS4 folder."
+    }
+
+    $LoaderConflicts = @(Get-Mgs4Ultra120ConflictingLoaders $GameDir)
+    if ($LoaderConflicts.Count -gt 0) {
+        throw ("Conflicting old/duplicate loader files were found:`n - " +
+            ($LoaderConflicts -join "`n - ") +
+            "`n`nRemove old MGS4 Ultra120 builds and alternative ASI-loader copies, then run setup again. Do not delete unrelated DLLs unless you know what installed them.")
     }
 
     $BackupDir = Join-Path $GameDir ".mgs4ultra120-backup"

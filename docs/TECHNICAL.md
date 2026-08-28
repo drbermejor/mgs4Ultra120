@@ -35,10 +35,15 @@ only the original input and lets the game execute its complete native builder.
 The final setter also has no old `m00`/`m11` ceiling, so tight close-ups remain
 eligible without broad memory scanning or periodic rewriting.
 
-At 3440x1440, `FOVMultiplier=1.050` is the recommended framing and supported
-maximum. Visual comparison found that `1.000`, while preserving the original
-vertical FOV exactly, framed Snake too tightly in the tested gameplay view.
-The modest increase can still show off-camera actors or transitions earlier
+Only the primary caller return RVA `0x0ba3a3` owns native FOV. Routes later in
+the same camera rebuild chain receive the already-corrected state and must not
+apply the multiplier again. This route isolation fixed WeaponWindow distortion
+while retaining gameplay and cinematic FOV.
+
+At 3440x1440, `FOVMultiplier=1.200` is the tested framing and supported
+maximum under this single-owner model. Visual comparison found that `1.000`,
+while preserving the original vertical FOV exactly, framed Snake too tightly
+in the tested gameplay view. Any value above `1.000` can still show off-camera actors or transitions earlier
 than the authored shot intended even though projection and culling are
 consistent. Wider values were useful as development stress tests but are no
 longer accepted by the release runtime or configurators.
@@ -85,10 +90,11 @@ before final draw submission.
 ## Direct launcher
 
 The optional wrapper replaces only `Launcher/launcher.exe` after backing it
-up. It derives the adjacent install and game directories, serializes launcher
-tokens into the temporary `mgs4_param` bootstrap file, starts `MGS4/mgs4.exe`,
-waits for the child and forwards its exit code. An inherited marker prevents a
-nested return-to-launcher request from creating a loop.
+up. It derives the adjacent install and game directories and starts
+`MGS4/mgs4.exe` with the same application name, child command line and working
+directory used by the official Unity launcher. Steam owns its temporary
+interception file; the wrapper does not write it. The wrapper waits for the
+child and forwards its exit code.
 
 The official launcher's `-resolution 0` token is a resolution slot, not its
 window/fullscreen flag. Presentation is stored separately as `WindowMode` in

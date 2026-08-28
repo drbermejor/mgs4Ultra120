@@ -1,7 +1,8 @@
 MGS4 ULTRA120 - COPY-ONLY MANUAL INSTALL
 
-FOV 1.050 is the recommended default and supported maximum. It can show actors,
-geometry or transitions at cinematic edges slightly earlier than intended.
+FOV 1.200 is the tested 21:9 default and supported maximum. Any value above
+1.000 can show actors, geometry or transitions at cinematic edges earlier than
+intended.
 
 CORE / NORMAL-FPS ROUTE
 
@@ -35,3 +36,7 @@ This copy-only route runs no installer or script, creates no shortcuts and does
 not install the optional Unity-launcher bypass. Back up every existing file with
 the same name. If another mod already owns a compatible x64 ASI loader, keep it
 and copy only the ASI/INI files.
+
+Launch through Steam and choose the language in the official Unity launcher.
+The Language= value in mgs4_ultrawide.ini is used only by the optional direct
+wrapper installed by guided setup; the copy-only package does not install it.

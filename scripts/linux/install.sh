@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-VERSION="v0.3.2-alpha.2"
+VERSION="v0.3.3-alpha.1"
 GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4}"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
@@ -108,6 +108,54 @@ install_managed() {
   printf '%s\n' "$source_hash" >"$marker"
 }
 
+install_patch_config() {
+  local template="$PACKAGE_DIR/config/mgs4_ultrawide.ini"
+  local destination="$GAME_DIR/mgs4_ultrawide.ini"
+  if [[ ! -f "$destination" ]] || ! grep -q '^\[Patch\]$' "$destination"; then
+    install -m0644 "$template" "$destination"
+    return
+  fi
+  python3 - "$template" "$destination" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+template_path, destination = map(Path, sys.argv[1:])
+text = template_path.read_text()
+existing = destination.read_text()
+preserved = (
+    "UltrawideEnabled", "FPSOverrideEnabled", "AllowUnsupportedExecutable",
+    "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
+    "SupersamplingEnabled", "RenderScale", "Limit",
+    "ControllerProfileFixEnabled", "SkipUnityLauncher", "Region",
+    "SelfRegion", "Language", "ControllerType", "DisplayMode",
+    "UsePrimaryPhysicalResolution",
+)
+for key in preserved:
+    match = re.search(rf"(?m)^{re.escape(key)}=(.*)$", existing)
+    if match and re.search(rf"(?m)^{re.escape(key)}=.*$", text):
+        text = re.sub(rf"(?m)^{re.escape(key)}=.*$",
+                      f"{key}={match.group(1).strip()}", text, count=1)
+
+text = re.sub(r"(?m)^FPSOverrideEnabled=.*$", "FPSOverrideEnabled=0", text, count=1)
+text = re.sub(r"(?m)^Limit=120$", "Limit=60", text, count=1)
+model = re.search(r"(?m)^FOVModelVersion=(\d+)\s*$", existing)
+old_model = model is None or int(model.group(1)) < 2
+fov = re.search(r"(?m)^FOVMultiplier=(.*)$", text)
+try:
+    parsed_fov = float(fov.group(1).strip().replace(",", ".")) if fov else 1.2
+except ValueError:
+    parsed_fov = 1.2
+if not 0.5 <= parsed_fov <= 1.2 or (old_model and abs(parsed_fov - 1.05) < 0.0005):
+    text = re.sub(r"(?m)^FOVMultiplier=.*$", "FOVMultiplier=1.200", text, count=1)
+
+temporary = destination.with_suffix(".ini.tmp")
+temporary.write_text(text)
+temporary.replace(destination)
+PY
+  chmod 0644 "$destination"
+}
+
 [[ "$INSTALL_FPS" == 0 || "$INSTALL_FPS" == 1 ]] || {
   echo "MGS4_INSTALL_FPS_UNLOCK must be 0 or 1." >&2
   exit 1
@@ -148,18 +196,24 @@ if [[ "$INSTALL_FPS" == 1 ]]; then
   managed_preflight "$GAME_DIR/scripts/MGSFPSUnlock.asi" MGSFPSUnlock.asi "$FPS_STAGE"
 fi
 
-if [[ -e "$GAME_DIR/mgs4_ultrawide.ini" && ! -e "$BACKUP_DIR/mgs4_ultrawide.ini.preinstall" ]]; then
+if [[ -e "$GAME_DIR/mgs4_ultrawide.ini" &&
+      ! -e "$BACKUP_DIR/mgs4_ultrawide.ini.preinstall" &&
+      ! -e "$BACKUP_DIR/MGS4Ultra120.asi.installed.sha256" &&
+      ! -e "$BACKUP_DIR/MGS4Ultra120.asi.reused.sha256" ]]; then
   cp -a -- "$GAME_DIR/mgs4_ultrawide.ini" "$BACKUP_DIR/mgs4_ultrawide.ini.preinstall"
 fi
 if [[ "$INSTALL_FPS" == 1 ]]; then
-  if [[ -e "$GAME_DIR/scripts/MGSFPSUnlock.ini" && ! -e "$BACKUP_DIR/MGSFPSUnlock.ini.preinstall" ]]; then
+  if [[ -e "$GAME_DIR/scripts/MGSFPSUnlock.ini" &&
+        ! -e "$BACKUP_DIR/MGSFPSUnlock.ini.preinstall" &&
+        ! -e "$BACKUP_DIR/MGSFPSUnlock.asi.installed.sha256" &&
+        ! -e "$BACKUP_DIR/MGSFPSUnlock.asi.reused.sha256" ]]; then
     cp -a -- "$GAME_DIR/scripts/MGSFPSUnlock.ini" "$BACKUP_DIR/MGSFPSUnlock.ini.preinstall"
   fi
 fi
 
 install_managed "$PACKAGE_DIR/bin/winmm.dll" "$GAME_DIR/winmm.dll" winmm.dll
 install_managed "$CORE_ASI_SOURCE" "$GAME_DIR/scripts/MGS4Ultra120.asi" MGS4Ultra120.asi
-install -m0644 "$PACKAGE_DIR/config/mgs4_ultrawide.ini" "$GAME_DIR/mgs4_ultrawide.ini"
+install_patch_config
 if [[ "$INSTALL_FPS" == 1 ]]; then
   install_managed "$FPS_STAGE" "$GAME_DIR/scripts/MGSFPSUnlock.asi" MGSFPSUnlock.asi
   install -m0644 "$FPS_INI_SOURCE" "$GAME_DIR/scripts/MGSFPSUnlock.ini"

@@ -43,16 +43,15 @@ driver/display setup.
   output and no repeated/corrupt right-side surface.
 - The load-complete screen waits at `PULSE CUALQUIER BOTÓN` until explicit
   confirmation.
-- Native-input FOV at 3440x1440: `1.000` and wider development stress profiles
-  kept natural character proportions and a working aiming crosshair. Runtime
-  evidence recorded 760 native camera adjustments, 950 final aspect
-  corrections and no fallback. Final visual comparison selected `1.050` as the
-  recommended/default value and public maximum because `1.000` framed Snake
-  too tightly in the tested view.
+- Native-input FOV at 3440x1440: route `0x0ba3a3` is the sole owner of the
+  multiplier; downstream camera rebuild routes are left untouched. `1.200`
+  kept natural character proportions, a working aiming crosshair, an
+  undistorted WeaponWindow and clean problematic cinematics. It is the tested
+  recommendation and public maximum; `1.000` framed Snake too tightly.
 - The game now builds projection and CPU visibility planes from the same
   adjusted input. The withdrawn tall/thin alpha.6 regression came from editing
   already-produced camera state; that code is absent.
-- FOV `1.050` can expose authored off-camera actors, geometry or transitions
+- Any FOV above `1.000` can expose authored off-camera actors, geometry or transitions
   before a cinematic intended them to enter the frame. This is distinct from a
   render/culling mismatch and is explicitly warned by both configurators.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
@@ -63,7 +62,7 @@ driver/display setup.
   the reticle stable at 3956x1656, flickering at exactly 4096 pixels wide and
   depth-conditionally absent at 4128x1728 and 5160x2160. Alpha.6 warns users to
   keep internal width below 4096; supersampling remains disabled by default.
-- The definitive native-input path was compared against the renderer-only and
+- The single-owner native-input candidate was compared against the renderer-only and
   withdrawn post-return implementations. It eliminated their respective
   continuity and aspect issues without reconstructing camera state.
 - 60 FPS/core: previously validated Windows path remains available without the

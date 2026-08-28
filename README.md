@@ -66,6 +66,19 @@ unlock implementation.
   exactly 4096 pixels wide and can disappear according to aiming depth above
   it. Alpha.6 warns users to keep internal width below 4096.
 
+## Validation screenshots
+
+Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
+`FOVMultiplier=1.200`.
+
+**Gameplay**
+
+![Correctly proportioned 3440x1440 gameplay](docs/images/v0.3.3-alpha.1-gameplay-3440x1440.png)
+
+**WeaponWindow**
+
+![Undistorted WeaponWindow at 3440x1440](docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png)
+
 ## Windows downloads
 
 Use the

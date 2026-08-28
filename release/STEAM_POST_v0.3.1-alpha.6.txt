@@ -1,77 +1,155 @@
-[b]MGS4 Ultra120 alpha.6 - Experimental supersampling preview[/b]
+[b]MGS4 Ultra120 – Stable ultrawide patch and optional experimental supersampling[/b]
 
-[b]Important: this is an experimental Windows prerelease.[/b]
+MGS4 Ultra120 is an open-source patch for the Steam version of [i]METAL GEAR SOLID 4: Guns of the Patriots – Master Collection Version[/i].
 
-Supersampling is disabled by default. If you only want the already validated ultrawide, FOV, controller and corrected-120-FPS patch, continue using alpha.5. Alpha.5 remains the recommended stable download and its release has not been replaced by this preview.
+There are now [b]two separate Windows choices[/b]. Most users should install the normal alpha.5 release. Alpha.6 is not a required update: it is an optional experimental build only for users who specifically want internal-resolution supersampling.
 
-[b]What does the experimental supersampling option do?[/b]
+[b]1. Normal version – alpha.5 (recommended for most users)[/b]
 
-It keeps the game window and Windows output at your physical monitor resolution, but renders the game internally at a larger resolution and downsamples the complete frame for presentation. It does not require AMD VSR, NVIDIA DSR or changing the Windows desktop resolution.
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5]Download MGS4 Ultra120 v0.3.1-alpha.5[/url]
 
-[list]
-[*]1920x1080 at 2.00x renders internally at 3840x2160.
-[*]2560x1080 at 2.00x renders internally at 5120x2160.
-[*]3440x1440 at 1.50x renders internally at 5160x2160.
-[*]3440x1440 at 2.00x renders internally at 6880x2880.
-[/list]
+Choose this version if you want the established patch without experimental supersampling.
 
-The first native-Windows test passed at 3440x1440 output, 1.50x/5160x2160 internal rendering, windowed presentation and FOV 1.150. The game kept a real 3440x1440 window, applied 472 synchronized camera/frustum updates with no late 16:9 fallback, and the result was visually confirmed. This is an initial configuration test, not a full-playthrough or a guarantee for every GPU.
-
-Alpha.6 also includes the current alpha.5 fixes:
+It provides:
 
 [list]
 [*]Correct Hor+ ultrawide rendering without stretching.
-[*]Recommended FOV 1.150 with synchronized world culling.
-[*]The fix that keeps FOV continuous during tight in-engine close-ups and cinematics instead of briefly narrowing the image.
-[*]30/60 FPS plus optional corrected 120 FPS through cipherxof/MGSFPSUnlock.
+[*]Configurable FOV with synchronized world culling.
+[*]Recommended FOV 1.150 for 21:9; 1.000 preserves the original vertical FOV.
+[*]Continuous FOV during tight in-engine close-ups and cinematics, without the former momentary narrowing.
+[*]30 and 60 FPS operation.
+[*]Optional corrected 120 FPS through cipherxof/MGSFPSUnlock.
 [*]Controller-profile correction.
+[*]Native-resolution windowed or exclusive-fullscreen presentation.
 [*]Optional Unity-launcher bypass while still launching through Steam.
 [/list]
 
-[b]Experimental release:[/b]
-[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6]MGS4 Ultra120 v0.3.1-alpha.6[/url]
+This is the recommended version for normal play. At 3440x1440 and FOV 1.150 it has been validated with correct proportions, synchronized camera/culling updates, a visible aiming crosshair and the close-up sequence that exposed the previous FOV discontinuity.
 
-[b]Stable release:[/b]
-[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5]MGS4 Ultra120 v0.3.1-alpha.5[/url]
+[b]2. Experimental supersampling version – alpha.6 (optional)[/b]
 
-[b]Option 1: Setup EXE[/b]
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6]Download MGS4 Ultra120 v0.3.1-alpha.6 experimental preview[/url]
 
-Download [i]MGS4Ultra120-v0.3.1-alpha.6-windows-setup.exe[/i], install/update, open the configurator, enable [b]Experimental supersampling[/b] and choose a render scale. The configurator shows the calculated internal resolution and asks for explicit confirmation. Start with 1.50x at 3440x1440 and use windowed presentation.
+Choose this version [b]only[/b] if you specifically want the game to render internally above the physical output resolution.
 
-[b]Option 2: Portable ZIP/CMD[/b]
+It contains all current alpha.5 fixes and adds an optional supersampling switch. Supersampling is [b]disabled by default[/b], so installing alpha.6 alone does not enable it.
 
-Download [i]MGS4Ultra120-v0.3.1-alpha.6-windows-portable.zip[/i], select [b]Extract All[/b], open the extracted folder and run [i]MGS4Ultra120-Setup.cmd[/i]. Do not run it from inside the ZIP. Choose install/update and configure, then enable supersampling in the configurator.
+The option keeps the game window and Windows output at the monitor's physical resolution, renders the complete frame internally at a larger resolution, and downsamples it for presentation. It does not require AMD VSR, NVIDIA DSR or changing the Windows desktop resolution.
 
-[b]Option 3: Manual copy-only ZIP[/b]
+Examples:
+
+[list]
+[*]1920x1080 at 2.00x becomes 3840x2160 internally.
+[*]2560x1080 at 2.00x becomes 5120x2160 internally.
+[*]3440x1440 at 1.50x becomes 5160x2160 internally.
+[*]3440x1440 at 2.00x becomes 6880x2880 internally.
+[/list]
+
+The first native-Windows validation passed at 3440x1440 output, 1.50x/5160x2160 internal rendering, windowed presentation and FOV 1.150. The game retained a real 3440x1440 window, completed 472 synchronized camera/frustum updates with no late 16:9 fallback, and the result was visually confirmed.
+
+[b]Please keep the experimental scope realistic[/b]
+
+Alpha.6 is being provided for voluntary testing, not as a promise that every scale, GPU, resolution or display configuration will be individually supported.
+
+[list]
+[*]Start with a reasonable scale such as 1.25x or 1.50x. Do not assume that the highest value your GPU can enter is useful or stable.
+[*]Rendering cost and approximate render-target memory grow with the square of the scale: 1.50x uses 2.25 times as many pixels and 2.00x uses 4 times as many pixels.
+[*]Excessive values may exhaust VRAM, reduce performance, crash the game or reset the graphics driver. Choosing an appropriate value is the user's responsibility.
+[*]The project will investigate reproducible patch defects, but cannot provide a custom maximum, performance target or ideal scale for every GPU.
+[*]The complete frame is downsampled, so HUD text and the Steam Overlay may appear smaller. Separate world/UI supersampling is not currently promised.
+[*]Windowed presentation is the validated target. Exclusive fullscreen, HDR, VRR/G-SYNC, mixed-refresh multi-monitor systems and Proton remain unvalidated combinations.
+[*]A report about an extreme or unsupported configuration does not mean that the normal alpha.5 patch is broken.
+[/list]
+
+If you do not explicitly need supersampling, use alpha.5.
+
+[b]Installation choices – available for both versions[/b]
+
+Each release provides the same three installation routes. Download the files from the alpha.5 page for the normal version or the alpha.6 page for the experimental version.
+
+[b]Option A: Setup EXE[/b]
+
+Download the corresponding [i]windows-setup.exe[/i]. It detects Steam, installs or updates the patch, creates shortcuts, opens the configurator and supports reversible removal.
+
+For experimental alpha.6, enable [b]Experimental supersampling[/b] in the configurator, review the calculated internal resolution and confirm the warning. At 3440x1440, begin with 1.50x and windowed presentation.
+
+[b]Option B: Portable ZIP/CMD[/b]
+
+1. Download the corresponding [i]windows-portable.zip[/i].
+2. Right-click it and select [b]Extract All[/b].
+3. Open the extracted folder; do not run files directly from inside the ZIP.
+4. Run [b]MGS4Ultra120-Setup.cmd[/b].
+5. Choose [b]Install / update and configure[/b].
+6. Review the settings, save and launch normally through Steam.
+
+This route uses the same readable PowerShell scripts and configurator without registering a persistent Windows application.
+
+[b]Option C: Manual copy-only ZIP[/b]
 
 This is the most transparent route and runs no setup script.
 
-[list=1]
-[*]Download and extract [i]MGS4Ultra120-v0.3.1-alpha.6-windows-manual.zip[/i].
-[*]Close the game.
-[*]Copy [i]winmm.dll[/i], [i]mgs4_ultrawide.ini[/i] and the included [i]scripts[/i] folder into the folder containing [i]mgs4.exe[/i].
-[*]Open [i]mgs4_ultrawide.ini[/i] and set:
-[/list]
+1. Download the corresponding [i]windows-manual.zip[/i].
+2. Close the game and extract the ZIP.
+3. Copy [i]winmm.dll[/i], [i]mgs4_ultrawide.ini[/i] and the included [i]scripts[/i] folder into the folder containing [i]mgs4.exe[/i], normally:
 
-[code][Supersampling]
+[code]...\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4[/code]
+
+The final layout must include:
+
+[code]MGS4\winmm.dll
+MGS4\mgs4_ultrawide.ini
+MGS4\scripts\MGS4Ultra120.asi[/code]
+
+4. Launch normally through Steam.
+
+For manual alpha.6 supersampling, edit [i]mgs4_ultrawide.ini[/i] while the game is closed:
+
+[code][Ultrawide]
+Width=3440
+Height=1440
+FOVMultiplier=1.150
+
+[Supersampling]
 SupersamplingEnabled=1
 RenderScale=1.50[/code]
 
-Keep [i]Width[/i] and [i]Height[/i] at your physical output resolution, save the file and launch normally through Steam. To disable the preview or recover from a failed startup, close the game and set [i]SupersamplingEnabled=0[/i].
+Keep Width and Height at the physical output resolution. If startup fails or you want the normal rendering path again, close the game and set:
 
-[b]Warnings and current limitations[/b]
+[code]SupersamplingEnabled=0[/code]
+
+[b]Which download should I choose?[/b]
 
 [list]
-[*]1.50x renders 2.25 times as many pixels; 2.00x renders 4 times as many pixels.
-[*]High values can sharply reduce performance, exhaust VRAM, crash the game or reset the graphics driver. The patch does not guess a safe GPU-specific limit.
-[*]The complete frame is downsampled, so HUD text and the Steam overlay may appear smaller.
-[*]Windowed presentation is the only tested target so far. Exclusive fullscreen, HDR, VRR/G-SYNC, mixed-refresh multi-monitor setups and Proton still need separate validation.
-[*]Supersampling remains off in every recommended/default profile.
+[*][b]Normal player:[/b] alpha.5 Setup EXE or Portable ZIP.
+[*][b]Do not trust an unsigned EXE:[/b] alpha.5 Manual ZIP.
+[*][b]Specifically want supersampling and accept experimental limitations:[/b] alpha.6 Setup EXE or Portable ZIP.
+[*][b]Want to inspect and enable supersampling entirely by hand:[/b] alpha.6 Manual ZIP.
+[*][b]Linux/Proton:[/b] remain on the separate alpha.5 Linux package. There is no alpha.6 Linux build.
 [/list]
 
-[b]Unsigned installer[/b]
+[b]Unsigned installer and open-source transparency[/b]
 
-The setup EXE is not digitally signed, so Windows SmartScreen, Chrome or antivirus software may display an unknown-publisher or reputation warning. The project is open source: anyone can inspect the source and build the ASI or installer independently. The EXE is optional; use the portable or manual ZIP if you prefer readable scripts or copy-only installation. Download only from the official GitHub release and keep antivirus enabled.
+The setup EXE is not digitally signed, so Windows SmartScreen, Chrome or antivirus software may show an unknown-publisher or download-reputation warning.
+
+MGS4 Ultra120 is open source. Anyone can inspect the patch, installer and PowerShell scripts, review the dependencies, or compile the ASI and installer independently. The EXE is optional: use the portable ZIP with readable scripts or the copy-only manual ZIP if preferred.
+
+Download files only from the official GitHub releases and keep antivirus protection enabled.
+
+[b]Reporting a supersampling problem[/b]
+
+First set [i]SupersamplingEnabled=0[/i] and check whether the problem disappears. If it does, include:
+
+[list]
+[*]Physical output resolution.
+[*]RenderScale and calculated internal resolution.
+[*]GPU model and VRAM.
+[*]Windowed or fullscreen presentation.
+[*]HDR and VRR/G-SYNC status.
+[*]Target frame rate.
+[*]Whether the normal alpha.5 path works.
+[*]The contents of [i]mgs4_ultrawide.log[/i].
+[/list]
 
 Source code:
-[url=https://github.com/drbermejor/mgs4Ultra120/tree/experimental/supersampling]experimental/supersampling branch[/url]
+[url=https://github.com/drbermejor/mgs4Ultra120]Main repository[/url]
+[url=https://github.com/drbermejor/mgs4Ultra120/tree/experimental/supersampling]Experimental supersampling branch[/url]

@@ -8,6 +8,7 @@ param(
 $ErrorActionPreference = "Stop"
 $PackageDir = (Resolve-Path -LiteralPath $PackageDir).Path
 $RequiredFiles = @(
+    "VERSION",
     "MGS4Ultra120-Setup.cmd",
     "bin\winmm.dll",
     "bin\MGS4Ultra120.asi",
@@ -39,6 +40,12 @@ foreach ($RelativePath in $RequiredFiles) {
     }
 }
 
+$VersionPath = Join-Path $PackageDir "VERSION"
+$PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
+if ($PackageVersion -ne "v0.3.2-alpha.2") {
+    throw "Package VERSION is incorrect: $PackageVersion"
+}
+
 $ExpectedLoaderHash =
     "031A3E5576D91DCE1E438D36B9A3D462C7334AB4791990A8FF1E3DDC0E132DAF"
 $LoaderPath = Join-Path $PackageDir "bin\winmm.dll"
@@ -61,6 +68,16 @@ foreach ($RelativePath in @("bin\winmm.dll", "bin\MGS4Ultra120.asi")) {
         [BitConverter]::ToUInt32($Bytes, $PeOffset) -ne 0x00004550 -or
         [BitConverter]::ToUInt16($Bytes, $PeOffset + 4) -ne 0x8664) {
         throw "$RelativePath is not an x86-64 PE image."
+    }
+}
+$AsiVersionPath = Join-Path $PackageDir "bin\MGS4Ultra120.asi"
+$WrapperVersionPath = Join-Path $PackageDir "bin\launcher.exe"
+$AsiVersionInfo = (Get-Item -LiteralPath $AsiVersionPath).VersionInfo
+$WrapperVersionInfo = (Get-Item -LiteralPath $WrapperVersionPath).VersionInfo
+foreach ($VersionInfo in @($AsiVersionInfo, $WrapperVersionInfo)) {
+    if ($VersionInfo.FileVersion -ne $PackageVersion -or
+        $VersionInfo.ProductVersion -ne $PackageVersion) {
+        throw "Embedded binary version does not match VERSION."
     }
 }
 if (-not $Portable) {
@@ -109,6 +126,8 @@ $PreexistingIni = [Text.Encoding]::UTF8.GetBytes("pre-existing ini test file")
 $PreexistingLauncher = [Text.Encoding]::UTF8.GetBytes("pre-existing launcher test file")
 
 try {
+    $PreviousPackageTestTarget = $env:MGS4ULTRA120_PACKAGE_TEST_GAME_DIR
+    $env:MGS4ULTRA120_PACKAGE_TEST_GAME_DIR = $GameDir
     New-Item -ItemType Directory -Path $GameDir -Force | Out-Null
     New-Item -ItemType Directory -Path $LauncherDir -Force | Out-Null
     New-Item -ItemType Directory -Path $LauncherSettingsDir -Force | Out-Null
@@ -128,6 +147,7 @@ try {
         ResolutionFullW = "2560"; ResolutionFullH = "1440"
         ResolutionWindowW = "1280"; ResolutionWindowH = "720"
         WindowSizeW = "1280"; WindowSizeH = "720"; WindowMode = "0"
+        prevPlayLanguage = "5"
     }
     $LauncherSettings = [pscustomobject]@{
         keyList = @($OriginalLauncherValues.Keys) + @("UnrelatedSetting")
@@ -138,6 +158,16 @@ try {
         [Text.UTF8Encoding]::new($false))
 
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+
+    # Simulate a user selecting Spanish before applying the stable profile.
+    # Both the direct wrapper INI and the original Unity launcher state must
+    # retain the same language.
+    $InstalledConfigPath = Join-Path $GameDir "mgs4_ultrawide.ini"
+    $InstalledConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
+    $InstalledConfig = [regex]::Replace(
+        $InstalledConfig, '(?m)^Language=.*$', 'Language=sp')
+    [IO.File]::WriteAllText($InstalledConfigPath, $InstalledConfig,
+        [Text.UTF8Encoding]::new($false))
 
     $InstalledDll = Join-Path $GameDir "winmm.dll"
     $PackageDll = Join-Path $PackageDir "bin\winmm.dll"
@@ -175,8 +205,11 @@ try {
         "FPSOverrideEnabled=0",
         "SupersamplingEnabled=0",
         "RenderScale=1.500",
+        "FOVMultiplier=1.050",
+        "NativeCameraFOV=1",
         "Limit=60",
-        "ControllerProfileFixEnabled=1"
+        "ControllerProfileFixEnabled=1",
+        "Language=sp"
     )) {
         if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))$") {
             throw "Stable profile did not write: $ExpectedLine"
@@ -262,7 +295,8 @@ try {
     foreach ($Expected in @(
         "ResolutionFullW=3440", "ResolutionFullH=1440",
         "ResolutionWindowW=3440", "ResolutionWindowH=1440",
-        "WindowSizeW=3440", "WindowSizeH=1440", "WindowMode=1"
+        "WindowSizeW=3440", "WindowSizeH=1440", "WindowMode=1",
+        "prevPlayLanguage=6"
     )) {
         $Parts = $Expected.Split('=')
         if ($LauncherMap[$Parts[0]] -ne $Parts[1]) {
@@ -434,6 +468,7 @@ try {
 
     Write-Host "Windows package smoke test passed."
 } finally {
+    $env:MGS4ULTRA120_PACKAGE_TEST_GAME_DIR = $PreviousPackageTestTarget
     try {
         $Saved = (Get-ItemProperty -Path "HKCU:\Software\MGS4Ultra120" `
             -Name LastGameDir -ErrorAction Stop).LastGameDir

@@ -1,0 +1,28 @@
+#include <windows.h>
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION @MGS4ULTRA120_VERSION_NUMERIC@
+ PRODUCTVERSION @MGS4ULTRA120_VERSION_NUMERIC@
+ FILEFLAGSMASK 0x3fL
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_DLL
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "drbermejor\0"
+            VALUE "FileDescription", "MGS4 Ultra120 patch plugin\0"
+            VALUE "FileVersion", "@MGS4ULTRA120_RELEASE_VERSION@\0"
+            VALUE "InternalName", "MGS4Ultra120\0"
+            VALUE "LegalCopyright", "MIT License\0"
+            VALUE "OriginalFilename", "MGS4Ultra120.asi\0"
+            VALUE "ProductName", "MGS4 Ultra120\0"
+            VALUE "ProductVersion", "@MGS4ULTRA120_RELEASE_VERSION@\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

@@ -1,10 +1,8 @@
 # Experimental supersampling
 
-This feature is developed on the `experimental/supersampling` branch and is
-published separately as the alpha.6 prerelease. It is disabled by default and
-is not part of the recommended alpha.5 release. Windows received the native
-validation below; the Linux/Proton alpha.6 package is supplied for voluntary
-testing and is not validated in this session.
+This optional feature is included in `v0.3.2-alpha.2`, but remains experimental
+and disabled by default. The definitive FOV implementation does not depend on
+supersampling; users who do not need downsampling should leave it off.
 
 Supersampling keeps the configured `Width` and `Height` as the physical Windows
 output and game-window size, while a uniform `RenderScale` raises the internal
@@ -59,20 +57,15 @@ explicit warning confirmation whenever supersampling is enabled.
 
 ## Native Windows validation
 
-The initial `cc3c060` candidate was validated on native Windows at physical
-3440x1440, `RenderScale=1.50` (5160x2160 internal), windowed presentation and
-`FOVMultiplier=1.150`. Runtime verification reported a 3440x1440 client and
-5160x2160 internal render state. The first candidate also enabled an early
-camera/frustum rewrite. A later alpha.6 report and direct alpha.5/alpha.6 A/B
-test showed that rewrite distorted character proportions even when
-supersampling was disabled. It has been removed. The final renderer-level path
-was validated at 3440x1440 with supersampling off, natural character
-proportions and FOV 1.150 active. Supersampling itself remains experimental and
-disabled by default.
+Native Windows validation covered 3440x1440 output and several internal sizes.
+The final release candidate was exercised at `RenderScale=1.15` (3956x1656),
+with natural proportions, native camera FOV active and no fallback.
+Supersampling itself remains experimental and disabled by default. The public
+FOV configuration uses `1.050` as both its recommendation and maximum.
 
 Subsequent same-session near/far tests isolated a depth-aware crosshair defect
 to the internal-width boundary. At 3956x1656 the reticle remained visible while
 aiming at the same distant scene. At exactly 4096x1715 it was visible but began
 to flicker, while at 4128x1728 it changed between visible and absent according
 to aiming depth. It was also captured absent at 5160x2160. This does not affect
-the stable alpha.5 path; the targeted cause is not yet patched.
+native-resolution rendering; the targeted reticle cause is not yet patched.

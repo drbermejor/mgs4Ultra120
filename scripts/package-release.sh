@@ -27,7 +27,7 @@ fi
 DIST="$REPO_DIR/dist"
 STAGE="$(mktemp -d)"
 trap 'rm -rf -- "$STAGE"' EXIT
-COMMON=(README.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md SECURITY.md)
+COMMON=(VERSION README.md CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md SECURITY.md)
 
 make_tree() {
   local platform="$1"

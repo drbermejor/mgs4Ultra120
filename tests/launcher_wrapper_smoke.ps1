@@ -12,11 +12,11 @@ try {
     Copy-Item -LiteralPath $Wrapper -Destination (Join-Path $LauncherDir "launcher.exe")
     Copy-Item -LiteralPath $Probe -Destination (Join-Path $GameDir "mgs4.exe")
     foreach ($Case in @(
-        [pscustomobject]@{ Mode = "Windowed"; Expected = "0" },
-        [pscustomobject]@{ Mode = "Fullscreen"; Expected = "0" }
+        [pscustomobject]@{ Mode = "Windowed"; Language = "sp"; ExpectedLanguage = "sp"; Expected = "0" },
+        [pscustomobject]@{ Mode = "Fullscreen"; Language = "ge"; ExpectedLanguage = "gr"; Expected = "0" }
     )) {
         [IO.File]::WriteAllText((Join-Path $GameDir "mgs4_ultrawide.ini"),
-            "[Launcher]`nDisplayMode=$($Case.Mode)`nLanguage=en`nRegion=eu`nSelfRegion=EU`nControllerType=XBOX`n",
+            "[Launcher]`nDisplayMode=$($Case.Mode)`nLanguage=$($Case.Language)`nRegion=eu`nSelfRegion=EU`nControllerType=XBOX`n",
             [Text.UTF8Encoding]::new($false))
         $Output = Join-Path $Root "arguments-$($Case.Mode).txt"
         $env:MGS4ULTRA120_PROBE_OUTPUT = $Output
@@ -42,6 +42,11 @@ try {
         if ($ResolutionIndex -lt 0 -or
             $Arguments[$ResolutionIndex + 1] -ne $Case.Expected) {
             throw "DisplayMode=$($Case.Mode) changed the official resolution slot from $($Case.Expected)."
+        }
+        $LanguageIndex = [Array]::IndexOf($Arguments, "-lan")
+        if ($LanguageIndex -lt 0 -or
+            $Arguments[$LanguageIndex + 1] -ne $Case.ExpectedLanguage) {
+            throw "Language=$($Case.Language) was not normalized to $($Case.ExpectedLanguage)."
         }
         $RootIndex = [Array]::IndexOf($Arguments, "-launcherroot")
         if ($RootIndex -lt 0 -or $Arguments[$RootIndex + 1] -ne $LauncherDir) {

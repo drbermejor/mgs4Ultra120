@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MGS4Ultra120 VERSION 0.3.1 LANGUAGES C CXX)
+project(MGS4Ultra120 VERSION 0.3.2 LANGUAGES C CXX)
+
+set(MGS4ULTRA120_RELEASE_VERSION "v0.3.2-alpha.2")
+set(MGS4ULTRA120_VERSION_NUMERIC "0,3,2,2")
 
 include(CTest)
 
@@ -21,6 +24,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(minhook)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(MGS4ULTRA120_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated/version")
+file(MAKE_DIRECTORY "${MGS4ULTRA120_GENERATED_DIR}")
+configure_file(cmake/version_asi.rc.in
+    "${MGS4ULTRA120_GENERATED_DIR}/version_asi.rc" @ONLY)
+configure_file(cmake/version_proxy.rc.in
+    "${MGS4ULTRA120_GENERATED_DIR}/version_proxy.rc" @ONLY)
+configure_file(cmake/version_launcher.rc.in
+    "${MGS4ULTRA120_GENERATED_DIR}/version_launcher.rc" @ONLY)
 
 if(BUILD_TESTING)
     add_test(NAME linux_steam_options_smoke
@@ -54,6 +66,7 @@ execute_process(
 add_library(mgs4_ultrawide SHARED
     src/mgs4_ultrawide.cpp
     src/winmm_proxy.cpp
+    "${MGS4ULTRA120_GENERATED_DIR}/version_proxy.rc"
     "${WINMM_ASSEMBLY}"
     "${WINMM_DEFINITION}"
 )
@@ -67,6 +80,7 @@ target_compile_features(mgs4_ultrawide PRIVATE cxx_std_17)
 target_compile_definitions(mgs4_ultrawide PRIVATE
     _WIN32_WINNT=0x0A00
     MGS4ULTRA120_WINMM_PROXY=1
+    MGS4ULTRA120_VERSION="${MGS4ULTRA120_RELEASE_VERSION}"
 )
 target_include_directories(mgs4_ultrawide PRIVATE "${WINMM_GENERATED_DIR}")
 target_link_libraries(mgs4_ultrawide PRIVATE minhook)
@@ -77,6 +91,7 @@ target_link_libraries(mgs4_ultrawide PRIVATE minhook)
 # full export-table regression test continues to run.
 add_library(mgs4_ultrawide_asi SHARED
     src/mgs4_ultrawide.cpp
+    "${MGS4ULTRA120_GENERATED_DIR}/version_asi.rc"
 )
 set_target_properties(mgs4_ultrawide_asi PROPERTIES
     OUTPUT_NAME MGS4Ultra120
@@ -89,11 +104,13 @@ target_compile_features(mgs4_ultrawide_asi PRIVATE cxx_std_17)
 target_compile_definitions(mgs4_ultrawide_asi PRIVATE
     _WIN32_WINNT=0x0A00
     MGS4ULTRA120_ASI=1
+    MGS4ULTRA120_VERSION="${MGS4ULTRA120_RELEASE_VERSION}"
 )
 target_link_libraries(mgs4_ultrawide_asi PRIVATE minhook)
 
 add_executable(mgs4_direct_launcher WIN32
     launcher_wrapper/mgs4_direct_launcher.cpp
+    "${MGS4ULTRA120_GENERATED_DIR}/version_launcher.rc"
 )
 set_target_properties(mgs4_direct_launcher PROPERTIES
     OUTPUT_NAME launcher
@@ -102,6 +119,7 @@ set_target_properties(mgs4_direct_launcher PROPERTIES
 target_compile_features(mgs4_direct_launcher PRIVATE cxx_std_17)
 target_compile_definitions(mgs4_direct_launcher PRIVATE
     _WIN32_WINNT=0x0A00
+    MGS4ULTRA120_VERSION="${MGS4ULTRA120_RELEASE_VERSION}"
 )
 
 add_executable(winmm_proxy_smoke tests/winmm_proxy_smoke.cpp)

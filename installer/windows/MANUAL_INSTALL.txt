@@ -1,5 +1,8 @@
 MGS4 ULTRA120 - COPY-ONLY MANUAL INSTALL
 
+FOV 1.050 is the recommended default and supported maximum. It can show actors,
+geometry or transitions at cinematic edges slightly earlier than intended.
+
 CORE / NORMAL-FPS ROUTE
 
 1. Close the game.

@@ -1,12 +1,13 @@
 param([string]$GameDir)
 
 $ErrorActionPreference = "Stop"
+$Mgs4Ultra120Version = "v0.3.2-alpha.2"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $Ui = @{
-        Form = "MGS4 Ultra120 - Easy setup"
-        Title = "Install MGS4 Ultra120"
+        Form = "MGS4 Ultra120 $Mgs4Ultra120Version - Easy setup"
+        Title = "Install MGS4 Ultra120 $Mgs4Ultra120Version"
         Help = "Verify the game folder and click the blue button. The game must be closed. Core setup works offline."
         Path = "Game folder (must contain mgs4.exe):"
         Found = "Game detected correctly"

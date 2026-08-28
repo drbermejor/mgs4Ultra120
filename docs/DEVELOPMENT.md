@@ -64,8 +64,7 @@ After a clean successful build, create the platform packages from the repo
 root with:
 
 ```bash
-./scripts/package-release.sh v0.3.1-alpha.5 windows
-./scripts/package-release.sh v0.3.2-alpha.1 linux
+./scripts/package-release.sh v0.3.2-alpha.2 all
 ```
 
 To package MSVC output from Git Bash instead of the default MinGW directory:
@@ -73,7 +72,7 @@ To package MSVC output from Git Bash instead of the default MinGW directory:
 ```bash
 MGS4ULTRA120_BIN_DIR="$PWD/build/bin/Release" \
 MGS4ULTRA120_ASI_LOADER="$PWD/build-third-party/ultimate-asi-loader/winmm.dll" \
-  ./scripts/package-release.sh v0.3.1-alpha.5 windows
+  ./scripts/package-release.sh v0.3.2-alpha.2 all
 ```
 
 The script refuses to package a missing loader, ASI or direct-launch wrapper,
@@ -86,10 +85,10 @@ source packages.
 To generate the same setup EXE after packaging on Windows:
 
 ```powershell
-$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.1-alpha.5-windows-complete.zip
+$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.2-alpha.2-windows-complete.zip
 $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash
 .\installer\windows\Build-Installer.ps1 `
-  -Version v0.3.1-alpha.5 `
+  -Version v0.3.2-alpha.2 `
   -WindowsZip $zip `
   -ExpectedZipSha256 $sha
 ```

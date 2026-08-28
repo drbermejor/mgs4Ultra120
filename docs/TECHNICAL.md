@@ -10,38 +10,39 @@ unsafe rather than silently claiming compatibility.
 
 ## World rendering and FOV
 
-The common renderer projection setter at RVA `0x0e3410` is intercepted. The
-game can submit either a canonical 16:9 perspective matrix or one whose X scale
-already matches the selected output aspect. Both are accepted and corrected:
+The native camera builder at RVA `0x0b9bb0` is intercepted at its scalar input.
+FOV is applied before the game constructs projection matrices, combined
+view-projection matrices and visibility planes:
 
 ```text
-adjusted_m11 = original_m11 / FOVMultiplier
-m00 = sign(m00) * abs(adjusted_m11) / (width / height)
+adjusted_camera_scale = original_camera_scale / FOVMultiplier
 ```
 
-Non-perspective, malformed and unknown-aspect matrices are untouched.
+The common renderer projection setter at RVA `0x0e3410` is also intercepted.
+With native-camera mode active it changes only `m00` to the configured aspect
+and leaves `m11` untouched, preventing a second FOV application. If the native
+hook cannot be installed, it automatically falls back to applying both aspect
+and FOV in the final setter. Non-perspective, malformed and unknown-aspect
+matrices are untouched.
 Resolution getters at RVAs `0x65c040` and `0x65c030` return configured internal
 dimensions; the central setter at `0x65f050` substitutes them when resolution
 state changes. This is event-driven and uses no polling loop.
 
-An attempted hook at the central camera builder (`0x0b9bb0`) rewrote three
-camera projections plus combined matrices and visibility planes. Although it
-removed a measured render/culling mismatch, native Windows A/B testing after an
-alpha.6 report confirmed an unacceptable aspect regression: Snake became
-unnaturally tall and thin with supersampling both enabled and disabled. The
-hook is therefore not installed. Runtime logs explicitly report the active
-renderer-only path.
+The withdrawn alpha.6 approach instead modified returned matrices and manually
+rebuilt dependent state. That was the source of the tall/thin regression. The
+current hook never reconstructs returned camera/frustum structures; it changes
+only the original input and lets the game execute its complete native builder.
+The final setter also has no old `m00`/`m11` ceiling, so tight close-ups remain
+eligible without broad memory scanning or periodic rewriting.
 
-Consequently, synchronized CPU culling and continuous FOV during extreme
-close-ups are not release claims. `FOVMultiplier=1.150` is visually validated
-at 3440x1440, but it can expose side pop-in and a very tight camera transition
-can briefly fall outside the conservative renderer filter. Fixing those cases
-requires a targeted redesign that preserves the validated projection path.
-
-At 3440x1440, `FOVMultiplier=1.150` adds roughly 5 degrees of vertical view to
-the narrow gameplay camera, preserves object proportions and closely follows
-the established RPCS3 21:9 framing. `1.000` remains the original vertical-FOV
-option. The 3440x1440 aiming crosshair is confirmed working; the separately
+At 3440x1440, `FOVMultiplier=1.050` is the recommended framing and supported
+maximum. Visual comparison found that `1.000`, while preserving the original
+vertical FOV exactly, framed Snake too tightly in the tested gameplay view.
+The modest increase can still show off-camera actors or transitions earlier
+than the authored shot intended even though projection and culling are
+consistent. Wider values were useful as development stress tests but are no
+longer accepted by the release runtime or configurators.
+The 3440x1440 aiming crosshair is confirmed working; the separately
 reported 5120x2160 case still requires reproduction at that exact resolution.
 The comparison uses the MGS4 entries published through the
 [official RPCS3 patch API](https://rpcs3.net/compatibility?patch&api=v1&v=1.2);

@@ -9,9 +9,18 @@
 #include <string>
 #include <vector>
 
+#ifndef MGS4ULTRA120_VERSION
+#define MGS4ULTRA120_VERSION "development"
+#endif
+#define MGS4ULTRA120_WIDEN_INNER(value) L##value
+#define MGS4ULTRA120_WIDEN(value) MGS4ULTRA120_WIDEN_INNER(value)
+
 namespace {
 
 constexpr wchar_t kMarker[] = L"MGS4ULTRA120_DIRECT_WRAPPER_ACTIVE";
+constexpr wchar_t kWindowTitle[] =
+    L"MGS4 Ultra120 " MGS4ULTRA120_WIDEN(MGS4ULTRA120_VERSION)
+    L" Direct Launcher";
 
 void show_error(const wchar_t* message, DWORD error = 0) {
     std::wstring text(message);
@@ -19,7 +28,7 @@ void show_error(const wchar_t* message, DWORD error = 0) {
         text += L"\n\nWindows error: ";
         text += std::to_wstring(error);
     }
-    MessageBoxW(nullptr, text.c_str(), L"MGS4 Ultra120 Direct Launcher",
+    MessageBoxW(nullptr, text.c_str(), kWindowTitle,
                 MB_OK | MB_ICONERROR);
 }
 
@@ -59,6 +68,18 @@ std::wstring read_token(const std::wstring& ini, const wchar_t* key,
                              static_cast<DWORD>(std::size(buffer)), ini.c_str());
     const std::wstring value(buffer);
     return safe_token(value) ? value : std::wstring(fallback);
+}
+
+std::wstring normalize_language(std::wstring value) {
+    // Alpha.6 exposed "ge" in the configurator, but the game uses "gr".
+    if (_wcsicmp(value.c_str(), L"ge") == 0) value = L"gr";
+    static constexpr std::array<const wchar_t*, 7> supported = {
+        L"en", L"sp", L"fr", L"it", L"gr", L"jp", L"pt"
+    };
+    for (const wchar_t* candidate : supported) {
+        if (_wcsicmp(value.c_str(), candidate) == 0) return candidate;
+    }
+    return L"en";
 }
 
 bool write_launcher_parameters(const std::wstring& launcher_directory,
@@ -119,6 +140,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
     }
 
     const std::wstring launcher_directory = parent_directory(module_path);
+    append_log(launcher_directory,
+               "MGS4 Ultra120 " MGS4ULTRA120_VERSION " direct launcher");
     const std::wstring install_directory = parent_directory(launcher_directory);
     const std::wstring game_directory = install_directory + L"\\MGS4";
     const std::wstring game_executable = game_directory + L"\\mgs4.exe";
@@ -130,7 +153,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
 
     const std::wstring region = read_token(ini_path, L"Region", L"eu");
     const std::wstring self_region = read_token(ini_path, L"SelfRegion", L"EU");
-    const std::wstring language = read_token(ini_path, L"Language", L"en");
+    const std::wstring language = normalize_language(
+        read_token(ini_path, L"Language", L"en"));
     const std::wstring controller = read_token(ini_path, L"ControllerType", L"XBOX");
     // WindowMode lives in the official launcher_sv settings. Native tracing
     // proved that the Unity launcher still emits "-resolution 0" when

@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.3.2-alpha.2 - native FOV and language persistence
+
+- Replaced post-return matrix/frustum reconstruction with a single native
+  camera-input adjustment before the game builds projections, combined
+  matrices and visibility planes.
+- Kept the final renderer hook as an aspect-only correction while native mode
+  is active, with the ceiling-free FOV path retained as an automatic fallback.
+- Validated the native-input path at 3440x1440 on Windows, including a wider
+  development stress profile: 760 native camera adjustments, 950 final aspect
+  corrections, no fallback, correct proportions and no new crash.
+- Set `1.050` as the recommended 21:9 default and public maximum after visual
+  comparison showed that `1.000` framed Snake too tightly. The configurators
+  warn that even this modest increase can reveal content near cinematic edges.
+- Fixed the configurator language selector, including the incorrect legacy
+  German code (`ge` -> `gr`), added Portuguese, and synchronized the selected
+  language with both the direct-launch bootstrap and the official Unity
+  launcher's `prevPlayLanguage` state.
+- Added friendly English language names, migration of legacy settings,
+  rollback-safe launcher metadata and language/package regression tests.
+- Added visible and embedded `v0.3.2-alpha.2` version information to the ASI,
+  legacy proxy, direct-launch wrapper, Windows GUIs and Linux shortcuts.
+- Unified the definitive FOV build and optional experimental supersampling in
+  one Windows/Linux release; supersampling remains off by default.
+
 ## v0.3.2-alpha.1 - unified Linux ASI setup
 
 - Replaced the legacy combined Proton proxy in the Linux package with the same

@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.1-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5).
+[v0.3.2-alpha.2 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.2-alpha.2).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
@@ -75,7 +75,7 @@ documentation/notices. Choose one installation route; do not perform both.
 ## Defaults and safe updates
 
 The recommended Windows profile uses the primary monitor's physical resolution,
-native-size windowed presentation, FOV 1.150, controller-profile correction,
+native-size windowed presentation, FOV 1.050 (the supported maximum), controller-profile correction,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120.
 
 Setup does not edit `mgs4.exe`. It backs up unknown same-name files, preserves

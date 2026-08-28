@@ -1,3 +1,4 @@
+$Mgs4Ultra120Version = "v0.3.2-alpha.2"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
@@ -69,6 +70,27 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
         '(?m)^FPSOverrideEnabled=.*$', 'FPSOverrideEnabled=0', 1)
     $TemplateText = [regex]::Replace($TemplateText,
         '(?m)^Limit=120$', 'Limit=60', 1)
+    # The current release owns FOV at the native camera input. Do not preserve
+    # disabled values from private A/B packages during a managed update.
+    $TemplateText = [regex]::Replace($TemplateText,
+        '(?m)^NativeCameraFOV=.*$', 'NativeCameraFOV=1', 1)
+    # v0.3.2-alpha.2 intentionally caps the public native-camera range. Older
+    # alpha files may contain 1.150/1.200; migrate them to the tested maximum so
+    # WinForms can always open and the runtime does not reject the update.
+    $FovMatch = [regex]::Match($TemplateText,
+        '(?m)^FOVMultiplier=(.*)$')
+    if ($FovMatch.Success) {
+        $ParsedFov = 0.0
+        $FovText = $FovMatch.Groups[1].Value.Trim().Replace(',', '.')
+        if (-not [double]::TryParse($FovText,
+                [Globalization.NumberStyles]::Float,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$ParsedFov) -or $ParsedFov -lt 0.5 -or
+                $ParsedFov -gt 1.05) {
+            $TemplateText = [regex]::Replace($TemplateText,
+                '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.050', 1)
+        }
+    }
     $Temporary = "$Destination.tmp"
     [IO.File]::WriteAllText($Temporary, $TemplateText,
         [Text.UTF8Encoding]::new($false))
@@ -150,9 +172,18 @@ function Write-Mgs4Ultra120LauncherSettings([string]$Path, $Data) {
 }
 
 function Set-Mgs4Ultra120WindowsDisplaySettings(
-    [string]$GameDir, [int]$Width, [int]$Height, [string]$DisplayMode) {
+    [string]$GameDir, [int]$Width, [int]$Height, [string]$DisplayMode,
+    [string]$Language = "en") {
     if ($DisplayMode -notin @("Windowed", "Fullscreen")) {
         throw "Windows display mode must be Windowed or Fullscreen."
+    }
+    if ($Language -eq "ge") { $Language = "gr" }
+    $LauncherLanguage = @{
+        jp = "1"; en = "2"; fr = "3"; it = "4"
+        gr = "5"; sp = "6"; pt = "7"
+    }
+    if (-not $LauncherLanguage.ContainsKey($Language)) {
+        throw "Unsupported game language: $Language"
     }
     $SettingsPath = Get-Mgs4Ultra120LauncherSettingsPath $GameDir
     if (-not $SettingsPath) {
@@ -173,6 +204,9 @@ function Set-Mgs4Ultra120WindowsDisplaySettings(
         WindowSizeW = [string]$Width
         WindowSizeH = [string]$Height
         WindowMode = if ($DisplayMode -eq "Fullscreen") { "0" } else { "1" }
+        # Def.LANGUAGE in the official IL2CPP launcher: JP=1, EN=2, FR=3,
+        # IT=4, German=5, Spanish=6, Portuguese=7.
+        prevPlayLanguage = $LauncherLanguage[$Language]
     }
     $HasWindowPair =
         ($Map.ContainsKey("ResolutionWindowW") -and
@@ -190,13 +224,16 @@ function Set-Mgs4Ultra120WindowsDisplaySettings(
     if (-not $CanSynchronize) {
         $Message = "The official launcher settings do not contain the fields required for $DisplayMode mode; no official display values were changed."
         if ($DisplayMode -eq "Fullscreen") { throw $Message }
-        Write-Warning "$Message The patch and direct launcher can still request windowed mode."
-        return
+        Write-Warning "$Message The patch and direct launcher can still request windowed mode; language will be synchronized independently when possible."
     }
 
     $Applied = [ordered]@{}
     $MissingOptional = [Collections.Generic.List[string]]::new()
+    $DisplayKeys = @(
+        "ResolutionFullW", "ResolutionFullH", "ResolutionWindowW",
+        "ResolutionWindowH", "WindowSizeW", "WindowSizeH", "WindowMode")
     foreach ($Key in $Desired.Keys) {
+        if (-not $CanSynchronize -and $Key -in $DisplayKeys) { continue }
         if ($Map.ContainsKey($Key)) {
             $Applied[$Key] = $Desired[$Key]
         } else {
@@ -208,12 +245,19 @@ function Set-Mgs4Ultra120WindowsDisplaySettings(
             ($MissingOptional -join ", ") +
             ". All available display values will still be synchronized.")
     }
+    if ($Applied.Count -eq 0) { return }
 
     $BackupDir = Join-Path $GameDir ".mgs4ultra120-backup"
     New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
     $MetadataPath = Join-Path $BackupDir "windows-launcher-settings.json"
     if (Test-Path -LiteralPath $MetadataPath) {
         $Metadata = Get-Content -Raw -LiteralPath $MetadataPath | ConvertFrom-Json
+        foreach ($Key in $Applied.Keys) {
+            if (-not $Metadata.Original.PSObject.Properties[$Key]) {
+                $Metadata.Original | Add-Member -NotePropertyName $Key `
+                    -NotePropertyValue ([string]$Data.valueList[$Map[$Key]])
+            }
+        }
     } else {
         $Original = [ordered]@{}
         foreach ($Key in $Applied.Keys) {
@@ -264,7 +308,16 @@ function Restore-Mgs4Ultra120WindowsDisplaySettings([string]$GameDir) {
 }
 
 function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
-    if (Get-Process mgs4 -ErrorAction SilentlyContinue) {
+    $PackageTestTarget = [string]$env:MGS4ULTRA120_PACKAGE_TEST_GAME_DIR
+    $IsIsolatedPackageTest = $PackageTestTarget -and
+        [IO.Path]::GetFullPath($PackageTestTarget).Equals(
+            [IO.Path]::GetFullPath($GameDir),
+            [StringComparison]::OrdinalIgnoreCase) -and
+        [IO.Path]::GetFullPath($GameDir).StartsWith(
+            [IO.Path]::GetFullPath([IO.Path]::GetTempPath()),
+            [StringComparison]::OrdinalIgnoreCase)
+    if (-not $IsIsolatedPackageTest -and
+        (Get-Process mgs4 -ErrorAction SilentlyContinue)) {
         throw "Exit the game before installing or updating the patch."
     }
     if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {

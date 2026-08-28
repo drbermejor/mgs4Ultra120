@@ -15,6 +15,7 @@ LAUNCHER_BACKUP="$BACKUP_DIR/launcher.exe.preinstall"
 WRAPPER_SOURCE="$PACKAGE_DIR/bin/launcher.exe"
 KNOWN_EXE_SHA256="9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 MODE="${1:-gui}"
+VERSION="v0.3.2-alpha.2"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 ini_value() { sed -n "s/^$1=//p" "$INI" | tr -d '\r' | head -n1; }
@@ -45,19 +46,22 @@ except ValueError as error:
     raise SystemExit(f"Invalid numeric value: {error}")
 if not (640 <= width_i <= 16384 and 480 <= height_i <= 16384):
     raise SystemExit("Width/height are outside the allowed range")
-if not (0.5 <= fov_f <= 2.0) or not math.isfinite(fov_f):
-    raise SystemExit("FOV multiplier must be between 0.5 and 2.0")
+if not (0.5 <= fov_f <= 1.05) or not math.isfinite(fov_f):
+    raise SystemExit("FOV multiplier must be between 0.5 and 1.05")
 if not (1.0 <= render_scale_f <= 8.0) or not math.isfinite(render_scale_f):
     raise SystemExit("Supersampling scale must be between 1.0 and 8.0")
 if supersampling not in ("0", "1"):
     raise SystemExit("Invalid supersampling state")
 if fps_target not in ("30", "60", "120"):
     raise SystemExit("FPS target must be 30, 60 or 120")
-if language not in ("en", "sp", "fr", "it", "ge", "jp"):
+if language == "ge":
+    language = "gr"
+if language not in ("en", "sp", "fr", "it", "gr", "jp", "pt"):
     raise SystemExit("Unsupported direct-launch language")
 values = {
     "Width": str(width_i), "Height": str(height_i),
     "FOVMultiplier": f"{fov_f:.3f}", "Limit": "60",
+    "NativeCameraFOV": "1",
     "UltrawideEnabled": ultrawide,
     "FPSOverrideEnabled": "0",
     "ControllerProfileFixEnabled": controller_fix,
@@ -171,11 +175,11 @@ fi
 case "$MODE" in
   detected)
     [[ -n "$detected_width" && -n "$detected_height" ]] || die "Could not detect the primary physical display mode."
-    apply_values "$detected_width" "$detected_height" 1.150 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"
+    apply_values "$detected_width" "$detected_height" 1.000 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"
     exit 0
     ;;
-  stable) apply_values 3440 1440 1.150 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
-  ultrawide-only) apply_values 3440 1440 1.150 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  stable) apply_values 3440 1440 1.000 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  ultrawide-only) apply_values 3440 1440 1.000 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
   controller-fix-only) apply_values 3440 1440 1.000 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
   status) show_status; exit $? ;;
   gui) ;;
@@ -210,19 +214,20 @@ else launcher_values='Use original Unity launcher|Skip Unity launcher'; fi
 if [[ "$allow_unsupported" == 1 ]]; then unsupported_values='Attempt unsupported executable (unsafe)|Block unsupported executable'
 else unsupported_values='Block unsupported executable|Attempt unsupported executable (unsafe)'; fi
 language_values="$language"
-for value in en sp fr it ge jp; do [[ "|$language_values|" == *"|$value|"* ]] || language_values+="|$value"; done
-result="$(zenity --forms --title='MGS4 Ultra120 configurator' \
+[[ "$language_values" == ge ]] && language_values=gr
+for value in en sp fr it gr jp pt; do [[ "|$language_values|" == *"|$value|"* ]] || language_values+="|$value"; done
+result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --text='Changes apply on the next game start. Leave text fields empty to retain their values.' \
   --separator='|' \
   --add-entry="Width (current: $width)" --add-entry="Height (current: $height)" \
-  --add-entry="FOV (current: $fov; 1.150 recommended; 1.000 original framing)" \
+  --add-entry="FOV (current: $fov; 1.050 recommended/maximum)" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
   --add-entry="Render scale (current: $render_scale; 1.15 keeps 3440 output below 4096 internal)" \
   --add-combo="$fps_label" --combo-values="$fps_values" \
   --add-combo='Controller profile fix' --combo-values="$controller_values" \
   --add-combo='Steam launch path' --combo-values="$launcher_values" \
-  --add-combo='Direct-launch language' --combo-values="$language_values" \
+  --add-combo='Game language' --combo-values="$language_values" \
   --add-combo='Unknown executable policy' --combo-values="$unsupported_values" \
   --add-combo='Linux fullscreen launch' --combo-values='Keep current Steam options|Gamescope fullscreen|Native/no Gamescope' \
   --add-entry="Gamescope refresh rate (detected/default: $detected_refresh)" \
@@ -254,6 +259,15 @@ PY
     --text="Internal render size will be ${internal}. Widths of 4096 or more can make the aiming reticle flicker or disappear. Continue?" || exit 0
 fi
 
+if python3 - "$new_fov" <<'PY'
+import sys
+raise SystemExit(0 if float(sys.argv[1].replace(',', '.')) > 1.000 else 1)
+PY
+then
+  zenity --question --title='Expanded FOV' \
+    --text='FOV 1.050 is recommended for the tested 21:9 framing, but values above 1.000 expose slightly more than the original shot. Some cutscenes may show actors, geometry or transitions near the edges before they were meant to enter the frame. Continue?' || exit 0
+fi
+
 set_launcher_wrapper "$launcher_value"
 apply_values "$new_width" "$new_height" "$new_fov" "$ultrawide_value" "$controller_value" "$launcher_value" "$new_language" "$unsupported_value" "$supersampling_value" "$new_render_scale" "$new_fps"
 
@@ -280,5 +294,5 @@ status='supported executable'
 show_status >/dev/null 2>&1 || status='UNSUPPORTED executable; the DLL will fail safely'
 if [[ "$fps_installed" == 1 ]]; then fps_note="corrected FPS ${new_fps}"
 else fps_note='corrected FPS component not installed'; fi
-zenity --info --title='MGS4 Ultra120' \
+zenity --info --title="MGS4 Ultra120 $VERSION" \
   --text="Saved: ultrawide ${new_ultrawide}, ${new_width}x${new_height}, FOV ${new_fov}; supersampling ${new_supersampling} at ${new_render_scale}x; ${fps_note}; controller fix ${new_controller}; ${new_launcher}.\n${launch_note}\nStatus: ${status}."

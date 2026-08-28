@@ -28,7 +28,8 @@ AllowUnsupportedExecutable=0
 [Ultrawide]
 Width=3440
 Height=1440
-FOVMultiplier=1.150
+FOVMultiplier=1.050
+NativeCameraFOV=1
 
 [FPS]
 Limit=60
@@ -49,12 +50,16 @@ UsePrimaryPhysicalResolution=1
 - `UltrawideEnabled=1` enables native resolution and Hor+ projection changes.
 - `Width`/`Height` accept physical output dimensions. The GUI supports
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
-- `FOVMultiplier` accepts `0.500`–`2.000`. `1.150` is the recommended 21:9
-  framing and adds roughly 5 degrees of vertical view to the narrow gameplay
-  camera. `1.000` preserves the game's original vertical FOV. The current
-  renderer-level correction does not rebuild CPU visibility planes, so values
-  above `1.000` can reveal side pop-in. Both `.` and `,` decimal separators are
-  accepted by the ASI.
+- `FOVMultiplier` accepts `0.500`–`1.050`. `1.050` is the recommended 21:9
+  setting and supported maximum after visual comparison; `1.000` preserves the
+  game's original vertical FOV but frames Snake more tightly in the tested
+  view. Even `1.050` may reveal actors, geometry or transitions at cinematic
+  edges before the original direction intended them to enter the shot. Native
+  camera ownership keeps projection and visibility data synchronized. Both `.`
+  and `,` decimal separators are accepted.
+- `NativeCameraFOV=1` is the definitive and recommended implementation. It is
+  written automatically by current configurators; `0` is retained only as a
+  diagnostic fallback.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build
@@ -62,6 +67,9 @@ UsePrimaryPhysicalResolution=1
 - `DisplayMode=Windowed` is recommended. `Fullscreen` is an advanced option.
 - `UsePrimaryPhysicalResolution=1` refreshes dimensions from Win32 rather than
   DPI-scaled desktop bounds when the GUI saves.
+- `Language` accepts `en`, `sp`, `fr`, `it`, `gr`, `jp` and `pt`. Current
+  Windows setup synchronizes this selection with both launcher paths. Legacy
+  `ge` is migrated to the game's correct German token, `gr`.
 
 `FPSOverrideEnabled` and `[FPS] Limit` remain only so older files and tools can
 be migrated safely. The current Windows ASI ignores them and setup always forces

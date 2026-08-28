@@ -43,27 +43,29 @@ driver/display setup.
   output and no repeated/corrupt right-side surface.
 - The load-complete screen waits at `PULSE CUALQUIER BOTÓN` until explicit
   confirmation.
-- FOV 1.000 and 1.150: visually compared from the same saved camera position;
-  1.150 shows more vertical/horizontal scene content without changing object
-  proportions.
-- Renderer-level FOV at 3440x1440 and 1.150: visually validated with natural
-  character proportions and a working aiming crosshair. A later central
-  camera/frustum candidate removed side culling and close-up discontinuities
-  but caused a confirmed tall/thin aspect regression, so it was withdrawn.
-- CPU culling synchronization and continuous FOV through extreme close-ups are
-  not claimed by the current package. Values above 1.000 can reveal side pop-in.
+- Native-input FOV at 3440x1440: `1.000` and wider development stress profiles
+  kept natural character proportions and a working aiming crosshair. Runtime
+  evidence recorded 760 native camera adjustments, 950 final aspect
+  corrections and no fallback. Final visual comparison selected `1.050` as the
+  recommended/default value and public maximum because `1.000` framed Snake
+  too tightly in the tested view.
+- The game now builds projection and CPU visibility planes from the same
+  adjusted input. The withdrawn tall/thin alpha.6 regression came from editing
+  already-produced camera state; that code is absent.
+- FOV `1.050` can expose authored off-camera actors, geometry or transitions
+  before a cinematic intended them to enter the frame. This is distinct from a
+  render/culling mismatch and is explicitly warned by both configurators.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
-- Experimental branch only: internal supersampling at 3440x1440 output,
+- Optional experimental supersampling at 3440x1440 output,
   1.50x/5160x2160 render resolution and windowed presentation passed the
   internal/output-size check, but that first candidate also contained the now
   withdrawn aspect-regressing camera hook. Follow-up aiming tests found
   the reticle stable at 3956x1656, flickering at exactly 4096 pixels wide and
   depth-conditionally absent at 4128x1728 and 5160x2160. Alpha.6 warns users to
-  keep internal width below 4096; supersampling remains disabled by default and
-  is not part of the alpha.5 release.
-- The corrected alpha.6 projection path was compared directly against the
-  published alpha.5 ASI with supersampling disabled. FOV 1.150 and natural
-  character proportions were confirmed after removing the early camera hook.
+  keep internal width below 4096; supersampling remains disabled by default.
+- The definitive native-input path was compared against the renderer-only and
+  withdrawn post-return implementations. It eliminated their respective
+  continuity and aspect issues without reconstructing camera state.
 - 60 FPS/core: previously validated Windows path remains available without the
   optional high-FPS component.
 - Corrected 120 FPS: supplied by optional `cipherxof/MGSFPSUnlock` 0.1.0 and
@@ -83,5 +85,9 @@ driver/display setup.
 - Direct-launch wrapper: exercised through Steam on native Windows and
   Linux/Proton. The native child command line remained clean while launch data
   was consumed from the official bootstrap file.
+- Language persistence: static inspection of the official IL2CPP launcher
+  confirmed its `Def.LANGUAGE` values. Package tests verify that the selected
+  language is retained in the INI, normalized for the bootstrap and mirrored
+  into `launcher_sv` for the original launcher path.
 - A full playthrough is not yet certified; back up saves and treat the project
   as alpha software.

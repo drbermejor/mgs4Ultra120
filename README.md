@@ -4,13 +4,13 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.2-alpha.1` targets the verified Steam executable.
+> **Public alpha.** `v0.3.2-alpha.2` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
-> **Experimental Windows preview.** `v0.3.1-alpha.6` adds optional internal
-> supersampling and remains disabled by default. The validated alpha.5 release
-> is still the recommended download when supersampling is not required.
+> **Recommended unified release.** Windows and Linux now share the validated
+> native-camera FOV implementation. Optional supersampling remains experimental
+> and disabled by default.
 
 ## What the Windows release installs
 
@@ -40,30 +40,33 @@ unlock implementation.
 
 - 3440x1440 real-time 3D rendering is validated as correctly proportioned and
   Hor+ rather than a stretched 16:9 image.
-- `FOVMultiplier=1.150` is the recommended 21:9 framing and closely matches the
-  established RPCS3 ultrawide presentation. `1.000` remains available when the
-  original vertical FOV is preferred. Width, height and FOV remain configurable.
+- `FOVMultiplier=1.050` is the recommended 21:9 framing and the supported
+  maximum. `1.000` preserves the original vertical FOV but frames Snake more
+  tightly in the tested gameplay view.
 - The unfinished UI/safe-area experiment is not part of the release binary.
   Menus, HUD and full-screen effects retain the game's original behavior.
 - Pre-rendered Bink video is unchanged.
-- The released renderer-level hook accepts the game's original 16:9 and native
-  ultrawide projection states, then applies the configured FOV once. An early
-  camera/frustum rewrite tested during alpha.6 was withdrawn because it made
-  characters unnaturally tall and thin even with supersampling disabled.
-- CPU culling is therefore not currently expanded with FOV. Values above
-  `1.000` can still reveal side pop-in, and very tight in-engine close-ups may
-  briefly use the original framing. These limitations are preferable to
-  shipping the confirmed aspect-ratio regression.
-- Native 3440x1440 testing at `1.150` has correct proportions and a working
-  aiming crosshair. Experimental supersampling tests isolate a separate
+- FOV is applied once to the native camera-builder input. The game then creates
+  its own projection, combined matrices and frustum planes from that corrected
+  input; the final renderer hook changes aspect only. This avoids both the old
+  render/culling mismatch and the withdrawn alpha.6 double transformation.
+- Native Windows validation at 3440x1440 completed with native mode active, no
+  fallback and natural object proportions. Wider values were useful during
+  development stress tests, but the public range now ends at `1.050`.
+- Even the recommended `1.050` can reveal authored off-camera content: actors,
+  geometry or animation transitions may appear at the edges before the scene
+  was directed to introduce them. That is a content-staging limitation, not a
+  projection or frustum desynchronization.
+- Native 3440x1440 testing has correct proportions and a working aiming
+  crosshair. Experimental supersampling tests isolate a separate
   internal-width boundary: the reticle is stable at 3956x1656, flickers at
   exactly 4096 pixels wide and can disappear according to aiming depth above
   it. Alpha.6 warns users to keep internal width below 4096.
 
 ## Windows downloads
 
-Use the existing
-[v0.3.1-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5)
+Use the
+[v0.3.2-alpha.2 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.2-alpha.2)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -82,12 +85,9 @@ unknown-publisher/reputation warning. The EXE is optional. Download only from
 the official release and keep antivirus enabled. All project code and build
 instructions are public and can be reviewed or built independently.
 
-The separate
-[v0.3.1-alpha.6 experimental supersampling preview](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.6)
-is disabled by default and intended for users who explicitly want to render
-above their physical output resolution. Windows is validated as described;
-the separate Linux/Proton alpha.6 package is experimental and unvalidated in
-this cycle. See
+Optional supersampling is included in the same release, remains disabled by
+default and is intended only for users who explicitly want to render above
+their physical output resolution. See
 [experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
 ### Brief manual installation
@@ -120,7 +120,7 @@ See [Windows installation](docs/INSTALL_WINDOWS.md) and
 ## Windows defaults and known display issue
 
 The configurator selects the primary monitor's physical resolution, native-size
-windowed presentation, FOV 1.150, corrected 120 FPS, controller-profile fix and
+windowed presentation, FOV 1.050, corrected 120 FPS, controller-profile fix and
 Unity-launcher bypass. Exclusive fullscreen is an advanced option.
 
 On one mixed-refresh NVIDIA multi-monitor system, focus changes produced a red
@@ -131,7 +131,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.2-alpha.1` Linux package now uses the same architecture as Windows:
+The `v0.3.2-alpha.2` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`
@@ -147,21 +147,19 @@ validated. See [Linux installation](docs/INSTALL_LINUX.md) and
 
 ## Technical outline
 
-The renderer can receive either an original 16:9 projection or one already
-matching the selected ultrawide output. MGS4Ultra120 recognizes both states and
-applies the configured aspect/FOV in the final renderer projection setter:
+MGS4Ultra120 adjusts the native camera input scale before the game builds its
+dependent projection and visibility state:
 
 ```text
-adjusted_m11 = original_m11 / FOVMultiplier
-new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
+adjusted_camera_scale = original_camera_scale / FOVMultiplier
+new_m00 = sign(m00) * abs(native_m11) / target_aspect
 ```
 
-The first alpha.6 package also rewrote projections in the central camera builder.
-Native testing after a user report confirmed that this caused an additional
-horizontal transformation and distorted character proportions with
-supersampling both on and off. That path is disabled. The renderer correction
-now matches the visually validated alpha.5 download; synchronized CPU culling
-and uninterrupted FOV through extreme close-ups are not currently claimed.
+The withdrawn alpha.6 candidate edited already-built matrices and reconstructed
+camera/frustum state after return, causing an additional transformation. The
+new path changes only the original scalar input. The game remains the sole
+owner of its matrices and frustum planes, while the common renderer setter is
+an aspect-only safety net in native mode.
 
 The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
 `Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and
@@ -170,8 +168,7 @@ restores the original only when ownership hashes still match.
 Further reading:
 
 - [Configuration](docs/CONFIGURATION.md)
-- [Experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md) (separate
-  branch only; not included in alpha.5)
+- [Experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md)
 - [Controller profile fix](docs/CONTROLLER_FIX.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
 - [UI and video status](docs/UI_AND_VIDEO.md)

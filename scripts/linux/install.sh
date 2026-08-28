@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+VERSION="v0.3.2-alpha.2"
 GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4}"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
@@ -49,7 +50,7 @@ install_configurator_shortcut() {
     '[Desktop Entry]' \
     'Type=Application' \
     'Version=1.0' \
-    'Name=MGS4 Ultra120 Configurator' \
+    "Name=MGS4 Ultra120 $VERSION Configurator" \
     'Comment=Configure the MGS4 Ultra120 patch' \
     "Exec=\"$PACKAGE_DIR/MGS4Ultra120-Linux-Configure.sh\"" \
     'Icon=applications-games' \

@@ -11,11 +11,11 @@ option and configurator controls were therefore removed instead of presenting
 an unverified UI mode as a fix.
 
 A 5120x2160 user reported a missing aiming crosshair and apparently zoomed FOV.
-FOV 1.150 addresses the narrow framing through the validated renderer-level
+FOV 1.050 addresses the narrow framing through the validated native-camera
 projection path. Native Windows supersampling
 tests reproduced and isolated the separate reticle issue: it remains stable at
 3956x1656 internal, flickers at exactly 4096 pixels wide, and can disappear
-according to aiming depth at 4128x1728 and 5160x2160. Alpha.6 therefore advises
+according to aiming depth at 4128x1728 and 5160x2160. The current release advises
 an internal width below 4096. The cause is bounded but not yet patched.
 
 Pre-rendered Bink 2 video is not cropped, stretched or replaced. A future

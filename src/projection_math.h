@@ -43,6 +43,18 @@ inline bool has_perspective_shape(const float* matrix) {
     return has_perspective_shape_with_limits(matrix, 8.0f, 12.0f);
 }
 
+// The final engine projection setter has already isolated projection matrices,
+// so its structural/aspect checks can safely retain the normal 0.25 lower
+// bound without imposing the old m00/m11 ceilings. Tight in-engine animations
+// legitimately exceed m11=12 and otherwise lose the configured FOV for a few
+// frames.
+inline bool has_renderer_perspective_shape(const float* matrix) {
+    if (!matrix) return false;
+    return std::isfinite(matrix[0]) && std::isfinite(matrix[5]) &&
+        std::fabs(matrix[0]) >= 0.25f && std::fabs(matrix[5]) >= 0.25f &&
+        has_perspective_structure(matrix);
+}
+
 // The central camera builder is positively identified and produces only real
 // camera projection variants. MGS4's close-up/collision transitions can raise
 // m11 beyond the conservative renderer-wide range. Keep that global limit
@@ -84,6 +96,20 @@ inline AspectKind classify_camera_aspect(const float* matrix,
     return AspectKind::unknown;
 }
 
+inline AspectKind classify_renderer_aspect(const float* matrix,
+                                           float target_aspect) {
+    if (!has_renderer_perspective_shape(matrix) ||
+        !std::isfinite(target_aspect) || target_aspect <= 0.0f) {
+        return AspectKind::unknown;
+    }
+    const float source_aspect = std::fabs(matrix[5] / matrix[0]);
+    if (std::fabs(source_aspect - (16.0f / 9.0f)) < 0.0003f)
+        return AspectKind::widescreen_16_9;
+    if (std::fabs(source_aspect - target_aspect) < 0.0003f)
+        return AspectKind::target;
+    return AspectKind::unknown;
+}
+
 inline bool adjust_projection(float* matrix, float target_aspect,
                               float fov_multiplier, bool accept_target) {
     const AspectKind kind = classify_aspect(matrix, target_aspect);
@@ -113,6 +139,62 @@ inline bool adjust_camera_projection(float* matrix, float target_aspect,
     if (!std::isfinite(adjusted_x) || !std::isfinite(adjusted_y)) return false;
     matrix[5] = adjusted_y;
     matrix[0] = adjusted_x;
+    return true;
+}
+
+inline bool adjust_renderer_projection(float* matrix, float target_aspect,
+                                        float fov_multiplier,
+                                        bool* exceeded_legacy_limits = nullptr) {
+    if (exceeded_legacy_limits) *exceeded_legacy_limits = false;
+    if (classify_renderer_aspect(matrix, target_aspect) == AspectKind::unknown ||
+        !std::isfinite(fov_multiplier) || fov_multiplier <= 0.0f) {
+        return false;
+    }
+    const bool extended = !has_perspective_shape(matrix);
+    const float original_x = matrix[0];
+    const float original_y = matrix[5];
+    const float adjusted_y =
+        std::copysign(std::fabs(original_y) / fov_multiplier, original_y);
+    const float adjusted_x =
+        std::copysign(std::fabs(adjusted_y) / target_aspect, original_x);
+    if (!std::isfinite(adjusted_x) || !std::isfinite(adjusted_y)) return false;
+    matrix[5] = adjusted_y;
+    matrix[0] = adjusted_x;
+    if (exceeded_legacy_limits) *exceeded_legacy_limits = extended;
+    return true;
+}
+
+// Native-camera mode applies FOV to the input scale of FUN_1400b9bb0 before
+// the game creates projections, combined matrices and visibility planes.
+// Invalid arithmetic is a no-op so the renderer-level fallback remains safe.
+inline float adjust_camera_input_scale(float original_scale,
+                                       float fov_multiplier) {
+    if (!std::isfinite(original_scale) || original_scale <= 0.0f ||
+        !std::isfinite(fov_multiplier) || fov_multiplier <= 0.0f) {
+        return original_scale;
+    }
+    const float adjusted = original_scale / fov_multiplier;
+    return std::isfinite(adjusted) && adjusted > 0.0f
+        ? adjusted : original_scale;
+}
+
+// Once native-camera mode owns FOV, the common final setter owns aspect only.
+// Leaving m11 untouched prevents a second FOV application. This operation is
+// idempotent for matrices that already use the configured target aspect.
+inline bool adjust_renderer_aspect_only(
+        float* matrix, float target_aspect,
+        bool* exceeded_legacy_limits = nullptr) {
+    if (exceeded_legacy_limits) *exceeded_legacy_limits = false;
+    if (classify_renderer_aspect(matrix, target_aspect) == AspectKind::unknown)
+        return false;
+    const bool extended = !has_perspective_shape(matrix);
+    const float original_x = matrix[0];
+    const float original_y = matrix[5];
+    const float adjusted_x =
+        std::copysign(std::fabs(original_y) / target_aspect, original_x);
+    if (!std::isfinite(adjusted_x)) return false;
+    matrix[0] = adjusted_x;
+    if (exceeded_legacy_limits) *exceeded_legacy_limits = extended;
     return true;
 }
 

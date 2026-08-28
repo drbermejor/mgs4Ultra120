@@ -11,23 +11,29 @@
 #include "projection_math.h"
 #include "supersampling_math.h"
 
+#ifndef MGS4ULTRA120_VERSION
+#define MGS4ULTRA120_VERSION "development"
+#endif
+
 #if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" FARPROC winmm_proxy_resolve_by_name(const char* name);
 #endif
 static float g_target_aspect = 43.0f / 18.0f;
 static volatile LONG g_projection_patches;
-static volatile LONG g_camera_projection_patches;
-static volatile LONG g_frustum_rebuilds;
+static volatile LONG g_extended_projection_patches;
+static volatile LONG g_native_camera_fov_patches;
 static std::uintptr_t g_executable_base;
 static std::uint32_t g_output_width = 3440;
 static std::uint32_t g_output_height = 1440;
 static std::uint32_t g_target_width = 3440;
 static std::uint32_t g_target_height = 1440;
-static float g_fov_multiplier = 1.0f;
+static float g_fov_multiplier = 1.05f;
 static float g_render_scale = 1.0f;
 static bool g_enable_ultrawide = true;
 static bool g_enable_resolution_override = true;
 static bool g_controller_profile_fix = true;
+static bool g_native_camera_fov_requested;
+static bool g_native_camera_fov_active;
 static volatile LONG g_locked_controller_profile;
 static volatile LONG g_minhook_state;
 
@@ -35,18 +41,15 @@ using TimeBeginPeriodFn = MMRESULT (WINAPI*)(UINT);
 using TimeGetTimeFn = DWORD (WINAPI*)();
 using SetProjectionFn = void (__fastcall*)(const float* matrix);
 using BuildCameraFn = void (__fastcall*)(void* camera, const void* source,
-                                         float parameter3, float parameter4,
-                                         float parameter5, float parameter6);
-using MultiplyMatrixFn = void (__fastcall*)(float* destination,
-                                            const float* left,
-                                            const float* right);
+                                         float projection_scale,
+                                         float parameter4, float parameter5,
+                                         float aspect_scale);
 using SetResolutionFn = void (__fastcall*)(std::uint16_t mode, std::int32_t index,
                                            std::uint8_t use_safe_area,
                                            std::uint32_t width,
                                            std::uint32_t height);
 static SetProjectionFn g_original_set_projection;
 static BuildCameraFn g_original_build_camera;
-static MultiplyMatrixFn g_multiply_matrix;
 static SetResolutionFn g_original_set_resolution;
 using SetDetectedProfileFn = void (__fastcall*)(std::int32_t);
 static SetDetectedProfileFn g_original_set_detected_profile;
@@ -582,7 +585,9 @@ extern "C" DWORD WINAPI mgs4_timeGetTime() {
 // Do not move this rewrite back into the central camera builder without a new
 // native-Windows visual gate. The first alpha.6 package did so and applied an
 // additional horizontal transform later in the engine, making characters look
-// unnaturally tall and thin even when supersampling was disabled.
+// unnaturally tall and thin even when supersampling was disabled. Close-up
+// continuity is handled only here, by accepting structurally valid projections
+// above the legacy m00/m11 ceilings; no camera/frustum state is rewritten.
 static void __fastcall hooked_set_projection(const float* matrix) {
     if (!matrix) {
         g_original_set_projection(matrix);
@@ -591,50 +596,49 @@ static void __fastcall hooked_set_projection(const float* matrix) {
 
     float copy[16];
     std::memcpy(copy, matrix, sizeof(copy));
-    if (mgs4_projection::adjust_projection(copy, g_target_aspect,
-                                           g_fov_multiplier, true)) {
+    const float original_x = copy[0];
+    const float original_y = copy[5];
+    bool exceeded_legacy_limits = false;
+    const bool adjusted = g_native_camera_fov_active
+        ? mgs4_projection::adjust_renderer_aspect_only(
+              copy, g_target_aspect, &exceeded_legacy_limits)
+        : mgs4_projection::adjust_renderer_projection(
+              copy, g_target_aspect, g_fov_multiplier,
+              &exceeded_legacy_limits);
+    if (adjusted) {
         InterlockedIncrement(&g_projection_patches);
+        if (exceeded_legacy_limits) {
+            const LONG count = InterlockedIncrement(
+                &g_extended_projection_patches);
+            if (count == 1) {
+                char message[256] = {};
+                std::snprintf(message, sizeof(message),
+                              "Common projection setter accepted the first projection beyond the legacy scale limits: m00=%.7f m11=%.7f aspect=%.7f; native camera FOV mode=%s.",
+                              original_x, original_y,
+                              std::fabs(original_y / original_x),
+                              g_native_camera_fov_active ? "active" : "fallback");
+                log_line(message);
+            }
+        }
     }
     g_original_set_projection(copy);
 }
 
-// Central camera builder. The original function creates three projection
-// variants, combines the first two with the view matrix, and derives six CPU
-// culling planes from the primary combined matrix. Correcting projections here
-// keeps rendered FOV and visibility bounds synchronized.
+// Native input-level FOV hook. The original function remains solely
+// responsible for creating its three projection variants, combined matrices
+// and six normalized visibility planes. Unlike the withdrawn alpha.6 code,
+// nothing in the camera object is rewritten after the original returns.
 static void __fastcall hooked_build_camera(void* camera, const void* source,
-                                           float parameter3, float parameter4,
-                                           float parameter5, float parameter6) {
-    g_original_build_camera(camera, source, parameter3, parameter4,
-                            parameter5, parameter6);
-    if (!camera || !g_multiply_matrix) return;
-
-    auto* bytes = static_cast<unsigned char*>(camera);
-    auto* view = reinterpret_cast<float*>(bytes + 0x40);
-    auto* primary_projection = reinterpret_cast<float*>(bytes + 0xc0);
-    auto* primary_combined = reinterpret_cast<float*>(bytes + 0x100);
-    auto* secondary_projection = reinterpret_cast<float*>(bytes + 0x140);
-    auto* secondary_combined = reinterpret_cast<float*>(bytes + 0x180);
-    auto* tertiary_projection = reinterpret_cast<float*>(bytes + 0x1c0);
-    auto* planes = reinterpret_cast<float*>(bytes + 0x2c0);
-
-    const bool primary_changed = mgs4_projection::adjust_camera_projection(
-        primary_projection, g_target_aspect, g_fov_multiplier);
-    const bool secondary_changed = mgs4_projection::adjust_camera_projection(
-        secondary_projection, g_target_aspect, g_fov_multiplier);
-    const bool tertiary_changed = mgs4_projection::adjust_camera_projection(
-        tertiary_projection, g_target_aspect, g_fov_multiplier);
-
-    if (primary_changed) {
-        g_multiply_matrix(primary_combined, primary_projection, view);
-        if (mgs4_projection::rebuild_frustum_planes(planes, primary_combined))
-            InterlockedIncrement(&g_frustum_rebuilds);
-    }
-    if (secondary_changed)
-        g_multiply_matrix(secondary_combined, secondary_projection, view);
-
-    if (primary_changed || secondary_changed || tertiary_changed)
-        InterlockedIncrement(&g_camera_projection_patches);
+                                           float projection_scale,
+                                           float parameter4,
+                                           float parameter5,
+                                           float aspect_scale) {
+    const float adjusted_scale = mgs4_projection::adjust_camera_input_scale(
+        projection_scale, g_fov_multiplier);
+    if (adjusted_scale != projection_scale)
+        InterlockedIncrement(&g_native_camera_fov_patches);
+    g_original_build_camera(camera, source, adjusted_scale, parameter4,
+                            parameter5, aspect_scale);
 }
 
 // Central display-mode setter. The launcher keeps the physical output/window
@@ -846,16 +850,15 @@ static bool install_engine_hook(std::uintptr_t base) {
     return true;
 }
 
-static bool install_camera_hook(std::uintptr_t base) {
+static bool install_native_camera_fov_hook(std::uintptr_t base) {
     constexpr std::uintptr_t camera_builder_rva = 0x0b9bb0;
-    constexpr std::uintptr_t matrix_multiply_rva = 0x0bacc0;
     const unsigned char expected[] = { 0x48, 0x8b, 0xc4, 0x53, 0x56, 0x57 };
     auto* target = reinterpret_cast<unsigned char*>(base + camera_builder_rva);
 
     for (unsigned attempt = 0; attempt < 200; ++attempt) {
         if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
         if (attempt == 199) {
-            log_line("ERROR: camera builder did not decrypt in time; synchronized FOV was not enabled.");
+            log_line("ERROR: native camera builder did not decrypt in time; common-setter FOV fallback remains active.");
             return false;
         }
         Sleep(25);
@@ -863,11 +866,10 @@ static bool install_camera_hook(std::uintptr_t base) {
 
     DWORD old_protection = 0;
     if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
-        log_line("ERROR: could not temporarily make the camera builder executable.");
+        log_line("ERROR: could not enable the native camera-FOV hook; common-setter FOV fallback remains active.");
         return false;
     }
 
-    g_multiply_matrix = reinterpret_cast<MultiplyMatrixFn>(base + matrix_multiply_rva);
     const bool initialized = initialize_minhook();
     const MH_STATUS create = initialized
         ? MH_CreateHook(target, reinterpret_cast<void*>(&hooked_build_camera),
@@ -880,15 +882,15 @@ static bool install_camera_hook(std::uintptr_t base) {
                    okay ? final_code_protection(old_protection) : old_protection,
                    &ignored);
     if (!okay) {
-        g_multiply_matrix = nullptr;
         char message[256] = {};
         std::snprintf(message, sizeof(message),
-                      "ERROR camera hook: create=%s enable=%s target=%p",
+                      "ERROR native camera-FOV hook: create=%s enable=%s target=%p; common-setter fallback remains active.",
                       MH_StatusToString(create), MH_StatusToString(enable), target);
         log_line(message);
         return false;
     }
-    log_line("Camera projection/frustum hook installed; synchronized Hor+ and FOV active.");
+    g_native_camera_fov_active = true;
+    log_line("Native camera-FOV hook installed: input scale is adjusted before the game builds projections, combined matrices and frustum planes.");
     return true;
 }
 
@@ -924,6 +926,7 @@ static void apply_resolution_state() {
 }
 
 static DWORD WINAPI patch_thread(void*) {
+    log_line("MGS4 Ultra120 " MGS4ULTRA120_VERSION);
 #if defined(MGS4ULTRA120_ASI)
     log_line("Module layout: MGS4Ultra120.asi loaded by an external ASI loader.");
 #else
@@ -945,10 +948,12 @@ static DWORD WINAPI patch_thread(void*) {
         "Patch", "AllowUnsupportedExecutable", 0, ini_path) != 0;
     const bool controller_profile_fix = GetPrivateProfileIntA(
         "Input", "ControllerProfileFixEnabled", 1, ini_path) != 0;
+    g_native_camera_fov_requested = GetPrivateProfileIntA(
+        "Ultrawide", "NativeCameraFOV", 1, ini_path) != 0;
     char fov_text[32] = {};
-    GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.150", fov_text,
+    GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.050", fov_text,
                              sizeof(fov_text), ini_path);
-    float fov_multiplier = 1.0f;
+    float fov_multiplier = 1.05f;
     const bool fov_valid = parse_ini_decimal(fov_text, &fov_multiplier);
     char render_scale_text[32] = {};
     GetPrivateProfileStringA("Supersampling", "RenderScale", "1.50",
@@ -964,11 +969,11 @@ static DWORD WINAPI patch_thread(void*) {
             width, height, render_scale, &render_width, &render_height));
     if (!width || !height ||
         (enable_ultrawide && (!fov_valid || fov_multiplier < 0.5f ||
-                              fov_multiplier > 2.0f)) ||
+                              fov_multiplier > 1.05f)) ||
         !render_extent_valid) {
         char invalid_message[512] = {};
         std::snprintf(invalid_message, sizeof(invalid_message),
-                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (accepted 0.500-2.000), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
+                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (accepted 0.500-1.050), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
                       ini_path, width, height, fov_text,
                       enable_supersampling ? 1u : 0u, render_scale_text);
         log_line(invalid_message);
@@ -987,11 +992,12 @@ static DWORD WINAPI patch_thread(void*) {
 
     char settings_message[512] = {};
     std::snprintf(settings_message, sizeof(settings_message),
-                  "Configuration: output %ux%u; internal render %ux%u; supersampling %s (scale %.3f); ultrawide/FOV %s (aspect %.6f, FOVMultiplier %.3f); controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
+                  "Configuration: output %ux%u; internal render %ux%u; supersampling %s (scale %.3f); ultrawide/FOV %s (aspect %.6f, FOVMultiplier %.3f, NativeCameraFOV requested=%s); controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
                   g_output_width, g_output_height, g_target_width,
                   g_target_height, enable_supersampling ? "on" : "off",
                   g_render_scale, enable_ultrawide ? "on" : "off",
                   g_target_aspect, g_fov_multiplier,
+                  g_native_camera_fov_requested ? "yes" : "no",
                   controller_profile_fix ? "on" : "off");
     log_line(settings_message);
     if (enable_supersampling && (render_scale > 2.0f ||
@@ -1018,8 +1024,10 @@ static DWORD WINAPI patch_thread(void*) {
         install_resolution_hook(base);
     }
     if (enable_ultrawide) {
+        if (g_native_camera_fov_requested)
+            install_native_camera_fov_hook(base);
         install_engine_hook(base);
-        log_line("Central camera/frustum rewrite disabled after the alpha.6 aspect-ratio regression; published alpha.5 renderer projection path active.");
+        log_line("Withdrawn post-return camera/frustum reconstruction is absent. Native mode changes only the original camera builder input; common-setter FOV remains the automatic fallback.");
     }
     if (controller_profile_fix)
         install_controller_profile_fix(base);
@@ -1027,10 +1035,13 @@ static DWORD WINAPI patch_thread(void*) {
     // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);
     if (enable_supersampling) log_presentation_window_size();
-    char projection_message[192] = {};
+    char projection_message[256] = {};
     std::snprintf(projection_message, sizeof(projection_message),
-                  "Renderer projection adjustments after startup: %ld. Central camera/frustum rewrite is disabled.",
-                  InterlockedCompareExchange(&g_projection_patches, 0, 0));
+                  "Projection activity after startup: native camera input scales=%ld; common-setter corrections=%ld (%ld exceeded legacy limits); native camera mode=%s.",
+                  InterlockedCompareExchange(&g_native_camera_fov_patches, 0, 0),
+                  InterlockedCompareExchange(&g_projection_patches, 0, 0),
+                  InterlockedCompareExchange(&g_extended_projection_patches, 0, 0),
+                  g_native_camera_fov_active ? "active" : "fallback");
     log_line(projection_message);
     log_line("Initial state applied; patch thread finished without a polling loop.");
     return 0;

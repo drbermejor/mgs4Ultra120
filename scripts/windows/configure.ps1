@@ -5,6 +5,7 @@ param(
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
+$Mgs4Ultra120Version = "v0.3.2-alpha.2"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
@@ -36,7 +37,18 @@ function Test-Mgs4Ultra120AutoHdrEnabled {
 
 if (-not (Test-Path -LiteralPath $Ini)) { throw "mgs4_ultrawide.ini not found in: $GameDir" }
 if (-not (Test-Path -LiteralPath $Exe)) { throw "mgs4.exe not found in: $GameDir" }
-if (Get-Process mgs4 -ErrorAction SilentlyContinue) { throw "Exit the game before changing settings." }
+$PackageTestTarget = [string]$env:MGS4ULTRA120_PACKAGE_TEST_GAME_DIR
+$IsIsolatedPackageTest = $PackageTestTarget -and
+    [IO.Path]::GetFullPath($PackageTestTarget).Equals(
+        [IO.Path]::GetFullPath($GameDir),
+        [StringComparison]::OrdinalIgnoreCase) -and
+    [IO.Path]::GetFullPath($GameDir).StartsWith(
+        [IO.Path]::GetFullPath([IO.Path]::GetTempPath()),
+        [StringComparison]::OrdinalIgnoreCase)
+if (-not $IsIsolatedPackageTest -and
+    (Get-Process mgs4 -ErrorAction SilentlyContinue)) {
+    throw "Exit the game before changing settings."
+}
 
 function Get-IniValue([string]$Key) {
     $Match = [regex]::Match((Get-Content -Raw -LiteralPath $Ini), "(?m)^$([regex]::Escape($Key))=(.*)$")
@@ -54,7 +66,7 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
     if ($Width -lt 640 -or $Width -gt 16384 -or $Height -lt 480 -or $Height -gt 16384) {
         throw "Width/height are outside the allowed range."
     }
-    if ($Fov -lt 0.5 -or $Fov -gt 2.0) { throw "FOV multiplier must be between 0.5 and 2.0." }
+    if ($Fov -lt 0.5 -or $Fov -gt 1.05) { throw "FOV multiplier must be between 0.5 and 1.05." }
     if ($RenderScale -lt 1.0) { throw "Supersampling render scale must be at least 1.0." }
     if ($SupersamplingEnabled -notin @(0, 1)) { throw "SupersamplingEnabled must be 0 or 1." }
     if ($SupersamplingEnabled -eq 1 -and
@@ -62,13 +74,15 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
          [decimal]$Height * $RenderScale -gt [uint32]::MaxValue)) {
         throw "The requested internal render size does not fit the game's 32-bit resolution fields."
     }
-    if ($Language -notin @("en", "sp", "fr", "it", "ge", "jp")) { throw "Unsupported direct-launch language." }
+    if ($Language -eq "ge") { $Language = "gr" }
+    if ($Language -notin @("en", "sp", "fr", "it", "gr", "jp", "pt")) { throw "Unsupported game language." }
     if ($DisplayMode -notin @("Windowed", "Fullscreen")) { throw "Unsupported Windows display mode." }
     $Values = [ordered]@{
         UltrawideEnabled = $UltrawideEnabled
         FPSOverrideEnabled = 0
         Width = $Width; Height = $Height
         FOVMultiplier = $Fov.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
+        NativeCameraFOV = 1
         SupersamplingEnabled = $SupersamplingEnabled
         RenderScale = $RenderScale.ToString("0.000", [Globalization.CultureInfo]::InvariantCulture)
         Limit = 60
@@ -161,9 +175,9 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         $CurrentDisplayMode
     }
     switch ($Profile) {
-        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 0 1.50 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
+        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.050 0 1.50 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
         "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1.50 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.150 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.050 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
     }
     if ($Profile -eq "fps-only-120" -and
@@ -175,7 +189,7 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
     }
     Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
         ([int](Get-IniValue "Width")) ([int](Get-IniValue "Height")) `
-        (Get-IniValue "DisplayMode")
+        (Get-IniValue "DisplayMode") (Get-IniValue "Language")
     Set-LauncherWrapper ((Get-IniValue "SkipUnityLauncher") -eq "1")
     Write-Host "Applied profile: $Profile"
     exit 0
@@ -228,14 +242,14 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $Ui = @{
-        Form = "MGS4 Ultra120 Configurator"
+        Form = "MGS4 Ultra120 $Mgs4Ultra120Version Configurator"
         Title = "Recommended configuration: save without changing anything"
         Ultrawide = "Enable ultrawide rendering and FOV correction"
         ImprovedFpsOn = "Improved FPS unlock installed (cipherxof/MGSFPSUnlock)"
         ImprovedFpsOff = "Core mode: optional MGSFPSUnlock is not installed"
         Width = "Physical output width"; Height = "Physical output height"
         AutoSize = "Primary monitor physical size"
-        Fov = "FOV (1.15 recommended; 1.00 original framing)"
+        Fov = "FOV (1.05 recommended / maximum)"
         Supersampling = "Experimental supersampling (off by default)"
         RenderScale = "Internal render scale"
         Presentation = "Windows presentation"
@@ -244,7 +258,7 @@ $Ui = @{
         FpsItems = @("120 - corrected timing (recommended)", "60", "30")
         Controller = "Fix controller profile switching (recommended)"
         Skip = "Skip Unity launcher while keeping the Steam launch path"
-        Language = "Direct-launch language"
+        Language = "Game language"
         Supported = "Executable: supported and verified"
         UnsupportedStatus = "Executable: UNVERIFIED - unsafe override required"
         Unsupported = "Attempt unsupported executable (unsafe)"
@@ -255,12 +269,14 @@ $Ui = @{
         AutoHdrTitle = "Auto HDR warning"
         NvidiaTitle = "NVIDIA multi-monitor warning"
         FullscreenTitle = "Exclusive fullscreen"
+        AggressiveFovTitle = "Expanded FOV"
         SupersamplingTitle = "Experimental supersampling"
         UnsupportedTitle = "Unsupported executable"
         AutoHdrMessage = "Auto HDR is enabled. The multi-monitor test reproduced a red sweep during focus changes. It was not the final cause, but disabling it is recommended while testing. Save anyway?"
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
+        AggressiveFovMessage = "FOV 1.050 is recommended for the tested 21:9 framing, but it exposes slightly more than the original shot. Some cutscenes may show actors, geometry or animation transitions near the edges before they were meant to enter the frame. Continue?"
 }
 
 $Form = [Windows.Forms.Form]@{
@@ -294,6 +310,8 @@ function Add-Numeric([int]$Y, [decimal]$Minimum, [decimal]$Maximum, [decimal]$Va
     $Control.Minimum = $Minimum
     $Control.Maximum = $Maximum
     if ($Decimals -gt 0) { $Control.Increment = 0.05 }
+    if ($Value -lt $Minimum) { $Value = $Minimum }
+    if ($Value -gt $Maximum) { $Value = $Maximum }
     $Control.Value = $Value
     $Form.Controls.Add($Control); return $Control
 }
@@ -342,7 +360,7 @@ if ($AutoResolutionBox.Checked) {
     $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight
     $WidthBox.Enabled = $false; $HeightBox.Enabled = $false
 }
-Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 2.00 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
+Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 1.05 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
 
 $SupersamplingBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.Supersampling
@@ -411,9 +429,21 @@ $Form.Controls.AddRange(@($ControllerFixBox, $SkipLauncherBox))
 
 Add-Label $Ui.Language 469
 $LanguageBox = [Windows.Forms.ComboBox]@{ Location = [Drawing.Point]::new(270, 466); Size = [Drawing.Size]::new(150, 28); DropDownStyle = "DropDownList" }
-[void]$LanguageBox.Items.AddRange(@("en", "sp", "fr", "it", "ge", "jp"))
-$LanguageBox.SelectedItem = Get-IniValue "Language"
-if ($LanguageBox.SelectedIndex -lt 0) { $LanguageBox.SelectedItem = "en" }
+$LanguageCodes = [ordered]@{
+    "English (en)" = "en"
+    "Spanish (sp)" = "sp"
+    "French (fr)" = "fr"
+    "Italian (it)" = "it"
+    "German (gr)" = "gr"
+    "Japanese (jp)" = "jp"
+    "Portuguese (pt)" = "pt"
+}
+[void]$LanguageBox.Items.AddRange([string[]]$LanguageCodes.Keys)
+$CurrentLanguageCode = Get-IniValue "Language"
+if ($CurrentLanguageCode -eq "ge") { $CurrentLanguageCode = "gr" }
+$LanguageBox.SelectedItem = [string]($LanguageCodes.GetEnumerator() |
+    Where-Object Value -eq $CurrentLanguageCode | Select-Object -First 1 -ExpandProperty Key)
+if ($LanguageBox.SelectedIndex -lt 0) { $LanguageBox.SelectedItem = "English (en)" }
 $Form.Controls.Add($LanguageBox)
 
 $Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Exe).Hash.ToLowerInvariant()
@@ -453,13 +483,13 @@ $SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Poin
 $CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 742); Size = [Drawing.Size]::new(105, 38) }
 $StableButton.Add_Click({
     $AutoResolutionBox.Checked = $true
-    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.15
+    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.05
     $DisplayModeBox.SelectedIndex = 0
     $SupersamplingBox.Checked = $false; $RenderScaleBox.Value = 1.50
     $FpsBox.SelectedIndex = 0
     $UltrawideBox.Checked = $true
     $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
-    $LanguageBox.SelectedItem = "en"
+    $LanguageBox.SelectedItem = "English (en)"
     $UnsupportedBox.Checked = $false
 })
 $script:Mgs4Ultra120SettingsSaved = $false
@@ -492,6 +522,12 @@ $SaveButton.Add_Click({
             $Ui.SupersamplingTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
+    if ($FovBox.Value -gt [decimal]1.000) {
+        $Answer = [Windows.Forms.MessageBox]::Show(
+            $Ui.AggressiveFovMessage, $Ui.AggressiveFovTitle,
+            "YesNo", "Warning")
+        if ($Answer -ne "Yes") { return }
+    }
     if ($DisplayModeBox.SelectedIndex -eq 1) {
         $Answer = [Windows.Forms.MessageBox]::Show(
             $Ui.FullscreenMessage, $Ui.FullscreenTitle, "YesNo", "Warning")
@@ -502,20 +538,21 @@ $SaveButton.Add_Click({
         $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight
     }
     $DisplayMode = if ($DisplayModeBox.SelectedIndex -eq 1) { "Fullscreen" } else { "Windowed" }
-    Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
-        ([int]$WidthBox.Value) ([int]$HeightBox.Value) $DisplayMode
-    Set-LauncherWrapper $SkipLauncherBox.Checked
+    $LanguageCode = [string]$LanguageCodes[[string]$LanguageBox.SelectedItem]
     Set-PatchSettings ([int]$WidthBox.Value) ([int]$HeightBox.Value) `
         $FovBox.Value ([int]$SupersamplingBox.Checked) $RenderScaleBox.Value `
         ([int]$UltrawideBox.Checked) ([int]$ControllerFixBox.Checked) `
-        ([int]$SkipLauncherBox.Checked) ([string]$LanguageBox.SelectedItem) `
+        ([int]$SkipLauncherBox.Checked) $LanguageCode `
         ([int]$UnsupportedBox.Checked) $DisplayMode `
         ([int]$AutoResolutionBox.Checked)
+    Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
+        ([int]$WidthBox.Value) ([int]$HeightBox.Value) $DisplayMode $LanguageCode
+    Set-LauncherWrapper $SkipLauncherBox.Checked
     if ($MgsFpsInstalled) {
         Set-MgsFpsUnlockTarget $GameDir $Fps
     }
     $script:Mgs4Ultra120SettingsSaved = $true
-    [Windows.Forms.MessageBox]::Show($Ui.Saved, "MGS4 Ultra120", "OK", "Information") | Out-Null
+    [Windows.Forms.MessageBox]::Show($Ui.Saved, "MGS4 Ultra120 $Mgs4Ultra120Version", "OK", "Information") | Out-Null
     $Form.Close()
   } catch {
     [Windows.Forms.MessageBox]::Show($_.Exception.Message, $Ui.SaveFailed,

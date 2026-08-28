@@ -21,8 +21,8 @@ primary monitor at 125% scaling, a 2560x1440 144 Hz secondary monitor at 150%,
 DirectX 12, Auto HDR disabled and G-SYNC disabled. The separately maintained
 Linux/Proton line was tested at 3440x1440
 with GE-Proton10-34. World projection and output-resolution hooks are common
-engine code and also apply to DirectX 11; the selective UI safe area is
-D3D12-only in this alpha.
+engine code and also apply to DirectX 11. The unverified UI safe-area prototype
+is not included in current release builds.
 
 The alpha.4 ASI release was migrated in place from the installed alpha.3 on
 the same system. Steam loaded the pinned Ultimate ASI Loader, the real system
@@ -46,11 +46,12 @@ driver/display setup.
 - FOV 1.000 and 1.150: visually compared from the same saved camera position;
   1.150 shows more vertical/horizontal scene content without changing object
   proportions.
-- D3D12 UI: the centered 16:9 path reaches menus/HUD, but remains experimental
-  because the same shader is used by some full-screen effects.
-- 60 FPS: release default.
-- 120 FPS: presentation rate reached, but a scripted intro stall with audio
-  continuing was reproduced. Not certified for gameplay.
+- UI: original game behavior; the previous centered 16:9 prototype was removed.
+- 60 FPS/core: previously validated Windows path remains available without the
+  optional high-FPS component.
+- Corrected 120 FPS: supplied by optional `cipherxof/MGSFPSUnlock` 0.1.0 and
+  verified here for package installation/coexistence. A full playthrough is not
+  yet certified by this project.
 - Controller profile fix: native controller profile, full disconnect and
   reconnection were exercised under Proton without a virtual controller layer.
 - Native Windows: clean install through the unsigned EXE, Steam launch with no

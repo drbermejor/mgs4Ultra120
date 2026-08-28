@@ -1,19 +1,46 @@
-# MGS4 Ultra120 v0.3.1-alpha.5 - Windows ASI release
+# MGS4 Ultra120 v0.3.1-alpha.5 - refreshed Windows release
 
-Open-source ultrawide/FOV, 60/experimental 120 FPS and controller-profile patch
-for the Steam PC version of METAL GEAR SOLID 4. The Windows patch uses the
-Lyall-style ASI layout: Ultimate ASI Loader as `winmm.dll`, the project plugin
-as `scripts/MGS4Ultra120.asi`, and an editable root INI.
+This release was refreshed in place so previously shared alpha.5 links remain
+valid. **Redownload the Windows asset you use and verify its new adjacent
+SHA-256 file.** The Linux alpha.2 tarball on this page remains a separate
+release line.
 
-## Windows downloads - choose one
+## What it does
 
-### 1. Manual ZIP (most transparent)
+MGS4 Ultra120 provides native ultrawide/Hor+ rendering, configurable FOV, a
+controller-profile correction and an optional reversible Unity-launcher bypass
+for the Steam PC version of *METAL GEAR SOLID 4*.
 
-Download `MGS4Ultra120-v0.3.1-alpha.5-windows-manual.zip`, extract it, close
-the game, then copy everything inside the extracted folder into the `MGS4`
-folder containing `mgs4.exe`. Keep the included `scripts` folder.
+Corrected 120 FPS support is now available as an optional additive component
+through [cipherxof/MGSFPSUnlock 0.1.0](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
+Thank you to cipherxof for the substantially improved FPS unlock and its
+camera, character, cutscene, physics, ragdoll, cloth, hair and wind timing work.
+MGS4 Ultra120's old single-value FPS writer is disabled so the two plugins do
+not compete.
 
-Final layout:
+## Keep-it-simple installation choices
+
+### Setup EXE
+
+Automatic game detection, configuration, shortcuts and reversible uninstall.
+The optional **Install / update improved 120 FPS support** box is checked by
+default. It downloads the official MGSFPSUnlock ZIP and requires pinned archive
+and ASI SHA-256 values to match. Uncheck it for the offline core/normal-FPS
+route. Unchecking only skips installation/update; it does not remove an
+existing copy.
+
+The EXE is unsigned and may receive a browser or SmartScreen reputation warning.
+It is optional; the complete source and build instructions are public.
+
+### Portable ZIP
+
+Extract it and run `MGS4Ultra120-Setup.cmd`. It exposes the same core-versus-120
+choice without registering a persistent Windows application. Keep the folder
+for later configuration or uninstall.
+
+### Manual ZIP - no installer or scripts
+
+Extract it and copy everything into the `MGS4` folder containing `mgs4.exe`:
 
 ```text
 MGS4\winmm.dll
@@ -21,51 +48,58 @@ MGS4\mgs4_ultrawide.ini
 MGS4\scripts\MGS4Ultra120.asi
 ```
 
-Launch normally through Steam. This option runs no installer, CMD or
-PowerShell script, creates no shortcuts and does not enable the optional Unity
-launcher bypass. The INI can be inspected and edited in any text editor.
+For corrected 120 FPS, separately download the official
+[MGSFPSUnlock 0.1.0 ZIP](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0)
+and copy only these files from its `MGSFPSUnlock\scripts` folder:
 
-### 2. Portable ZIP
+```text
+MGS4\scripts\MGSFPSUnlock.asi
+MGS4\scripts\MGSFPSUnlock.ini
+```
 
-Download `MGS4Ultra120-v0.3.1-alpha.5-windows-portable.zip`, extract it and
-double-click `MGS4Ultra120-Setup.cmd`. Choose **Install / update and
-configure**, then **Save and close**. Keep the extracted folder to configure or
-uninstall later.
+Do not copy its `d3d11.dll`, `winhttp.dll` or `wininet.dll`; this release already
+provides Ultimate ASI Loader as `winmm.dll`. Confirm the external INI contains
+`TargetFrameRate = 120`.
 
-### 3. Setup EXE
+### Complete ZIP
 
-Run `MGS4Ultra120-v0.3.1-alpha.5-windows-setup.exe` for automatic Steam
-detection, desktop/Start-menu shortcuts, configuration and reversible
-uninstall. It installs the same patch as the ZIP routes.
+Contains the portable route, a ready-to-copy `Manual-Install` folder and all
+documentation, licences and notices. Choose one installation route.
 
-The EXE is not digitally signed and may show an unknown-publisher or reputation
-warning. It is entirely optional. The full source is public, so anyone can
-inspect it, verify the adjacent SHA-256 file and build the installer
-independently.
+## Fixes in this refresh
 
-### 4. Complete ZIP
+- Preserves the working core/normal-FPS route; improved 120 is additive and
+  optional rather than a hard dependency.
+- Removes the unverified UI/safe-area experiment from the release binary and
+  configurator. Original HUD/menu/effect behavior is retained.
+- Ignores stale Steam libraries on disconnected drives instead of aborting with
+  `Cannot find drive E:`/`H:`.
+- Parses manual FOV values independently of Windows locale and records the exact
+  INI path/values if configuration is rejected.
+- Accepts official launcher settings that omit redundant `WindowSizeW/H`
+  fields and reports GUI save failures accurately.
+- Keeps the validated x64 Ultimate ASI Loader v9.7.4 layout and safe ownership
+  backups/uninstall.
+- Keeps the post-alpha.2 direct-launch wrapper enabled by default. It addresses
+  the repeated Steam custom-arguments loop reported in
+  [Issue #2](https://github.com/drbermejor/mgs4Ultra120/issues/2) by passing
+  launch data through `mgs4_param`; the issue itself was closed at alpha.3
+  without a final reporter confirmation, so this refresh relies on local and
+  automated wrapper validation rather than claiming their confirmation.
 
-`MGS4Ultra120-v0.3.1-alpha.5-windows-complete.zip` contains both the portable
-CMD route and a `Manual-Install` folder, plus all documentation, licences and
-notices.
+## Known limitations
 
-## Linux / Proton
+- 3440x1440 is the validated ultrawide target. A 5120x2160 report of a missing
+  aiming crosshair and apparently zoomed FOV is still under investigation.
+- A full playthrough at corrected 120 FPS has not yet been certified by this
+  project. Include both plugin logs when reporting timing issues.
+- On one mixed-refresh NVIDIA multi-monitor Windows setup, G-SYNC/VRR focus
+  changes caused red sweep/flicker; the configurator warns but changes no system
+  setting.
+- The retained Linux alpha.2 package is not replaced by this Windows refresh.
+  Its old Gamescope example used `gamemoderun` unconditionally; if GameMode is
+  absent, remove that word. KDE/Wayland users can try `Super+F` when the desktop
+  panel remains visible or return to the native launch option.
 
-The same release page includes the exact separately validated
-`MGS4Ultra120-v0.3.1-alpha.2-linux.tar.gz`. Extract it and run
-`./scripts/linux/install.sh` after closing Steam. Do not use the Windows files
-under Proton; the Windows fixes do not imply new Linux validation.
-
-## Refreshed alpha.5 fixes
-
-- Accepts official launcher settings that omit redundant `WindowSizeW` and
-  `WindowSizeH` fields while retaining `ResolutionWindowW/H`.
-- Handles configurator save errors inside the GUI instead of displaying an
-  unhandled-exception dialog.
-- Reports Easy Setup success only after settings were actually saved.
-- Keeps the previously validated ASI and pinned Ultimate ASI Loader binaries
-  unchanged.
-
-Verify every download with the adjacent `.sha256` file. This remains a public
-alpha: 120 FPS and centered UI are experimental, and a full playthrough has
-not yet been certified.
+Download only from this official release and verify every asset with its
+adjacent `.sha256` file.

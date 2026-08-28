@@ -19,6 +19,7 @@ $RequiredFiles = @(
     "scripts\windows\configure.ps1",
     "scripts\windows\uninstall.ps1",
     "scripts\windows\uninstall-installed-package.ps1",
+    "scripts\windows\mgsfpsunlock.ps1",
     "third_party\ultimate_asi_loader\LICENSE.txt",
     "third_party\ultimate_asi_loader\README.md"
 )
@@ -84,7 +85,8 @@ foreach ($RelativePath in @(
     "scripts\windows\install.ps1",
     "scripts\windows\configure.ps1",
     "scripts\windows\uninstall.ps1",
-    "scripts\windows\uninstall-installed-package.ps1"
+    "scripts\windows\uninstall-installed-package.ps1",
+    "scripts\windows\mgsfpsunlock.ps1"
 )) {
     $Tokens = $null
     $Errors = $null
@@ -170,9 +172,8 @@ try {
     $IniText = Get-Content -Raw -LiteralPath (Join-Path $GameDir "mgs4_ultrawide.ini")
     foreach ($ExpectedLine in @(
         "UltrawideEnabled=1",
-        "FPSOverrideEnabled=1",
+        "FPSOverrideEnabled=0",
         "Limit=60",
-        "ConstrainUITo16x9=0",
         "ControllerProfileFixEnabled=1"
     )) {
         if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))$") {
@@ -271,17 +272,20 @@ try {
     $Customized = Get-Content -Raw -LiteralPath $IniPath
     $Customized = [regex]::Replace($Customized, '(?m)^Width=.*$', 'Width=5120')
     $Customized = [regex]::Replace($Customized, '(?m)^Language=.*$', 'Language=sp')
-    $Customized = [regex]::Replace($Customized, '(?m)^ToggleHotkey=.*$', 'ToggleHotkey=F9')
+    $Customized = [regex]::Replace($Customized, '(?m)^Limit=.*$', 'Limit=120')
     [IO.File]::WriteAllText($IniPath, $Customized,
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     $UpdatedIni = Get-Content -Raw -LiteralPath $IniPath
     foreach ($PreservedLine in @(
-        "Width=5120", "Language=sp", "ToggleHotkey=F9", "SkipUnityLauncher=1"
+        "Width=5120", "Language=sp", "SkipUnityLauncher=1"
     )) {
         if ($UpdatedIni -notmatch "(?m)^$([regex]::Escape($PreservedLine))$") {
             throw "Update did not preserve setting: $PreservedLine"
         }
+    }
+    if ($UpdatedIni -notmatch '(?m)^Limit=60$') {
+        throw "Update did not migrate the previous experimental 120 FPS value to 60."
     }
 
     & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir

@@ -26,8 +26,16 @@ launch command in Gamescope, substituting the monitor's native mode:
 
 ```text
 WINEDLLOVERRIDES="winmm=n,b" gamescope -f --force-windows-fullscreen \
-  -W 3440 -H 1440 -w 3440 -h 1440 -r 240 -- gamemoderun %command%
+  -W 3440 -H 1440 -w 3440 -h 1440 -r 240 -- %command%
 ```
+
+Confirm that `gamescope --help` works before adding this command. The older
+alpha.2 command included `gamemoderun` unconditionally, so systems without
+GameMode installed could fail to launch at all. GameMode is optional and is no
+longer part of the generated command. Nested Gamescope fullscreen also has
+known compositor-specific problems on KDE/Wayland; press `Super+F` to toggle
+the Gamescope window if the panel remains visible, or return to the native
+`WINEDLLOVERRIDES="winmm=n,b" %command%` launch option.
 
 Run `./scripts/linux/configure.sh gui` for the graphical configurator. It
 controls independent ultrawide/FOV, FPS, controller-profile, launcher and UI

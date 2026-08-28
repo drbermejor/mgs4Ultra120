@@ -1,7 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <mmsystem.h>
-#include <d3d12.h>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -18,15 +17,9 @@ static volatile LONG g_projection_patches;
 static std::uintptr_t g_executable_base;
 static std::uint32_t g_target_width = 3440;
 static std::uint32_t g_target_height = 1440;
-static std::uint32_t g_target_fps = 60;
 static float g_fov_multiplier = 1.0f;
 static bool g_enable_ultrawide = true;
-static bool g_enable_fps_override = true;
-static bool g_constrain_ui = false;
 static bool g_controller_profile_fix = true;
-static UINT g_fps_hotkey_vk;
-static UINT g_fps_hotkey_modifiers;
-static volatile LONG g_ui_hook_requested_state;
 static volatile LONG g_locked_controller_profile;
 static volatile LONG g_minhook_state;
 
@@ -62,70 +55,38 @@ static DWORD final_code_protection(DWORD previous) {
     return PAGE_EXECUTE_READ;
 }
 
-static UINT parse_hotkey_key(const char* text) {
-    if (!text || !text[0] || _stricmp(text, "Off") == 0 ||
-        _stricmp(text, "Disabled") == 0)
-        return 0;
-    if ((text[0] == 'F' || text[0] == 'f') && text[1]) {
-        char* end = nullptr;
-        const long number = std::strtol(text + 1, &end, 10);
-        if (end && *end == '\0' && number >= 1 && number <= 24)
-            return static_cast<UINT>(VK_F1 + number - 1);
+// Parse the small decimal format used by the INI without consulting the
+// process locale. The game may change the C locale, which made the old strtof
+// path interpret a perfectly valid "1.000" differently on some Windows
+// installations. Accept both decimal separators for hand-edited files.
+static bool parse_ini_decimal(const char* text, float* value) {
+    if (!text || !value) return false;
+    while (*text == ' ' || *text == '\t') ++text;
+    bool negative = false;
+    if (*text == '+' || *text == '-') {
+        negative = *text == '-';
+        ++text;
     }
-    if (text[1] == '\0') {
-        const char character = text[0];
-        if (character >= 'a' && character <= 'z')
-            return static_cast<UINT>(character - 'a' + 'A');
-        if ((character >= 'A' && character <= 'Z') ||
-            (character >= '0' && character <= '9'))
-            return static_cast<UINT>(character);
+    double result = 0.0;
+    bool have_digit = false;
+    while (*text >= '0' && *text <= '9') {
+        have_digit = true;
+        result = result * 10.0 + (*text++ - '0');
     }
-    return 0;
-}
-
-static UINT parse_hotkey_modifiers(const char* text) {
-    if (!text) return 0;
-    char upper[64] = {};
-    for (std::size_t index = 0; text[index] && index + 1 < sizeof(upper); ++index) {
-        const char character = text[index];
-        upper[index] = character >= 'a' && character <= 'z'
-            ? static_cast<char>(character - 'a' + 'A') : character;
+    if (*text == '.' || *text == ',') {
+        ++text;
+        double place = 0.1;
+        while (*text >= '0' && *text <= '9') {
+            have_digit = true;
+            result += (*text++ - '0') * place;
+            place *= 0.1;
+        }
     }
-    UINT result = 0;
-    if (std::strstr(upper, "CTRL")) result |= MOD_CONTROL;
-    if (std::strstr(upper, "ALT")) result |= MOD_ALT;
-    if (std::strstr(upper, "SHIFT")) result |= MOD_SHIFT;
-    if (std::strstr(upper, "WIN")) result |= MOD_WIN;
-    return result;
-}
-
-static DWORD WINAPI fps_hotkey_thread(void*) {
-    constexpr int identifier = 0x4d475334;  // MGS4
-    if (!RegisterHotKey(nullptr, identifier,
-                        g_fps_hotkey_modifiers | MOD_NOREPEAT,
-                        g_fps_hotkey_vk)) {
-        log_line("ERROR: FPS toggle hotkey could not be registered.");
-        return 0;
-    }
-    log_line("FPS toggle hotkey registered; each press switches 60/120.");
-    MSG message{};
-    while (GetMessageW(&message, nullptr, 0, 0) > 0) {
-        if (message.message != WM_HOTKEY ||
-            message.wParam != static_cast<WPARAM>(identifier))
-            continue;
-        const auto current = static_cast<std::uint32_t>(InterlockedCompareExchange(
-            reinterpret_cast<volatile LONG*>(&g_target_fps), 0, 0));
-        const std::uint32_t next = current == 120 ? 60 : 120;
-        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_target_fps),
-                            static_cast<LONG>(next));
-        if (g_executable_base)
-            *reinterpret_cast<volatile std::uint32_t*>(
-                g_executable_base + 0x1b08df4) = next;
-        log_line(next == 120 ? "FPS hotkey: experimental 120 FPS enabled."
-                             : "FPS hotkey: safe 60 FPS restored.");
-    }
-    UnregisterHotKey(nullptr, identifier);
-    return 0;
+    while (*text == ' ' || *text == '\t') ++text;
+    if (!have_digit || *text != '\0') return false;
+    if (negative) result = -result;
+    *value = static_cast<float>(result);
+    return std::isfinite(*value);
 }
 
 // The PC port can spuriously select profile 0 (keyboard) while an XInput slot
@@ -168,6 +129,10 @@ static void log_line(const char* message) {
     CloseHandle(file);
 }
 
+// Historical D3D12 UI experiment retained temporarily for source archaeology.
+// It is compiled out of release builds: identifying one shared shader was not
+// enough to distinguish HUD from full-screen effects safely.
+#if 0
 // The game's UI vertex shader is shared by the D3D11 and D3D12 renderers. Its
 // DXBC container is stable for the supported executable. Matching the exact
 // shader provides an experimental 16:9 safe-area path without changing the
@@ -381,6 +346,7 @@ static void STDMETHODCALLTYPE hooked_draw_indexed_instanced(
     g_original_draw_indexed_instanced(command_list, index_count, instance_count,
                                       first_index, base_vertex, first_instance);
 }
+#endif
 
 static bool create_and_enable_hook(void* target, void* detour, void** original,
                                    const char* name) {
@@ -394,6 +360,7 @@ static bool create_and_enable_hook(void* target, void* detour, void** original,
     return false;
 }
 
+#if 0
 static void install_command_list_hooks(ID3D12GraphicsCommandList* command_list) {
     if (!command_list || InterlockedCompareExchange(&g_d3d12_command_hooks_installed,
                                                      1, 0) != 0)
@@ -529,22 +496,16 @@ static bool ui_hook_requested_from_config() {
     InterlockedCompareExchange(&g_ui_hook_requested_state, requested ? 1 : -1, 0);
     return requested;
 }
+#endif
 
 #if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" MMRESULT WINAPI mgs4_timeBeginPeriod(UINT period) {
-    // This synchronous path is early enough to catch renderer creation when the
-    // optional UI module is requested. FPS-only and ordinary ultrawide profiles
-    // never load or hook D3D12 here.
-    if (ui_hook_requested_from_config())
-        ensure_d3d12_export_hook();
     auto fn = reinterpret_cast<TimeBeginPeriodFn>(
         winmm_proxy_resolve_by_name("timeBeginPeriod"));
     return fn ? fn(period) : TIMERR_NOERROR;
 }
 
 extern "C" DWORD WINAPI mgs4_timeGetTime() {
-    if (ui_hook_requested_from_config())
-        ensure_d3d12_export_hook();
     auto fn = reinterpret_cast<TimeGetTimeFn>(
         winmm_proxy_resolve_by_name("timeGetTime"));
     return fn ? fn() : GetTickCount();
@@ -828,9 +789,6 @@ static void apply_resolution_state() {
         put_resolution_pair_atomic(base, 0x3bd1170, 0, 0);
         put_resolution_pair_atomic(base, 0x3bd1178, width, height);
     }
-    if (g_enable_fps_override &&
-        (g_target_fps == 30 || g_target_fps == 60 || g_target_fps == 120))
-        put32(base, 0x1b08df4, g_target_fps);
 }
 
 static DWORD WINAPI patch_thread(void*) {
@@ -849,54 +807,37 @@ static DWORD WINAPI patch_thread(void*) {
         GetPrivateProfileIntA("Ultrawide", "Width", 3440, ini_path);
     const std::uint32_t height =
         GetPrivateProfileIntA("Ultrawide", "Height", 1440, ini_path);
-    const bool enable_fps_override =
-        GetPrivateProfileIntA("Patch", "FPSOverrideEnabled", 1, ini_path) != 0;
     const bool allow_unsupported = GetPrivateProfileIntA(
         "Patch", "AllowUnsupportedExecutable", 0, ini_path) != 0;
     const bool controller_profile_fix = GetPrivateProfileIntA(
         "Input", "ControllerProfileFixEnabled", 1, ini_path) != 0;
-    const std::uint32_t fps = GetPrivateProfileIntA("FPS", "Limit", 60, ini_path);
-    char hotkey_text[32] = {};
-    char modifier_text[64] = {};
-    GetPrivateProfileStringA("FPS", "ToggleHotkey", "F10", hotkey_text,
-                             sizeof(hotkey_text), ini_path);
-    GetPrivateProfileStringA("FPS", "ToggleHotkeyModifiers", "None", modifier_text,
-                             sizeof(modifier_text), ini_path);
-    const UINT hotkey_vk = parse_hotkey_key(hotkey_text);
-    const UINT hotkey_modifiers = parse_hotkey_modifiers(modifier_text);
     char fov_text[32] = {};
     GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.000", fov_text,
                              sizeof(fov_text), ini_path);
-    char* fov_end = nullptr;
-    const float fov_multiplier = std::strtof(fov_text, &fov_end);
-    g_constrain_ui = enable_ultrawide &&
-        GetPrivateProfileIntA("Ultrawide", "ConstrainUITo16x9", 0, ini_path) != 0;
-    InterlockedExchange(&g_ui_hook_requested_state, g_constrain_ui ? 1 : -1);
-    if ((enable_ultrawide &&
-         (!width || !height || fov_end == fov_text || !std::isfinite(fov_multiplier) ||
-          fov_multiplier < 0.5f || fov_multiplier > 2.0f)) ||
-        (enable_fps_override && fps != 30 && fps != 60 && fps != 120)) {
-        log_line("ERROR: invalid enabled module configuration.");
+    float fov_multiplier = 1.0f;
+    const bool fov_valid = parse_ini_decimal(fov_text, &fov_multiplier);
+    if (enable_ultrawide &&
+        (!width || !height || !fov_valid ||
+         fov_multiplier < 0.5f || fov_multiplier > 2.0f)) {
+        char invalid_message[512] = {};
+        std::snprintf(invalid_message, sizeof(invalid_message),
+                      "ERROR: invalid ultrawide configuration in %s: Width=%u, Height=%u, FOVMultiplier='%s' (accepted FOV range 0.500-2.000).",
+                      ini_path, width, height, fov_text);
+        log_line(invalid_message);
         return 0;
     }
     g_enable_ultrawide = enable_ultrawide;
-    g_enable_fps_override = enable_fps_override;
     g_controller_profile_fix = controller_profile_fix;
     g_target_width = width;
     g_target_height = height;
-    g_target_fps = fps;
-    g_fps_hotkey_vk = hotkey_vk;
-    g_fps_hotkey_modifiers = hotkey_modifiers;
     g_fov_multiplier = fov_multiplier;
     g_target_aspect = static_cast<float>(width) / static_cast<float>(height);
 
     char settings_message[320] = {};
     std::snprintf(settings_message, sizeof(settings_message),
-                  "Configuration: ultrawide %s (%ux%u, aspect %.6f, FOVMultiplier %.3f), FPS override %s (%u), UI safe area %s, controller-profile fix %s.",
+                  "Configuration: ultrawide %s (%ux%u, aspect %.6f, FOVMultiplier %.3f), controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
                   enable_ultrawide ? "on" : "off", width, height,
                   g_target_aspect, g_fov_multiplier,
-                  enable_fps_override ? "on" : "off", fps,
-                  g_constrain_ui ? "experimental" : "off",
                   controller_profile_fix ? "on" : "off");
     log_line(settings_message);
 
@@ -910,26 +851,15 @@ static DWORD WINAPI patch_thread(void*) {
     }
     g_executable_base = base;
     if (enable_ultrawide) {
-        if (g_constrain_ui)
-            ensure_d3d12_export_hook();
         force_resolution_getters(base, width, height);
         install_resolution_hook(base);
         install_engine_hook(base);
     }
     if (controller_profile_fix)
         install_controller_profile_fix(base);
-    if (enable_fps_override && hotkey_vk) {
-        HANDLE hotkey_thread = CreateThread(nullptr, 0, fps_hotkey_thread,
-                                            nullptr, 0, nullptr);
-        if (hotkey_thread) CloseHandle(hotkey_thread);
-    }
-
     apply_resolution_state();
-    // The display-mode hook handles subsequent changes.  A single delayed FPS
-    // write happens after settings initialization; resolution is not polled.
+    // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);
-    if (enable_fps_override && (fps == 30 || fps == 60 || fps == 120))
-        put32(base, 0x1b08df4, fps);
     char projection_message[128] = {};
     std::snprintf(projection_message, sizeof(projection_message),
                   "Projection matrices adjusted after startup: %ld.",

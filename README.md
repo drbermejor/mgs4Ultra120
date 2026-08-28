@@ -1,172 +1,146 @@
 # MGS4 Ultra120
 
-An open-source ultrawide, input-profile and experimental high-frame-rate patch
-for the Steam PC port of *METAL GEAR SOLID 4*. Every feature is optional: a
-user can enable ultrawide only, 120 FPS only, the controller fix only, any
-combination of them, or all modules together.
+Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
+of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
+[cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** Back up your saves and read the limitations. Version
-> `v0.3.1-alpha.5` is verified against the supported Steam executable. Other
-> builds are blocked by default but can be attempted with an explicit unsafe
-> override.
+> **Public alpha.** `v0.3.1-alpha.5` targets the verified Steam executable.
+> Other builds are blocked unless the user accepts the unsafe override. Back up
+> saves and keep Steam's game files available for verification.
 
-## Modules
+## What the Windows release installs
 
-| Module | Default | What it changes |
-|---|---:|---|
-| Ultrawide and FOV | On | Native output size and Hor+ perspective projection |
-| FPS override | On at 60 | 30/60/experimental 120 FPS, independently switchable |
-| FPS hotkey | F10 | Toggles the active FPS override between 60 and 120 |
-| Controller profile fix | On | Prevents a connected native gamepad from being spuriously reclassified as keyboard input |
-| Windows presentation | Native window | Uses the primary monitor's physical size without an exclusive mode switch |
-| Direct-launch wrapper | On | Skips the Unity launcher while Steam remains the parent launch path |
-| Centered 16:9 UI | Off | Experimental D3D12 safe-area prototype |
+| Component | Purpose |
+|---|---|
+| `winmm.dll` | Pinned Ultimate ASI Loader v9.7.4 |
+| `scripts/MGS4Ultra120.asi` | Ultrawide/Hor+, FOV and controller-profile fixes |
+| `mgs4_ultrawide.ini` | Shared MGS4Ultra120 settings |
+| `scripts/MGSFPSUnlock.asi` | Corrected high-frame-rate implementation by cipherxof |
+| `scripts/MGSFPSUnlock.ini` | Persistent FPS target; defaults to 120 |
 
-The controller module does not emulate an Xbox pad, inject inputs or install a
-system driver. It preserves the native controller family already detected by
-the game and releases that state after all controllers disconnect.
+Our old single-value FPS override is disabled and no longer writes the game's
+FPS state. MGSFPSUnlock owns frame-rate timing and supplies separate fixes for
+camera movement, character control, polygon demos, physics, ragdolls, cloth,
+hair/bandana, wind and SPURS tasks. This avoids two plugins fighting over the
+same setting.
+
+MGSFPSUnlock is an independent source-published project. Because its repository
+currently does not declare a redistribution license, its binary is **not
+repackaged** in our downloads. Guided setup downloads version 0.1.0 directly
+from its official GitHub release, requires the pinned archive and ASI SHA-256
+values to match, and installs only its ASI and INI. Thank you to
+[cipherxof](https://github.com/cipherxof) for the substantially improved FPS
+unlock implementation.
 
 ## Rendering status
 
-- 3440x1440 real-time 3D rendering is correctly proportioned and Hor+ instead
-  of stretching a 16:9 image.
-- The projection correction is in common engine code used by DirectX 11 and
-  DirectX 12.
-- Resolution and FOV are configurable for other displays.
-- `FOVMultiplier=1.000` retains the original vertical FOV. Higher values widen
-  both axes proportionally; `1.150` is an optional comfort setting.
-- The stable UI mode leaves the original UI behavior untouched. The existing
-  centered 16:9 D3D12 experiment can also affect full-screen effects and is
-  therefore disabled by default.
-- Pre-rendered Bink video is not cropped or expanded by this alpha. A dedicated
-  forced-16:9 compositor path is still under investigation; real-time engine
-  cinematics already use the corrected projection.
+- 3440x1440 real-time 3D rendering is validated as correctly proportioned and
+  Hor+ rather than a stretched 16:9 image.
+- `FOVMultiplier=1.000` preserves the original vertical FOV. Width, height and
+  FOV remain configurable.
+- The unfinished UI/safe-area experiment is not part of the release binary.
+  Menus, HUD and full-screen effects retain the game's original behavior.
+- Pre-rendered Bink video is unchanged.
+- A user reported a missing aiming crosshair and apparently zoomed FOV at
+  5120x2160. That ultrawide case is still under investigation; it is not
+  presented as fixed in this refresh.
 
-## Important limitations
+## Windows downloads
 
-- **120 FPS is not gameplay-safe yet.** It reaches 120 FPS, but a scripted
-  intro has stalled while audio continued. Physics, QTE and script timing have
-  not passed a full-playthrough test. Use the hotkey to return to 60 before
-  cutscenes or scripted sequences.
-- The centered UI mode is experimental, D3D12-only and can narrow or overlap
-  full-screen effects. Leave it off for the stable rendering profile.
-- Keyboard/mouse users should disable the controller-profile module. With a
-  controller connected, the module deliberately rejects the game's erroneous
-  switch to its keyboard profile.
-- An unsupported executable override is available, but known data offsets
-  cannot be made safe by a warning. Code-hook signatures are still checked;
-  crashes remain possible and the override is off by default.
-- A full playthrough and save compatibility are not yet certified.
+Use the existing
+[v0.3.1-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.1-alpha.5)
+and choose one package:
 
-## Platform downloads
+1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
+   uninstall. It requires internet access once to fetch the verified
+   MGSFPSUnlock 0.1.0 package.
+2. **Portable ZIP** — extract it, then run `MGS4Ultra120-Setup.cmd`. It provides
+   the same guided installation without registering a persistent application.
+3. **Manual ZIP** — the most transparent copy-only route. It runs no script,
+   but corrected 120 FPS requires two additional files from the official
+   MGSFPSUnlock 0.1.0 ZIP; see the short instructions below.
+4. **Complete ZIP** — portable setup, manual folder, source-facing notices and
+   all documentation in one archive.
 
-Windows and Linux/Proton are maintained as separate validated release lines:
+The EXE is unsigned, so SmartScreen or a browser may show an
+unknown-publisher/reputation warning. The EXE is optional. Download only from
+the official release, verify its adjacent `.sha256` file and keep antivirus
+enabled. All project code and build instructions are public and can be reviewed
+or built independently.
 
-| Platform | Validated release | Download |
-|---|---|---|
-| Native Windows (recommended) | `v0.3.1-alpha.5` | Setup EXE, manual ZIP, portable ZIP or complete ZIP |
-| Linux / Proton | `v0.3.1-alpha.2` | Linux tarball attached to the alpha.5 page |
+### Brief manual installation
 
-The alpha.5 release page also carries the separately validated alpha.2 Linux
-package for convenience. Do not run the Windows setup/ZIP under Proton or
-infer Linux validation from the native-Windows fixes.
+Close the game, extract the manual ZIP and copy its contents into the folder
+that directly contains `mgs4.exe`:
 
-Download only from
-[Releases](https://github.com/drbermejor/mgs4Ultra120/releases).
+```text
+MGS4\winmm.dll
+MGS4\mgs4_ultrawide.ini
+MGS4\scripts\MGS4Ultra120.asi
+```
 
-**Native Windows — choose one download:**
+For corrected 120 FPS, download
+[MGSFPSUnlock 0.1.0](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0),
+open its ZIP and copy only these two files into the same `MGS4\scripts` folder:
 
-1. **Manual ZIP (most transparent):** extract
-   `MGS4Ultra120-v0.3.1-alpha.5-windows-manual.zip`, close the game and copy
-   everything inside the extracted folder into the `MGS4` folder containing
-   `mgs4.exe`. Keep the included `scripts` folder, then launch through Steam.
-   It runs no installer or setup script.
-2. **Portable ZIP:** extract
-   `MGS4Ultra120-v0.3.1-alpha.5-windows-portable.zip` and double-click
-   `MGS4Ultra120-Setup.cmd`. Keep the extracted folder for later configuration
-   or uninstall.
-3. **Setup EXE:** installs the same patch plus a setup manager and shortcuts.
-4. **Complete ZIP:** contains the portable route, the manual folder and all
-   project documentation and licences.
+```text
+MGSFPSUnlock\scripts\MGSFPSUnlock.asi
+MGSFPSUnlock\scripts\MGSFPSUnlock.ini
+```
 
-The EXE is not digitally signed, so Windows or a browser may show an
-unknown-publisher/reputation notice. It is optional. The project is open
-source: anyone can inspect the scripts and source, verify the published
-SHA-256 files and build it independently. See
-[Windows installation](docs/INSTALL_WINDOWS.md) for details.
+Do **not** copy its `d3d11.dll`, `winhttp.dll` or `wininet.dll`; our package
+already provides the required ASI loader. Confirm that its INI contains
+`TargetFrameRate = 120`, then launch normally through Steam.
 
-The Windows stable profile detects the primary monitor's physical resolution
-and requests a native-size window. In the tested 3440x1440 setup this occupied
-the complete monitor without a title bar while avoiding an exclusive display
-mode switch. Exclusive fullscreen remains available as an advanced option.
+See [Windows installation](docs/INSTALL_WINDOWS.md) and
+[manual installation](docs/MANUAL_INI.md) for backup and removal details.
 
-The current Windows release follows the conventional Lyall-style ASI layout:
-pinned Ultimate ASI Loader `v9.7.4` is the independent `winmm.dll` proxy and
-the patch is `scripts/MGS4Ultra120.asi`. The INI remains beside `mgs4.exe`, so
-the GUI, portable CMD and manual editor stay compatible. Setup migrates
-alpha.3 in place, preserves its original backups, and reuses a compatible ASI
-loader from another mod without claiming or removing it.
+## Windows defaults and known display issue
 
-**Linux / Proton:** use only the Linux tarball and follow the separate Linux
-guide. Its shell installer, Steam launch options and Gamescope path are not used
-by the native-Windows installer.
+The configurator selects the primary monitor's physical resolution, native-size
+windowed presentation, FOV 1.000, corrected 120 FPS, controller-profile fix and
+Unity-launcher bypass. Exclusive fullscreen is an advanced option.
 
-- [Windows installation](docs/INSTALL_WINDOWS.md)
-- [ASI migration and acceptance record](docs/ASI_MIGRATION.md)
-- [Manual DLL and INI installation](docs/MANUAL_INI.md)
-- [Windows troubleshooting](docs/TROUBLESHOOTING_WINDOWS.md)
-- [Linux / Proton installation](docs/INSTALL_LINUX.md)
-- [Configuration and independent combinations](docs/CONFIGURATION.md)
-- [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
-- [Controller profile fix](docs/CONTROLLER_FIX.md)
-- [UI and pre-rendered video status](docs/UI_AND_VIDEO.md)
+On one mixed-refresh NVIDIA multi-monitor system, focus changes produced a red
+sweep/flicker and Windows display WATCHDOG reports. Testing was clean after
+G-SYNC/VRR was disabled, but that is not a universal diagnosis. The
+configurator warns and never changes driver or Windows display settings. See
+[Windows troubleshooting](docs/TROUBLESHOOTING_WINDOWS.md).
 
-The patch never edits `mgs4.exe`. The Windows release uses Ultimate ASI Loader as
-`winmm.dll` and keeps project code in `scripts/MGS4Ultra120.asi`. The optional
-direct-launch feature temporarily replaces `Launcher/launcher.exe`, retains a
-private backup and restores it only
-after verifying that the active file is our wrapper.
+## Linux / Proton
 
-The Windows wrapper uses the game's official `mgs4_param` bootstrap without
-duplicating its tokens on the child command line. This removes the repeated
-Steam custom-arguments loop seen with older wrappers on some clients. Cancel
-and report any unexpected argument prompt instead of approving it repeatedly.
+Linux remains a separate validation line: the release page retains the
+`v0.3.1-alpha.2` Linux tarball. Do not run the Windows installer under Proton.
+The Linux source documentation now removes an unconditional `gamemoderun`
+dependency that could prevent launch when GameMode was absent. Nested Gamescope
+can still have KDE/Wayland fullscreen issues; verify `gamescope --help`, use
+`Super+F` to toggle fullscreen, or return to the native command. See
+[Linux installation](docs/INSTALL_LINUX.md).
 
-On the tested mixed-scaling, mixed-refresh HDR dual-monitor system, switching
-focus reproduced a moving red band/flicker. A light occurrence was also seen in
-a native-size window with all patch modules disabled. Auto HDR and windowed-game
-optimizations did not eliminate it; Windows recorded display `WATCHDOG`
-`LiveKernelEvent` reports. With **G-SYNC/VRR disabled**, ten focus transitions
-were clean, including the final 3440x1440 test with every stable module enabled.
-The ASI release also passed 20 programmatically confirmed foreground changes
-across the same monitors with zero new crash dumps or reliability/display
-events, followed by the user's clean manual focus-change validation. This does
-not establish a universal fix for every driver/display combination.
-The configurator warns on NVIDIA multi-monitor systems but never alters driver
-settings. If a display remains affected after closing the game,
-`Win+Ctrl+Shift+B` resets the Windows graphics pipeline. See the troubleshooting
-guide before playing on mixed-DPI/HDR/VRR displays.
+## Technical outline
 
-## How the world fix works
-
-The port normally supplies a 16:9 perspective matrix even when its output
-canvas is ultrawide. The patch recognizes those perspective matrices and
-changes only their FOV scales:
+The port normally supplies a 16:9 perspective matrix even when the output is
+ultrawide. MGS4Ultra120 recognizes the relevant perspective matrices and keeps
+vertical FOV while deriving horizontal FOV from the configured aspect:
 
 ```text
 adjusted_m11 = original_m11 / FOVMultiplier
 new_m00 = sign(m00) * abs(adjusted_m11) / target_aspect
 ```
 
-At `1.000`, vertical FOV remains unchanged and horizontal FOV grows. The
-resolution setters are hooked when state changes; there is no recurring memory
-rewrite loop. See [Technical notes](docs/TECHNICAL.md) for safeguards and
-known offsets.
+The patch never edits `mgs4.exe`. The optional direct-launch wrapper backs up
+`Launcher/launcher.exe`, uses the game's official `mgs4_param` bootstrap and
+restores the original only when ownership hashes still match.
 
-Build instructions are in [Development](docs/DEVELOPMENT.md). Contributions
-are welcome under the [MIT License](LICENSE). MinHook retains its BSD license
-and Ultimate ASI Loader its MIT license; see
-[third-party notices](THIRD_PARTY_NOTICES.md).
+Further reading:
 
-This is an unofficial community project. It contains no game files and is not
-affiliated with or endorsed by KONAMI.
+- [Configuration](docs/CONFIGURATION.md)
+- [Controller profile fix](docs/CONTROLLER_FIX.md)
+- [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
+- [UI and video status](docs/UI_AND_VIDEO.md)
+- [Technical notes](docs/TECHNICAL.md)
+- [Development and reproducible builds](docs/DEVELOPMENT.md)
+
+MGS4 Ultra120 is MIT-licensed. Third-party components retain their own terms;
+see [third-party notices](THIRD_PARTY_NOTICES.md). No game files are included.
+This project is not affiliated with or endorsed by KONAMI.

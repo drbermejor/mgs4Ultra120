@@ -1,28 +1,34 @@
 MGS4 ULTRA120 - COPY-ONLY MANUAL INSTALL
 
+CORE / NORMAL-FPS ROUTE
+
 1. Close the game.
-2. Open the game folder that directly contains mgs4.exe. It is normally:
+2. Open the folder that directly contains mgs4.exe, normally:
 
    ...\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4
 
-3. Drag every item inside this extracted folder into that MGS4 folder.
-   Keep the included scripts folder: MGS4Ultra120.asi must end up at:
-
-   MGS4\scripts\MGS4Ultra120.asi
-
-   The other two files must end up at:
+3. Copy everything inside this extracted folder into that MGS4 folder.
+4. Confirm:
 
    MGS4\winmm.dll
    MGS4\mgs4_ultrawide.ini
+   MGS4\scripts\MGS4Ultra120.asi
 
-4. Start the game normally through Steam.
+5. Launch normally through Steam.
 
-This copy-only method does not install shortcuts or the optional Unity-launcher
-bypass. Edit mgs4_ultrawide.ini with a text editor while the game is closed.
+OPTIONAL CORRECTED 120 FPS
 
-Back up any existing file with the same name before overwriting it. If another
-mod already owns winmm.dll as an x64 Ultimate ASI Loader, keep that loader and
-copy only mgs4_ultrawide.ini plus scripts\MGS4Ultra120.asi.
+1. Download MGSFPSUnlock.zip only from:
+   https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0
+2. Open MGSFPSUnlock\scripts inside that ZIP.
+3. Copy only MGSFPSUnlock.asi and MGSFPSUnlock.ini to MGS4\scripts.
+4. Do not copy d3d11.dll, winhttp.dll or wininet.dll. The included winmm.dll
+   already loads both ASIs.
+5. Confirm MGSFPSUnlock.ini says: TargetFrameRate = 120
 
-To remove this manual installation, close the game and delete only the files
-you copied. Do not delete a winmm.dll that was already used by another mod.
+Thanks to cipherxof for the improved FPS unlock implementation.
+
+This copy-only route runs no installer or script, creates no shortcuts and does
+not install the optional Unity-launcher bypass. Back up every existing file with
+the same name. If another mod already owns a compatible x64 ASI loader, keep it
+and copy only the ASI/INI files.

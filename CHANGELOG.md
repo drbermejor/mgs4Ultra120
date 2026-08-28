@@ -2,6 +2,17 @@
 
 ## v0.3.1-alpha.5 - Windows ASI release
 
+- Refreshed the existing tag/assets in place while preserving the core/normal-
+  FPS route and making corrected 120 FPS an optional additive installation.
+- Delegated high-FPS timing to `cipherxof/MGSFPSUnlock` 0.1.0, thanked and
+  credited upstream, disabled the old single-field writer and added direct
+  upstream download plus pinned archive/ASI verification.
+- Removed the unverified UI safe-area experiment from release builds and the
+  configurator; original UI/effect behavior remains active.
+- Fixed stale Steam libraries on disconnected drive letters aborting Windows
+  discovery, and added locale-independent FOV parsing with actionable logs.
+- Removed unconditional `gamemoderun` from generated Linux Gamescope commands
+  and added a Gamescope availability check for future Linux packages.
 - Promoted the native-Windows ASI architecture validated in alpha.4 to `main`.
 - Kept the tested `MGS4Ultra120.asi` and pinned Ultimate ASI Loader binaries
   unchanged.

@@ -7,7 +7,7 @@ Add-Type -AssemblyName System.Drawing
 $Ui = @{
         Form = "MGS4 Ultra120 - Easy setup"
         Title = "Install MGS4 Ultra120"
-        Help = "Verify the detected game folder and click the blue button. The game must be closed."
+        Help = "Verify the game folder and click the blue button. The game must be closed. Core setup works offline."
         Path = "Game folder (must contain mgs4.exe):"
         Found = "Game detected correctly"
         Missing = "mgs4.exe was not found: correct the folder before continuing"
@@ -19,6 +19,7 @@ $Ui = @{
         Uninstall = "Uninstall and restore originals"
         Instructions = "Instructions"
         Close = "Close"
+        ImprovedFps = "Install / update improved 120 FPS support (cipherxof/MGSFPSUnlock 0.1.0; internet required)"
         Done = "Setup is complete. You can now start the game normally from Steam."
         NotSaved = "The patch was installed, but the configurator closed without saving settings. Reopen the configurator to finish setup."
         InstallFailed = "Installation could not be completed"
@@ -32,6 +33,7 @@ $Ui = @{
 $PackageDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $GameRelative = "steamapps\common\METAL GEAR SOLID 4\MGS4"
 . (Join-Path $PSScriptRoot "common.ps1")
+. (Join-Path $PSScriptRoot "mgsfpsunlock.ps1")
 
 function Find-Mgs4Directories {
     $Roots = [Collections.Generic.List[string]]::new()
@@ -56,8 +58,12 @@ function Find-Mgs4Directories {
     foreach ($Root in ($Roots | Select-Object -Unique)) {
         if (-not $Root) { continue }
         $Libraries.Add($Root)
-        $Vdf = Join-Path $Root "steamapps\libraryfolders.vdf"
-        if (Test-Path -LiteralPath $Vdf) {
+        # Join-Path asks the PowerShell drive provider to resolve drive letters.
+        # A stale Steam library on a disconnected E:/H: drive therefore aborted
+        # discovery before the valid libraries were checked. IO.Path.Combine is
+        # purely syntactic and File.Exists safely returns false for offline roots.
+        $Vdf = [IO.Path]::Combine($Root, "steamapps\libraryfolders.vdf")
+        if ([IO.File]::Exists($Vdf)) {
             $Text = Get-Content -Raw -LiteralPath $Vdf
             foreach ($Match in [regex]::Matches($Text, '"path"\s+"([^"]+)"')) {
                 $Libraries.Add($Match.Groups[1].Value.Replace('\\', '\'))
@@ -76,8 +82,15 @@ function Find-Mgs4Directories {
     return @($Found | Select-Object -Unique)
 }
 
-function Install-Patch([string]$Target) {
+function Install-Patch([string]$Target, [bool]$IncludeImprovedFps) {
     Install-Mgs4Ultra120Patch $Target $PackageDir
+    if (-not $IncludeImprovedFps) { return "" }
+    try {
+        Install-MgsFpsUnlock $Target
+        return ""
+    } catch {
+        return "Core installation succeeded, but improved 120 FPS was not installed.`n`n$($_.Exception.Message)`n`nYou can use the game at its normal FPS and retry Easy Setup later."
+    }
 }
 
 $Detected = @(Find-Mgs4Directories)
@@ -95,7 +108,7 @@ if (-not $GameDir) { $GameDir = $Ui.NotFound }
 $Form = [Windows.Forms.Form]@{
     Text = $Ui.Form
     StartPosition = "CenterScreen"
-    ClientSize = [Drawing.Size]::new(720, 335)
+    ClientSize = [Drawing.Size]::new(720, 395)
     FormBorderStyle = "FixedDialog"
     MaximizeBox = $false
 }
@@ -130,9 +143,15 @@ $PathStatus = [Windows.Forms.Label]@{
     Size = [Drawing.Size]::new(660, 24)
     Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold)
 }
+$ImprovedFpsBox = [Windows.Forms.CheckBox]@{
+    Text = $Ui.ImprovedFps
+    Location = [Drawing.Point]::new(26, 202)
+    Size = [Drawing.Size]::new(660, 28)
+    Checked = $true
+}
 $Install = [Windows.Forms.Button]@{
     Text = $Ui.Install
-    Location = [Drawing.Point]::new(26, 208)
+    Location = [Drawing.Point]::new(26, 240)
     Size = [Drawing.Size]::new(320, 48)
     BackColor = [Drawing.Color]::RoyalBlue
     ForeColor = [Drawing.Color]::White
@@ -140,26 +159,26 @@ $Install = [Windows.Forms.Button]@{
 }
 $Configure = [Windows.Forms.Button]@{
     Text = $Ui.Configure
-    Location = [Drawing.Point]::new(360, 208)
+    Location = [Drawing.Point]::new(360, 240)
     Size = [Drawing.Size]::new(200, 48)
 }
 $Uninstall = [Windows.Forms.Button]@{
     Text = $Ui.Uninstall
-    Location = [Drawing.Point]::new(26, 274)
+    Location = [Drawing.Point]::new(26, 322)
     Size = [Drawing.Size]::new(250, 40)
 }
 $Instructions = [Windows.Forms.Button]@{
     Text = $Ui.Instructions
-    Location = [Drawing.Point]::new(290, 274)
+    Location = [Drawing.Point]::new(290, 322)
     Size = [Drawing.Size]::new(130, 40)
 }
 $Close = [Windows.Forms.Button]@{
     Text = $Ui.Close
-    Location = [Drawing.Point]::new(566, 274)
+    Location = [Drawing.Point]::new(566, 322)
     Size = [Drawing.Size]::new(126, 40)
 }
 $Form.Controls.AddRange(@($Title, $Help, $PathLabel, $PathBox, $Browse,
-                          $PathStatus, $Install, $Configure, $Uninstall,
+                           $PathStatus, $ImprovedFpsBox, $Install, $Configure, $Uninstall,
                           $Instructions, $Close))
 $Form.AcceptButton = $Install
 
@@ -185,12 +204,16 @@ $Browse.Add_Click({
 $PathBox.Add_TextChanged({ Update-PathStatus })
 $Install.Add_Click({
     try {
-        Install-Patch $PathBox.Text
+        $FpsWarning = Install-Patch $PathBox.Text $ImprovedFpsBox.Checked
         $ConfigureResult = @(& (Join-Path $PSScriptRoot "configure.ps1") `
             -GameDir $PathBox.Text)
         if ($ConfigureResult -contains $true) {
             [Windows.Forms.MessageBox]::Show($Ui.Done,
                 "MGS4 Ultra120", "OK", "Information") | Out-Null
+            if ($FpsWarning) {
+                [Windows.Forms.MessageBox]::Show($FpsWarning,
+                    "Optional 120 FPS component", "OK", "Warning") | Out-Null
+            }
         } else {
             [Windows.Forms.MessageBox]::Show($Ui.NotSaved,
                 "MGS4 Ultra120", "OK", "Warning") | Out-Null

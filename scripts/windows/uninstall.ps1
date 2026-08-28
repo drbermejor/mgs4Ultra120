@@ -7,6 +7,7 @@ if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
 }
 $PackageDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 . (Join-Path $PSScriptRoot "common.ps1")
+. (Join-Path $PSScriptRoot "mgsfpsunlock.ps1")
 $BackupDir = Join-Path $GameDir ".mgs4ultra120-backup"
 $InstallDir = Split-Path -Parent $GameDir
 $LauncherTarget = Join-Path (Join-Path $InstallDir "Launcher") "launcher.exe"
@@ -82,6 +83,7 @@ if (Test-Path -LiteralPath $AsiTarget) {
 } else {
     Remove-Item -Force -LiteralPath $AsiHashMarker -ErrorAction SilentlyContinue
 }
+$MgsFpsUnlockConflict = Remove-MgsFpsUnlock $GameDir
 $ScriptsDir = Join-Path $GameDir "scripts"
 if ((Test-Path -LiteralPath $ScriptsDir -PathType Container) -and
     -not (Get-ChildItem -Force -LiteralPath $ScriptsDir | Select-Object -First 1)) {
@@ -146,7 +148,8 @@ if (Test-Path -LiteralPath $IniBackup) {
 } else {
     Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $IniTarget
 }
-if (-not $LauncherConflict -and -not $DllConflict -and -not $AsiConflict) {
+if (-not $LauncherConflict -and -not $DllConflict -and -not $AsiConflict -and
+    -not $MgsFpsUnlockConflict) {
     Remove-Item -Force -Recurse -ErrorAction SilentlyContinue -LiteralPath $BackupDir
 }
 Clear-Mgs4Ultra120GameDir $GameDir
@@ -159,4 +162,7 @@ if ($DllConflict) {
 }
 if ($AsiConflict) {
     throw "MGS4Ultra120.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
+}
+if ($MgsFpsUnlockConflict) {
+    throw "MGSFPSUnlock.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
 }

@@ -145,7 +145,7 @@ def configure(state_path: Path, width: str, height: str, refresh: str, mode: str
         new_value = (
             f'{PREFIX} gamescope -f --force-windows-fullscreen '
             f'-W {width} -H {height} -w {width} -h {height} -r {refresh} '
-            f'-- gamemoderun %command%'
+            f'-- %command%'
         )
     else:
         new_value = f"{PREFIX} %command%"

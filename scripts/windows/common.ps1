@@ -47,8 +47,7 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
     $ExistingText = Get-Content -Raw -LiteralPath $Existing
     foreach ($Key in @(
         "UltrawideEnabled", "FPSOverrideEnabled", "AllowUnsupportedExecutable",
-        "Width", "Height", "FOVMultiplier", "ConstrainUITo16x9", "Limit",
-        "ToggleHotkey", "ToggleHotkeyModifiers", "ControllerProfileFixEnabled",
+        "Width", "Height", "FOVMultiplier", "Limit", "ControllerProfileFixEnabled",
         "SkipUnityLauncher", "Region", "SelfRegion", "Language", "ControllerType",
         "DisplayMode", "UsePrimaryPhysicalResolution"
     )) {
@@ -62,6 +61,13 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
                 "$Key=$Value", 1)
         }
     }
+    # The project ASI must never compete with the complete timing hooks in
+    # MGSFPSUnlock. Preserve the legacy keys for compatible INI editing, but
+    # force the old single-field override off during every Windows update.
+    $TemplateText = [regex]::Replace($TemplateText,
+        '(?m)^FPSOverrideEnabled=.*$', 'FPSOverrideEnabled=0', 1)
+    $TemplateText = [regex]::Replace($TemplateText,
+        '(?m)^Limit=120$', 'Limit=60', 1)
     $Temporary = "$Destination.tmp"
     [IO.File]::WriteAllText($Temporary, $TemplateText,
         [Text.UTF8Encoding]::new($false))

@@ -24,9 +24,19 @@ inside the GUI and only reports setup completion after a successful save.
 
 ## `Cannot find drive E:` during setup
 
-Alpha.3 and newer skip stale/offline Steam-library entries. If the game itself
-is on a disconnected drive, reconnect it or use **Browse** to select the MGS4
-folder on an available drive.
+The original alpha.3 fix still used `Join-Path` while reading
+`libraryfolders.vdf`, so PowerShell could abort before reaching a valid library.
+Redownload the refreshed alpha.5 package: discovery now treats an offline
+library as a missing path and continues. If the game itself is on a disconnected
+drive, reconnect it or use **Browse** to select the current MGS4 folder.
+
+## Manual ZIP log says `invalid enabled module configuration`
+
+The published template contains valid values, but older builds did not log the
+path or rejected values and parsed decimal FOV through process locale state.
+The refreshed ASI uses a locale-independent parser, accepts `1.000` or `1,000`
+and logs the exact INI path, width, height and FOV if validation fails. Confirm
+that `mgs4_ultrawide.ini` is directly beside `mgs4.exe`, not one folder deeper.
 
 ## Steam repeats the custom launch-arguments prompt
 
@@ -38,6 +48,11 @@ the game's official `mgs4_param` bootstrap. Install/update alpha.3, save with
 **Skip the Unity launcher** enabled, and launch again. Do not keep approving a
 repeating prompt. If it still appears, cancel and attach
 `Launcher/mgs4_direct_wrapper.log` to an issue.
+
+The original reporter of Issue #2 did not post a final alpha.3 confirmation.
+Current release confidence comes from native local validation and automated
+wrapper install/launch/update/restore tests. Manual-ZIP installation does not
+enable the wrapper; use portable setup once if this Steam-specific loop occurs.
 
 ## A monitor flickers or shows a moving colored band
 

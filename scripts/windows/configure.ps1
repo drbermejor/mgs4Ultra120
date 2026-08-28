@@ -401,7 +401,7 @@ $SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Poin
 $CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 652); Size = [Drawing.Size]::new(105, 38) }
 $StableButton.Add_Click({
     $AutoResolutionBox.Checked = $true
-    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.00
+    $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.15
     $DisplayModeBox.SelectedIndex = 0
     $FpsBox.SelectedIndex = 0
     $UltrawideBox.Checked = $true

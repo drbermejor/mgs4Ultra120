@@ -3,7 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4}"
+GAME_DIR_RESOLVER="$SCRIPT_DIR/game_dir.py"
+[[ -f "$GAME_DIR_RESOLVER" ]] || {
+  echo "Linux game-directory resolver is missing: $GAME_DIR_RESOLVER" >&2
+  exit 1
+}
+GAME_DIR="$(python3 "$GAME_DIR_RESOLVER" resolve --interactive)"
+export MGS4_GAME_DIR="$GAME_DIR"
 INI="$GAME_DIR/mgs4_ultrawide.ini"
 HUD_INI="$GAME_DIR/mgs4_centered_hud_16x9.ini"
 FPS_INI="$GAME_DIR/scripts/MGSFPSUnlock.ini"
@@ -213,11 +219,12 @@ case "$MODE" in
     exit 0
     ;;
   stable) apply_values 3440 1440 1.200 1 0 inherit 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
+  16x9-supersampling) apply_values 1920 1080 1.000 0 0 inherit 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" 1 2.000 0 "$current_fps_target"; exit 0 ;;
   ultrawide-only) apply_values 3440 1440 1.200 1 0 inherit 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
   controller-fix-only) apply_values 3440 1440 1.000 0 0 inherit 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
   status) show_status; exit $? ;;
   gui) ;;
-  *) die "Usage: $0 [gui|detected|stable|ultrawide-only|controller-fix-only|status]" ;;
+  *) die "Usage: $0 [gui|detected|stable|16x9-supersampling|ultrawide-only|controller-fix-only|status]" ;;
 esac
 
 command -v zenity >/dev/null || die "zenity is required for GUI mode."

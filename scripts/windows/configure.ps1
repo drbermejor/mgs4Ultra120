@@ -1,11 +1,11 @@
 param(
-    [ValidateSet("stable", "fps-only-120", "ultrawide-only", "controller-fix-only")]
+    [ValidateSet("stable", "fps-only-120", "ultrawide-only", "controller-fix-only", "16x9-supersampling")]
     [string]$Profile,
     [ValidateSet("Windowed", "Fullscreen")]
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
-$Mgs4Ultra120Version = "v0.3.4-alpha.1"
+$Mgs4Ultra120Version = "v0.3.4-alpha.2"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
@@ -226,7 +226,7 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
     $CurrentHeight = [int](Get-IniValue "Height")
     $RequestedDisplayMode = if ($PSBoundParameters.ContainsKey("WindowsDisplayMode")) {
         $WindowsDisplayMode
-    } elseif ($Profile -eq "stable") {
+    } elseif ($Profile -in @("stable", "16x9-supersampling")) {
         "Windowed"
     } else {
         $CurrentDisplayMode
@@ -236,8 +236,11 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 inherit 0 1.50 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.200 1 0 inherit 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 inherit 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
+        "16x9-supersampling" { Set-PatchSettings 1920 1080 1.000 0 0 inherit 1 2.00 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 0 }
     }
-    Set-HudSettings 0 $CurrentWidth $CurrentHeight
+    $AppliedWidth = [int](Get-IniValue "Width")
+    $AppliedHeight = [int](Get-IniValue "Height")
+    Set-HudSettings 0 $AppliedWidth $AppliedHeight
     if ($Profile -eq "fps-only-120" -and
         -not (Test-MgsFpsUnlockInstalled $GameDir)) {
         Install-MgsFpsUnlock $GameDir
@@ -326,6 +329,7 @@ $Ui = @{
         UnsupportedStatus = "Executable: UNVERIFIED - unsafe override required"
         Unsupported = "Attempt unsupported executable (unsafe)"
         Defaults = "Use recommended settings"
+        Supersampling16x9 = "16:9 4K -> 1080p preset"
         Save = "Save and close"; Close = "Cancel"
         Saved = "Settings saved. Start the game normally from Steam."
         SaveFailed = "Settings were not saved"
@@ -592,9 +596,10 @@ $UnsupportedBox = [Windows.Forms.CheckBox]@{
 }
 $Form.Controls.Add($UnsupportedBox)
 
-$StableButton = [Windows.Forms.Button]@{ Text = $Ui.Defaults; Location = [Drawing.Point]::new(30, 858); Size = [Drawing.Size]::new(200, 38) }
-$SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Point]::new(300, 858); Size = [Drawing.Size]::new(150, 38); BackColor = [Drawing.Color]::RoyalBlue; ForeColor = [Drawing.Color]::White; Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold) }
-$CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(465, 858); Size = [Drawing.Size]::new(105, 38) }
+$StableButton = [Windows.Forms.Button]@{ Text = $Ui.Defaults; Location = [Drawing.Point]::new(20, 858); Size = [Drawing.Size]::new(180, 38) }
+$Supersampling16x9Button = [Windows.Forms.Button]@{ Text = $Ui.Supersampling16x9; Location = [Drawing.Point]::new(210, 858); Size = [Drawing.Size]::new(180, 38) }
+$SaveButton = [Windows.Forms.Button]@{ Text = $Ui.Save; Location = [Drawing.Point]::new(400, 858); Size = [Drawing.Size]::new(115, 38); BackColor = [Drawing.Color]::RoyalBlue; ForeColor = [Drawing.Color]::White; Font = [Drawing.Font]::new("Segoe UI", 9, [Drawing.FontStyle]::Bold) }
+$CloseButton = [Windows.Forms.Button]@{ Text = $Ui.Close; Location = [Drawing.Point]::new(525, 858); Size = [Drawing.Size]::new(75, 38) }
 $StableButton.Add_Click({
     $AutoResolutionBox.Checked = $true
     $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight; $FovBox.Value = 1.20
@@ -610,6 +615,21 @@ $StableButton.Add_Click({
     $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
     # Language is a user preference, not a rendering default. Keep the current
     # selection when recommended settings are restored.
+    $UnsupportedBox.Checked = $false
+})
+$Supersampling16x9Button.Add_Click({
+    $AutoResolutionBox.Checked = $false
+    $WidthBox.Value = 1920; $HeightBox.Value = 1080; $FovBox.Value = 1.00
+    $NativeFovBox.Checked = $false
+    $CinematicFovBox.Checked = $false
+    $CinematicInheritBox.Checked = $true
+    $CinematicFovValueBox.Value = 1.00
+    $CenteredHudBox.Checked = $false
+    $DisplayModeBox.SelectedIndex = 0
+    $SupersamplingBox.Checked = $true; $RenderScaleBox.Value = 2.00
+    $FpsBox.SelectedIndex = 0
+    $UltrawideBox.Checked = $false
+    $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
     $UnsupportedBox.Checked = $false
 })
 $script:Mgs4Ultra120SettingsSaved = $false
@@ -689,7 +709,8 @@ $SaveButton.Add_Click({
   }
 })
 $CloseButton.Add_Click({ $Form.Close() })
-$Form.Controls.AddRange(@($StableButton, $SaveButton, $CloseButton))
+$Form.Controls.AddRange(@($StableButton, $Supersampling16x9Button,
+    $SaveButton, $CloseButton))
 $Form.AcceptButton = $SaveButton
 $Form.CancelButton = $CloseButton
 [void]$Form.ShowDialog()

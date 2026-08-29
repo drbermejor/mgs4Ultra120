@@ -36,12 +36,15 @@ passed the same release checks.
    ./MGS4Ultra120-Linux-Setup.sh
    ```
 
-4. The installer downloads MGSFPSUnlock 0.1.0 directly from its official
+4. Setup searches the native and Flatpak Steam library records for app
+   `2492670`. If it cannot identify one installation, select the folder that
+   directly contains `mgs4.exe` in the graphical folder picker.
+5. The installer downloads MGSFPSUnlock 0.1.0 directly from its official
    release, verifies it and applies the Proton compatibility byte locally.
-5. The graphical configurator opens automatically when `zenity` is installed.
+6. The graphical configurator opens automatically when `zenity` is installed.
    Choose output resolution, FOV, optional cinematic FOV, optional centered
    HUD, supersampling, FPS, launcher mode and fullscreen mode, then save.
-6. Start Steam and launch the game normally using DirectX 12.
+7. Start Steam and launch the game normally using DirectX 12.
 
 Setup also creates **MGS4 Ultra120 Configurator** on the desktop and in the
 application menu. The installed tool lives in `~/.local/share/mgs4Ultra120`, so
@@ -57,20 +60,28 @@ MGS4_INSTALL_FPS_UNLOCK=0 ./MGS4Ultra120-Linux-Setup.sh
 
 ## Another Steam library
 
-The default game directory is:
+Easy Setup reads Steam's `libraryfolders.vdf` and the MGS4
+`appmanifest_2492670.acf`, including the normal native and Flatpak Steam
+locations. External drives and partitions therefore require no special
+command when their library is registered in Steam.
+
+If discovery fails or finds more than one valid copy, the Zenity folder picker
+asks for the folder that directly contains `mgs4.exe`. Selecting the parent
+`METAL GEAR SOLID 4` folder is also accepted. The successful path is stored in:
 
 ```text
-~/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4
+~/.config/mgs4Ultra120/game-dir
 ```
 
-For another library, pass the folder that directly contains `mgs4.exe`:
+If `XDG_CONFIG_HOME` is set, that directory is used instead of `~/.config`.
+
+The desktop configurator and uninstaller reuse it automatically. To override
+discovery for one command, pass the folder explicitly:
 
 ```bash
 MGS4_GAME_DIR="/path/to/METAL GEAR SOLID 4/MGS4" \
   ./MGS4Ultra120-Linux-Setup.sh
 ```
-
-Use the same environment variable with the configure and uninstall launchers.
 
 ## Configure later
 

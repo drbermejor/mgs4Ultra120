@@ -5,7 +5,13 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 VERSION="$(tr -d '\r\n' <"$PACKAGE_DIR/VERSION")"
 [[ -n "$VERSION" ]] || { echo "Package VERSION is empty." >&2; exit 1; }
-GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4}"
+GAME_DIR_RESOLVER="$SCRIPT_DIR/game_dir.py"
+[[ -f "$GAME_DIR_RESOLVER" ]] || {
+  echo "Linux game-directory resolver is missing: $GAME_DIR_RESOLVER" >&2
+  exit 1
+}
+GAME_DIR="$(python3 "$GAME_DIR_RESOLVER" resolve --interactive)"
+export MGS4_GAME_DIR="$GAME_DIR"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
 CORE_ASI_SOURCE="$PACKAGE_DIR/bin/MGS4Ultra120.asi"
@@ -283,6 +289,7 @@ if [[ "$(sed -n 's/^SkipUnityLauncher=//p' "$GAME_DIR/mgs4_ultrawide.ini" | tr -
 fi
 
 python3 "$SCRIPT_DIR/steam_options.py" install "$STATE_FILE"
+python3 "$GAME_DIR_RESOLVER" persist "$GAME_DIR"
 DESKTOP_SHORTCUT="$(desktop_directory)/MGS4 Ultra120 Configurator.desktop"
 install_configurator_shortcut "$APPLICATION_SHORTCUT"
 install_configurator_shortcut "$DESKTOP_SHORTCUT"

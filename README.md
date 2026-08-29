@@ -4,7 +4,7 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.4-alpha.1` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.2` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -102,7 +102,7 @@ The 3D image continues to use the full ultrawide output.
 ## Windows downloads
 
 Use the
-[latest v0.3.4-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.1)
+[latest v0.3.4-alpha.2 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.2)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -115,6 +115,10 @@ and choose one package:
    MGSFPSUnlock 0.1.0 ZIP; see the short instructions below.
 4. **Complete ZIP** — portable setup, manual folder, source-facing notices and
    all documentation in one archive.
+5. **16:9 supersampling ZIP** — portable setup preconfigured for 1920x1080
+   output with a 3840x2160 internal render. Ultrawide, FOV changes and the
+   centered-HUD experiment start disabled; the controller fix and optional
+   corrected FPS support remain available.
 
 The EXE is unsigned, so SmartScreen or a browser may show an
 unknown-publisher/reputation warning. The EXE is optional. Download only from
@@ -180,7 +184,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.4-alpha.1` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.2` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`
@@ -189,7 +193,10 @@ compatibility byte locally; its unlicensed binary is never redistributed.
 The Linux GUI configures resolution, FOV, ultrawide, supersampling, 30/60/120
 FPS, controller-profile correction, launcher bypass and native/Gamescope
 fullscreen. Easy Setup creates a persistent configurator shortcut on the
-desktop and in the application menu. GE-Proton10-34, DX12, 3440x1440 Hor+ with 3956x1656 internal
+desktop and in the application menu. It discovers native and Flatpak Steam
+libraries, offers a folder selector when needed and remembers the selected
+game directory for later configuration and uninstall. GE-Proton10-34, DX12,
+3440x1440 Hor+ with 3956x1656 internal
 supersampling, all FPS timing hooks and a true 3440x1440 Gamescope client were
 validated. See [Linux installation](docs/INSTALL_LINUX.md) and
 [corrected FPS on Proton](docs/PROTON_FPS.md).

@@ -1,6 +1,6 @@
 # Experimental supersampling
 
-This optional feature is included in `v0.3.4-alpha.1`, but remains experimental
+This optional feature is included in `v0.3.4-alpha.2`, but remains experimental
 and disabled by default. The single-owner experimental FOV route does not depend on
 supersampling; users who do not need downsampling should leave it off.
 
@@ -30,6 +30,35 @@ RenderScale=1.50
 `RenderScale=1.00` performs no supersampling. Uniform scaling preserves the
 configured aspect ratio, so the existing ultrawide projection/FOV correction
 continues to use the physical output aspect.
+
+## 16:9 4K-to-1080p preset
+
+`v0.3.4-alpha.2` includes a separate
+`windows-16x9-supersampling.zip` portable package and a
+**16:9 4K -> 1080p preset** button in the normal Windows configurator. The same
+profile is available from the command line on Windows and Linux.
+
+The preset uses:
+
+```ini
+UltrawideEnabled=0
+Width=1920
+Height=1080
+FOVMultiplier=1.000
+NativeCameraFOV=0
+ExperimentalCinematicFOV=0
+SupersamplingEnabled=1
+RenderScale=2.000
+```
+
+It renders at 3840x2160 and presents at 1920x1080. The controller-profile fix
+remains enabled, while corrected 30/60/120 FPS and the launcher bypass remain
+available through Easy Setup. AMD VSR, NVIDIA DSR and a 4K desktop mode are not
+required.
+
+The 3840-pixel internal width stays below the observed 4096-pixel crosshair
+boundary. Supersampling nevertheless remains experimental and GPU/VRAM costs
+are the user's responsibility.
 
 ## Warnings
 

@@ -16,6 +16,12 @@ if [[ "$PACKAGE_DIR" != "$CANONICAL_DIR" && "${MGS4_PACKAGE_CANONICALIZED:-0}" !
   export MGS4_PACKAGE_CANONICALIZED=1
   exec "$CANONICAL_DIR/MGS4Ultra120-Linux-Setup.sh"
 fi
+GAME_DIR_RESOLVER="$PACKAGE_DIR/scripts/linux/game_dir.py"
+[[ -f "$GAME_DIR_RESOLVER" ]] || {
+  echo "Linux game-directory resolver is missing: $GAME_DIR_RESOLVER" >&2
+  exit 1
+}
+export MGS4_GAME_DIR="$(python3 "$GAME_DIR_RESOLVER" resolve --interactive)"
 if [[ -z "${MGS4_INSTALL_FPS_UNLOCK+x}" &&
       "${MGS4_CONFIGURE_AFTER_INSTALL:-1}" != 0 &&
       -n "$(command -v zenity 2>/dev/null)" ]]; then

@@ -46,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.4-alpha.1") {
+if ($PackageVersion -ne "v0.3.4-alpha.2") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -340,6 +340,36 @@ try {
             throw "Stable profile did not write centered-HUD setting: $ExpectedLine"
         }
     }
+    & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
+        -GameDir $GameDir -Profile 16x9-supersampling
+    $IniText = Get-Content -Raw -LiteralPath `
+        (Join-Path $GameDir "mgs4_ultrawide.ini")
+    foreach ($ExpectedLine in @(
+        "UltrawideEnabled=0", "Width=1920", "Height=1080",
+        "FOVMultiplier=1.000", "NativeCameraFOV=0",
+        "ExperimentalCinematicFOV=0", "SupersamplingEnabled=1",
+        "RenderScale=2.000", "ControllerProfileFixEnabled=1",
+        "DisplayMode=Windowed", "UsePrimaryPhysicalResolution=0"
+    )) {
+        if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
+            throw "16:9 supersampling profile did not write: $ExpectedLine"
+        }
+    }
+    $HudIniText = Get-Content -Raw -LiteralPath `
+        (Join-Path $GameDir "mgs4_centered_hud_16x9.ini")
+    foreach ($ExpectedLine in @("Enabled=0", "Width=1920", "Height=1080")) {
+        if ($HudIniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
+            throw "16:9 supersampling HUD profile did not write: $ExpectedLine"
+        }
+    }
+    $ResetIni = Get-Content -Raw -LiteralPath `
+        (Join-Path $GameDir "mgs4_ultrawide.ini")
+    $ResetIni = [regex]::Replace($ResetIni, '(?m)^Width=.*$', 'Width=3440')
+    $ResetIni = [regex]::Replace($ResetIni, '(?m)^Height=.*$', 'Height=1440')
+    [IO.File]::WriteAllText((Join-Path $GameDir "mgs4_ultrawide.ini"),
+        $ResetIni, [Text.UTF8Encoding]::new($false))
+    & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
+        -GameDir $GameDir -Profile stable
     $InstalledLauncher = Join-Path $LauncherDir "launcher.exe"
     $PackageLauncher = Join-Path $PackageDir "bin\launcher.exe"
     $InstalledLauncherHash = (Get-FileHash -Algorithm SHA256 `

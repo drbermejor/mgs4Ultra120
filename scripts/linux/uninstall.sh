@@ -3,7 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4}"
+GAME_DIR_RESOLVER="$SCRIPT_DIR/game_dir.py"
+[[ -f "$GAME_DIR_RESOLVER" ]] || {
+  echo "Linux game-directory resolver is missing: $GAME_DIR_RESOLVER" >&2
+  exit 1
+}
+GAME_DIR="$(python3 "$GAME_DIR_RESOLVER" resolve --interactive)"
+export MGS4_GAME_DIR="$GAME_DIR"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
 INSTALL_DIR="$(dirname -- "$GAME_DIR")"
@@ -116,4 +122,5 @@ rmdir -- "$GAME_DIR/scripts" 2>/dev/null || true
 if [[ "$launcher_conflict" == 0 && "$binary_conflict" == 0 ]]; then
   rmdir -- "$BACKUP_DIR" 2>/dev/null || true
 fi
+python3 "$GAME_DIR_RESOLVER" forget "$GAME_DIR"
 echo "Uninstalled from: $GAME_DIR"

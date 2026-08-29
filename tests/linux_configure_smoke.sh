@@ -32,6 +32,17 @@ grep -q '^ExperimentalCinematicFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^TargetFrameRate = 120$' "$FIXTURE/scripts/MGSFPSUnlock.ini"
 
 MGS4_GAME_DIR="$FIXTURE" \
+  "$REPO_DIR/scripts/linux/configure.sh" 16x9-supersampling
+grep -q '^UltrawideEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^Width=1920$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^Height=1080$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^NativeCameraFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^SupersamplingEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^RenderScale=2.000$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^ControllerProfileFixEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^Enabled=0$' "$FIXTURE/mgs4_centered_hud_16x9.ini"
+
+MGS4_GAME_DIR="$FIXTURE" \
   "$REPO_DIR/scripts/linux/configure.sh" controller-fix-only
 grep -q '^UltrawideEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^ControllerProfileFixEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"

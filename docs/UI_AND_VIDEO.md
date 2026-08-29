@@ -1,6 +1,6 @@
 # UI and pre-rendered video
 
-The normal HUD remains the default. `v0.3.4-alpha.1` also includes a separate,
+The normal HUD remains the default. `v0.3.4-alpha.2` also includes a separate,
 DX12-only `MGS4CenteredHUD16x9.asi` companion that can place conservatively
 accepted HUD draws in one centered 16:9 safe area. The companion is experimental
 and disabled by default.

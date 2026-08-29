@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.4-alpha.2 - Linux Steam-library detection
+
+- Added automatic Linux discovery of Steam libraries through
+  `libraryfolders.vdf` and the MGS4 app manifest.
+- Added native Steam, common symlink and Flatpak Steam locations.
+- Added a Zenity folder selector when automatic discovery cannot identify one
+  game installation.
+- Persisted the selected game folder in the user's XDG configuration so the
+  desktop configurator and uninstaller work without repeating
+  `MGS4_GAME_DIR`.
+- Kept `MGS4_GAME_DIR` as the highest-priority advanced override.
+- Added automated coverage for an external Steam library, a custom Steam
+  install-directory name, paths containing spaces, persistence and removal.
+- Added a documented 16:9 4K-to-1080p supersampling profile to both
+  configurators and a dedicated preconfigured Windows portable ZIP. Ultrawide,
+  FOV and centered-HUD changes are disabled in that profile.
+
 ## v0.3.4-alpha.1 - optional cinematic FOV and centered HUD
 
 - Promoted the validated real-time cinematic camera route into the complete

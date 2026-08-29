@@ -122,15 +122,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
 # Corrected 120 FPS only; no ultrawide or controller-profile hook
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
   -GameDir "D:\...\MGS4" -Profile fps-only-120
+
+# 1920x1080 output, 3840x2160 internal render, no ultrawide/FOV changes
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
+  -GameDir "D:\...\MGS4" -Profile 16x9-supersampling
 ```
 
 Other profiles are `ultrawide-only` and `controller-fix-only`. MGSFPSUnlock
 remains installed at 120 because it is the independent frame-rate component;
 choose 60 in the GUI if desired.
 
-Every command-line profile disables cinematic FOV, centered HUD and
-supersampling. This makes `-Profile stable` a direct software fallback without
-requiring reinstallation.
+Every command-line profile disables cinematic FOV and centered HUD. All except
+`16x9-supersampling` also disable supersampling. This makes `-Profile stable` a
+direct software fallback without requiring reinstallation.
 
 The project log is `mgs4_ultrawide.log`. MGSFPSUnlock also writes its own log in
 the game directory; include both when reporting a high-FPS problem.

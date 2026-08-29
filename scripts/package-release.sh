@@ -148,10 +148,35 @@ if [[ "$PLATFORM" == windows || "$PLATFORM" == all ]]; then
   cp -a -- "$windows_root/third_party/ultimate_asi_loader" \
     "$portable_root/third_party/ultimate_asi_loader"
 
+  supersampling_16x9_root="$STAGE/MGS4Ultra120-$VERSION-windows-16x9-supersampling"
+  cp -a -- "$portable_root" "$supersampling_16x9_root"
+  sed -i \
+    -e 's/^UltrawideEnabled=.*/UltrawideEnabled=0/' \
+    -e 's/^Width=.*/Width=1920/' \
+    -e 's/^Height=.*/Height=1080/' \
+    -e 's/^FOVMultiplier=.*/FOVMultiplier=1.000/' \
+    -e 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' \
+    -e 's/^ExperimentalCinematicFOV=.*/ExperimentalCinematicFOV=0/' \
+    -e 's/^CinematicFOVMultiplier=.*/CinematicFOVMultiplier=inherit/' \
+    -e 's/^SupersamplingEnabled=.*/SupersamplingEnabled=1/' \
+    -e 's/^RenderScale=.*/RenderScale=2.00/' \
+    -e 's/^DisplayMode=.*/DisplayMode=Windowed/' \
+    -e 's/^UsePrimaryPhysicalResolution=.*/UsePrimaryPhysicalResolution=0/' \
+    "$supersampling_16x9_root/config/mgs4_ultrawide.ini"
+  sed -i \
+    -e 's/^Enabled=.*/Enabled=0/' \
+    -e 's/^Width=.*/Width=1920/' \
+    -e 's/^Height=.*/Height=1080/' \
+    "$supersampling_16x9_root/config/mgs4_centered_hud_16x9.ini"
+  install -m0644 "$REPO_DIR/installer/windows/README_16X9_SUPERSAMPLING.txt" \
+    "$supersampling_16x9_root/START-HERE-16X9-SUPERSAMPLING.txt"
+
   make_windows_zip "$manual_root" \
     "$DIST/MGS4Ultra120-$VERSION-windows-manual.zip"
   make_windows_zip "$portable_root" \
     "$DIST/MGS4Ultra120-$VERSION-windows-portable.zip"
+  make_windows_zip "$supersampling_16x9_root" \
+    "$DIST/MGS4Ultra120-$VERSION-windows-16x9-supersampling.zip"
   make_windows_zip "$windows_root" \
     "$DIST/MGS4Ultra120-$VERSION-windows-complete.zip"
 fi

@@ -15,6 +15,8 @@ if grep -rIl $'\r' "$ROOT/scripts/linux" | grep -q .; then
   exit 1
 fi
 
+[[ -x "$ROOT/scripts/linux/game_dir.py" ]]
+
 "$(dirname -- "$0")/linux_package_smoke.sh" "$ROOT"
 file "$ROOT/bin/winmm.dll" "$ROOT/bin/MGS4Ultra120.asi" \
   "$ROOT/bin/MGS4CenteredHUD16x9.asi" "$ROOT/bin/launcher.exe"

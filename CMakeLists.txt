@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(MGS4Ultra120 VERSION 0.3.4 LANGUAGES C CXX)
 
-set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.1")
-set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,1")
+set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.2")
+set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,2")
 
 include(CTest)
 
@@ -40,6 +40,10 @@ if(BUILD_TESTING)
     add_test(NAME linux_steam_options_smoke
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_SOURCE_DIR}/tests/linux_steam_options_smoke.py"
+    )
+    add_test(NAME linux_game_dir_smoke
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tests/linux_game_dir_smoke.py"
     )
 endif()
 

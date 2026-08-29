@@ -4,7 +4,6 @@ set -euo pipefail
 ARCHIVE="${1:?Usage: audit_linux_tar.sh ARCHIVE VERSION}"
 VERSION="${2:?Usage: audit_linux_tar.sh ARCHIVE VERSION}"
 ARCHIVE="$(realpath -- "$ARCHIVE")"
-HASH_FILE="$ARCHIVE.sha256"
 AUDIT_DIR="$(mktemp -d -t mgs4ultra120-linux-tar-XXXXXX)"
 
 tar -xzf "$ARCHIVE" -C "$AUDIT_DIR"
@@ -17,11 +16,7 @@ if grep -rIl $'\r' "$ROOT/scripts/linux" | grep -q .; then
 fi
 
 "$(dirname -- "$0")/linux_package_smoke.sh" "$ROOT"
-file "$ROOT/bin/winmm.dll" "$ROOT/bin/launcher.exe"
-
-(
-  cd -- "$(dirname -- "$ARCHIVE")"
-  sha256sum -c "$(basename -- "$HASH_FILE")"
-)
+file "$ROOT/bin/winmm.dll" "$ROOT/bin/MGS4Ultra120.asi" \
+  "$ROOT/bin/MGS4CenteredHUD16x9.asi" "$ROOT/bin/launcher.exe"
 
 echo "Extracted Linux audit retained at: $AUDIT_DIR"

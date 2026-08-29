@@ -4,12 +4,7 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Experimental branch:** this branch contains the opt-in cinematic FOV
-> preview for Windows and Linux/Proton. Normal users should install the recommended
-> [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1).
-> The preview is distributed separately and does not replace that release.
-
-> **Public alpha.** `v0.3.3-alpha.1` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.1` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -24,6 +19,8 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 | `winmm.dll` | Pinned Ultimate ASI Loader v9.7.4 |
 | `scripts/MGS4Ultra120.asi` | Ultrawide/Hor+, FOV and controller-profile fixes |
 | `mgs4_ultrawide.ini` | Shared MGS4Ultra120 settings |
+| `scripts/MGS4CenteredHUD16x9.asi` | Optional experimental centered 16:9 HUD (DX12) |
+| `mgs4_centered_hud_16x9.ini` | Independent HUD switch; disabled by default |
 | `scripts/MGSFPSUnlock.asi` | Corrected high-frame-rate implementation by cipherxof |
 | `scripts/MGSFPSUnlock.ini` | Persistent FPS target; defaults to 120 |
 
@@ -51,8 +48,12 @@ unlock implementation.
 - Native FOV is still experimental. Disable it independently in the
   configurator if a new stability or scene-specific issue appears; Hor+ remains
   active with the original vertical FOV.
-- The unfinished UI/safe-area experiment is not part of the release binary.
-  Menus, HUD and full-screen effects retain the game's original behavior.
+- Real-time cinematic FOV and the centered 16:9 HUD are included as separate,
+  experimental options and are disabled by default. The cinematic multiplier
+  can inherit gameplay FOV or use an independent value.
+- Disabling `ExperimentalCinematicFOV` and the centered-HUD `Enabled` switch
+  restores the reference rendering behavior without reinstalling. The HUD
+  companion exits before installing D3D12 hooks while disabled.
 - Pre-rendered Bink video is unchanged.
 - FOV is applied once to the native camera-builder input. The game then creates
   its own projection, combined matrices and frustum planes from that corrected
@@ -63,13 +64,13 @@ unlock implementation.
   problematic cinematics.
 - Native FOV remains experimental. For maximum stability, leave it disabled;
   values above the tested `1.200` recommendation are allowed but untested and
-  may expose early geometry/animation transitions, culling artifacts or other
-  scene-specific problems. Use them under your own responsibility.
+  may expose geometry or animation transitions early, produce unusual framing
+  or cause other scene-specific problems. Use them under your own responsibility.
 - Native 3440x1440 testing has correct proportions and a working aiming
   crosshair. Experimental supersampling tests isolate a separate
   internal-width boundary: the reticle is stable at 3956x1656, flickers at
   exactly 4096 pixels wide and can disappear according to aiming depth above
-  it. Alpha.6 warns users to keep internal width below 4096.
+  it. The configurator warns users to keep internal width below 4096.
 
 ## Screenshots
 
@@ -87,7 +88,7 @@ Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
 ## Windows downloads
 
 Use the
-[v0.3.3-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
+[latest v0.3.4-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.1)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -111,6 +112,13 @@ default and is intended only for users who explicitly want to render above
 their physical output resolution. See
 [experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
+The real-time cinematic FOV and centered HUD are also disabled by default.
+Enable them only from the Windows/Linux configurator or their documented INI
+switches. If either causes a scene or menu problem, close the game and disable
+that option. For a complete known fallback, the previous
+[`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
+release remains available.
+
 ### Brief manual installation
 
 Remove old MGS4 Ultra120 builds first; do not retain another Ultimate ASI Loader
@@ -120,7 +128,9 @@ that directly contains `mgs4.exe`:
 ```text
 MGS4\winmm.dll
 MGS4\mgs4_ultrawide.ini
+MGS4\mgs4_centered_hud_16x9.ini
 MGS4\scripts\MGS4Ultra120.asi
+MGS4\scripts\MGS4CenteredHUD16x9.asi
 ```
 
 For corrected 120 FPS, download
@@ -156,7 +166,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.3-alpha.1` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.1` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`
@@ -197,6 +207,7 @@ Further reading:
 - [Controller profile fix](docs/CONTROLLER_FIX.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
 - [UI and video status](docs/UI_AND_VIDEO.md)
+- [Experimental centered 16:9 HUD](docs/EXPERIMENTAL_CENTERED_HUD.md)
 - [Technical notes](docs/TECHNICAL.md)
 - [Development and reproducible builds](docs/DEVELOPMENT.md)
 

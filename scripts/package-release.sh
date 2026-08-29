@@ -16,11 +16,13 @@ SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-946684800}"
 }
 BIN_DIR="${MGS4ULTRA120_BIN_DIR:-$REPO_DIR/build-mingw/bin}"
 ASI_PLUGIN="$BIN_DIR/MGS4Ultra120.asi"
+HUD_ASI_PLUGIN="$BIN_DIR/MGS4CenteredHUD16x9.asi"
 ASI_LOADER="${MGS4ULTRA120_ASI_LOADER:-$REPO_DIR/build-third-party/ultimate-asi-loader/winmm.dll}"
 WRAPPER="$BIN_DIR/launcher.exe"
 [[ -f "$WRAPPER" ]] || { echo "Build the direct-launch wrapper first: $WRAPPER" >&2; exit 1; }
 if [[ "$PLATFORM" == windows || "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
   [[ -f "$ASI_PLUGIN" ]] || { echo "Build the ASI plugin first: $ASI_PLUGIN" >&2; exit 1; }
+  [[ -f "$HUD_ASI_PLUGIN" ]] || { echo "Build the centered-HUD ASI first: $HUD_ASI_PLUGIN" >&2; exit 1; }
   [[ -f "$ASI_LOADER" ]] || { echo "Fetch the pinned ASI loader first: $ASI_LOADER" >&2; exit 1; }
 fi
 
@@ -36,11 +38,15 @@ make_tree() {
   if [[ "$platform" == windows ]]; then
     install -m0644 "$ASI_LOADER" "$root/bin/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/bin/MGS4Ultra120.asi"
+    install -m0644 "$HUD_ASI_PLUGIN" "$root/bin/MGS4CenteredHUD16x9.asi"
     mkdir -p -- "$root/Manual-Install/scripts"
     install -m0644 "$ASI_LOADER" "$root/Manual-Install/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/Manual-Install/scripts/MGS4Ultra120.asi"
+    install -m0644 "$HUD_ASI_PLUGIN" "$root/Manual-Install/scripts/MGS4CenteredHUD16x9.asi"
     install -m0644 "$REPO_DIR/config/windows/mgs4_ultrawide.ini" \
       "$root/Manual-Install/mgs4_ultrawide.ini"
+    install -m0644 "$REPO_DIR/config/mgs4_centered_hud_16x9.ini" \
+      "$root/Manual-Install/mgs4_centered_hud_16x9.ini"
     install -m0644 "$REPO_DIR/installer/windows/MANUAL_INSTALL.txt" \
       "$root/Manual-Install/README.txt"
     mkdir -p -- "$root/third_party/ultimate_asi_loader"
@@ -55,6 +61,7 @@ make_tree() {
     # redistribution rights.
     install -m0644 "$ASI_LOADER" "$root/bin/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/bin/MGS4Ultra120.asi"
+    install -m0644 "$HUD_ASI_PLUGIN" "$root/bin/MGS4CenteredHUD16x9.asi"
     mkdir -p -- "$root/third_party/ultimate_asi_loader"
     install -m0644 "$REPO_DIR/third_party/ultimate_asi_loader/README.md" \
       "$root/third_party/ultimate_asi_loader/README.md"
@@ -67,6 +74,8 @@ make_tree() {
     config_source="$REPO_DIR/config/windows/mgs4_ultrawide.ini"
   fi
   install -m0644 "$config_source" "$root/config/mgs4_ultrawide.ini"
+  install -m0644 "$REPO_DIR/config/mgs4_centered_hud_16x9.ini" \
+    "$root/config/mgs4_centered_hud_16x9.ini"
   if [[ "$platform" == linux ]]; then
     install -m0644 "$REPO_DIR/config/MGSFPSUnlock.ini" \
       "$root/config/MGSFPSUnlock.ini"

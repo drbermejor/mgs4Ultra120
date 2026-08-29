@@ -36,5 +36,5 @@ if command -v zenity >/dev/null 2>&1; then
   "$PACKAGE_DIR/scripts/linux/configure.sh" gui
 else
   echo "Installed successfully. Install zenity for the graphical configurator,"
-  echo "or edit mgs4_ultrawide.ini and scripts/MGSFPSUnlock.ini manually."
+  echo "or edit mgs4_ultrawide.ini, mgs4_centered_hud_16x9.ini and scripts/MGSFPSUnlock.ini manually."
 fi

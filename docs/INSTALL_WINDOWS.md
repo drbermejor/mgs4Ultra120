@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.3-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1).
+[v0.3.4-alpha.1 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.1).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
@@ -53,7 +53,9 @@ Core layout:
 ```text
 MGS4\winmm.dll
 MGS4\mgs4_ultrawide.ini
+MGS4\mgs4_centered_hud_16x9.ini
 MGS4\scripts\MGS4Ultra120.asi
+MGS4\scripts\MGS4CenteredHUD16x9.asi
 ```
 
 For corrected 120 FPS, download the official
@@ -80,6 +82,10 @@ documentation/notices. Choose one installation route; do not perform both.
 The recommended Windows profile uses the primary monitor's physical resolution,
 native-size windowed presentation, the tested FOV 1.200 recommendation, controller-profile correction,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120.
+Real-time cinematic FOV, centered 16:9 HUD and supersampling remain disabled by
+default. Enable them individually in the configurator. Closing the game and
+disabling the affected switch is sufficient to return to the reference
+behavior; `v0.3.3-alpha.1` remains available as the complete legacy fallback.
 
 The manual ZIP does not install the launcher bypass. Manual users select the
 game language in the official Unity launcher; `Language=` affects only the

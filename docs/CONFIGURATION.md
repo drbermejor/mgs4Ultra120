@@ -15,7 +15,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
 
 Easy Setup supplies the selected game directory automatically. The GUI saves
 MGS4Ultra120 settings to `MGS4\mgs4_ultrawide.ini` and the frame-rate target to
-`MGS4\scripts\MGSFPSUnlock.ini`.
+`MGS4\scripts\MGSFPSUnlock.ini`. The independent centered-HUD switch is stored
+in `MGS4\mgs4_centered_hud_16x9.ini`.
 
 ## MGS4Ultra120 INI
 
@@ -70,11 +71,16 @@ UsePrimaryPhysicalResolution=1
   scene-specific regression appears; Hor+ remains enabled with the game's
   original vertical FOV. Both configurators expose this switch.
 - `ExperimentalCinematicFOV=1` opts into the separate in-engine cinematic
-  camera preview. It is `0` by default and does not affect pre-rendered video.
+  camera preview. It requires `NativeCameraFOV=1`, is `0` by default and does
+  not affect pre-rendered video.
 - `CinematicFOVMultiplier=inherit` uses the gameplay `FOVMultiplier`. Advanced
   testers may enter a separate finite value of `0.500` or greater. Expanded
   cinematic framing can reveal characters, objects or animation transitions
   before the authored shot intended them to enter the frame.
+- `mgs4_centered_hud_16x9.ini` uses `Enabled=1` to place conservatively
+  identified HUD draws in a centered 16:9 safe area. It is experimental,
+  disabled by default and DX12-only. `Enabled=0` exits before installing D3D12
+  hooks.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build
@@ -121,6 +127,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
 Other profiles are `ultrawide-only` and `controller-fix-only`. MGSFPSUnlock
 remains installed at 120 because it is the independent frame-rate component;
 choose 60 in the GUI if desired.
+
+Every command-line profile disables cinematic FOV, centered HUD and
+supersampling. This makes `-Profile stable` a direct software fallback without
+requiring reinstallation.
 
 The project log is `mgs4_ultrawide.log`. MGSFPSUnlock also writes its own log in
 the game directory; include both when reporting a high-FPS problem.

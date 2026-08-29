@@ -1,6 +1,6 @@
 # Experimental supersampling
 
-This optional feature is included in `v0.3.3-alpha.1`, but remains experimental
+This optional feature is included in `v0.3.4-alpha.1`, but remains experimental
 and disabled by default. The single-owner experimental FOV route does not depend on
 supersampling; users who do not need downsampling should leave it off.
 

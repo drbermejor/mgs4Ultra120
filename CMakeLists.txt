@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MGS4Ultra120 VERSION 0.3.3 LANGUAGES C CXX)
+project(MGS4Ultra120 VERSION 0.3.4 LANGUAGES C CXX)
 
-set(MGS4ULTRA120_RELEASE_VERSION "v0.3.3-alpha.2-cinematic-fov-preview")
-set(MGS4ULTRA120_VERSION_NUMERIC "0,3,3,2")
+set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.1")
+set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,1")
 
 include(CTest)
 
@@ -29,6 +29,8 @@ set(MGS4ULTRA120_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated/version")
 file(MAKE_DIRECTORY "${MGS4ULTRA120_GENERATED_DIR}")
 configure_file(cmake/version_asi.rc.in
     "${MGS4ULTRA120_GENERATED_DIR}/version_asi.rc" @ONLY)
+configure_file(cmake/version_hud.rc.in
+    "${MGS4ULTRA120_GENERATED_DIR}/version_hud.rc" @ONLY)
 configure_file(cmake/version_proxy.rc.in
     "${MGS4ULTRA120_GENERATED_DIR}/version_proxy.rc" @ONLY)
 configure_file(cmake/version_launcher.rc.in
@@ -108,6 +110,31 @@ target_compile_definitions(mgs4_ultrawide_asi PRIVATE
 )
 target_link_libraries(mgs4_ultrawide_asi PRIVATE minhook)
 
+# The centered-HUD experiment remains a separate ASI so it has no ownership
+# over resolution, FOV, input or launcher behavior. With Enabled=0 in its own
+# INI it exits before installing any D3D12 hooks, which provides the documented
+# one-click fallback to the v0.3.3-alpha.1 rendering behavior.
+add_library(mgs4_centered_hud_asi SHARED
+    src/centered_hud/mgs4_centered_hud.cpp
+    "${MGS4ULTRA120_GENERATED_DIR}/version_hud.rc"
+)
+set_target_properties(mgs4_centered_hud_asi PROPERTIES
+    OUTPUT_NAME MGS4CenteredHUD16x9
+    PREFIX ""
+    SUFFIX ".asi"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+target_compile_features(mgs4_centered_hud_asi PRIVATE cxx_std_17)
+target_compile_definitions(mgs4_centered_hud_asi PRIVATE
+    _WIN32_WINNT=0x0A00
+    NOMINMAX
+    MGS4_LAB_ONLY=1
+    MGS4_CENTERED_HUD_LAB=1
+    MGS4_LAB_VERSION="${MGS4ULTRA120_RELEASE_VERSION}"
+)
+target_link_libraries(mgs4_centered_hud_asi PRIVATE minhook)
+
 add_executable(mgs4_direct_launcher WIN32
     launcher_wrapper/mgs4_direct_launcher.cpp
     "${MGS4ULTRA120_GENERATED_DIR}/version_launcher.rc"
@@ -141,6 +168,12 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(supersampling_math_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
     add_test(NAME supersampling_math COMMAND supersampling_math_test)
 
+    add_executable(hud_anchor_math_test tests/hud_anchor_math_test.cpp)
+    target_compile_features(hud_anchor_math_test PRIVATE cxx_std_17)
+    target_include_directories(hud_anchor_math_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME hud_anchor_math COMMAND hud_anchor_math_test)
+
     add_test(NAME winmm_proxy_smoke COMMAND winmm_proxy_smoke)
     add_executable(launcher_args_probe tests/launcher_args_probe.cpp)
     target_compile_features(launcher_args_probe PRIVATE cxx_std_17)
@@ -161,6 +194,9 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME asi_plugin_smoke
         COMMAND asi_plugin_smoke "$<TARGET_FILE:mgs4_ultrawide_asi>"
     )
+    add_test(NAME centered_hud_asi_smoke
+        COMMAND asi_plugin_smoke "$<TARGET_FILE:mgs4_centered_hud_asi>"
+    )
     add_executable(asi_loader_probe tests/asi_loader_probe.cpp)
     target_compile_features(asi_loader_probe PRIVATE cxx_std_17)
     set_target_properties(asi_loader_probe PROPERTIES
@@ -171,6 +207,9 @@ endif()
 if(MINGW)
     target_link_options(mgs4_ultrawide PRIVATE -static -static-libgcc -static-libstdc++)
     target_link_options(mgs4_ultrawide_asi PRIVATE
+        -static -static-libgcc -static-libstdc++
+    )
+    target_link_options(mgs4_centered_hud_asi PRIVATE
         -static -static-libgcc -static-libstdc++
     )
     target_link_options(mgs4_direct_launcher PRIVATE

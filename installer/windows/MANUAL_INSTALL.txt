@@ -17,9 +17,26 @@ CORE / NORMAL-FPS ROUTE
 
    MGS4\winmm.dll
    MGS4\mgs4_ultrawide.ini
+   MGS4\mgs4_centered_hud_16x9.ini
    MGS4\scripts\MGS4Ultra120.asi
+   MGS4\scripts\MGS4CenteredHUD16x9.asi
 
 5. Launch normally through Steam.
+
+EXPERIMENTAL OPTIONS (OFF BY DEFAULT)
+
+Close the game before editing either INI.
+
+- Real-time cinematic FOV: in mgs4_ultrawide.ini set
+  ExperimentalCinematicFOV=1. Keep CinematicFOVMultiplier=inherit to use the
+  gameplay value, or enter a separate finite value of 0.500 or greater.
+- Centered 16:9 HUD: in mgs4_centered_hud_16x9.ini set Enabled=1. This option
+  requires DirectX 12.
+
+To return to the reference behavior, set ExperimentalCinematicFOV=0 and
+Enabled=0. The centered-HUD ASI may remain installed: when disabled it exits
+without installing D3D12 hooks. If a problem remains, completely remove this
+build and reinstall the v0.3.3-alpha.1 legacy fallback release.
 
 OPTIONAL CORRECTED 120 FPS
 

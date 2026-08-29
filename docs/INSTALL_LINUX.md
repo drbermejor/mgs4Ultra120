@@ -3,12 +3,12 @@
 The Linux package uses the same Ultimate ASI Loader and separate-plugin layout
 as Windows. It provides ultrawide/Hor+, configurable FOV and resolution,
 experimental supersampling, the controller-profile correction, optional direct
-launch and optional corrected 30/60/120 FPS.
+launch, optional corrected 30/60/120 FPS, optional real-time cinematic FOV and
+an optional centered 16:9 HUD for DirectX 12.
 
-The separate cinematic-FOV preview adds an **experimental real-time cinematic
-FOV** control to the same Linux configurator. Leave it disabled for the
-recommended behavior. When enabled, use `inherit` to reuse the gameplay FOV or
-enter a different cinematic multiplier, for example:
+The **experimental real-time cinematic FOV** control is disabled by default.
+When enabled, use `inherit` to reuse the gameplay FOV or enter a different
+cinematic multiplier, for example:
 
 ```ini
 FOVMultiplier=1.200
@@ -18,6 +18,9 @@ CinematicFOVMultiplier=1.100
 
 Pre-rendered videos are unaffected. Expanded framing can reveal characters,
 objects or animation transitions earlier than the original shot intended.
+The centered-HUD option is also disabled by default and requires DX12. If a
+menu or scene is wrong, close the game and disable only the affected option to
+return to the reference behavior.
 
 Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
 the supported Steam executable. Other Proton versions may work but have not
@@ -36,8 +39,8 @@ passed the same release checks.
 4. The installer downloads MGSFPSUnlock 0.1.0 directly from its official
    release, verifies it and applies the Proton compatibility byte locally.
 5. The graphical configurator opens automatically when `zenity` is installed.
-   Choose output resolution, FOV, ultrawide, supersampling, FPS, launcher mode
-   and fullscreen mode, then save.
+   Choose output resolution, FOV, optional cinematic FOV, optional centered
+   HUD, supersampling, FPS, launcher mode and fullscreen mode, then save.
 6. Start Steam and launch the game normally using DirectX 12.
 
 Setup also creates **MGS4 Ultra120 Configurator** on the desktop and in the
@@ -112,3 +115,5 @@ and Steam launch options from the installation backup.
 
 See [corrected FPS on Proton](PROTON_FPS.md) for the verified local adaptation
 and [experimental supersampling](EXPERIMENTAL_SUPERSAMPLING.md) for limits.
+The previous `v0.3.3-alpha.1` release remains available as the complete legacy
+fallback.

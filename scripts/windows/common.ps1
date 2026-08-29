@@ -1,4 +1,4 @@
-$Mgs4Ultra120Version = "v0.3.3-alpha.1"
+$Mgs4Ultra120Version = "v0.3.4-alpha.1"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
@@ -8,6 +8,11 @@ $Mgs4Ultra120LegacyDllHashes = @(
     # Final native alpha.3 proxy. Manual alpha.3 installations did not always
     # have an ownership marker, so alpha.4 must still migrate them safely.
     "9BB4022045C63EA94868C3AA4D9DA52D3E37CA56CFC0E859AFF122F6EB818BEB"
+)
+$Mgs4Ultra120LegacyHudAsiHashes = @(
+    # Private preview 1 was distributed only to the project owner for the
+    # visual validation that preceded the public alpha. Adopt it in place.
+    "3AF1B29CB51C6CC85F84A9549248E24FD26AF41228A1F9A21AD566ED004CFC71"
 )
 
 function Test-UltimateAsiLoader([string]$Path) {
@@ -97,6 +102,7 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
     foreach ($Key in @(
         "UltrawideEnabled", "FPSOverrideEnabled", "AllowUnsupportedExecutable",
         "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
+        "ExperimentalCinematicFOV", "CinematicFOVMultiplier",
         "SupersamplingEnabled",
         "RenderScale", "Limit", "ControllerProfileFixEnabled",
         "SkipUnityLauncher", "Region", "SelfRegion", "Language", "ControllerType",
@@ -142,6 +148,38 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
             $TemplateText = [regex]::Replace($TemplateText,
                 '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.200', 1)
         }
+    }
+    $Temporary = "$Destination.tmp"
+    [IO.File]::WriteAllText($Temporary, $TemplateText,
+        [Text.UTF8Encoding]::new($false))
+    Move-Item -Force -LiteralPath $Temporary -Destination $Destination
+}
+
+function Install-Mgs4Ultra120HudConfig([string]$Template, [string]$Destination,
+                                       [string]$Backup, [int]$Width,
+                                       [int]$Height) {
+    $TemplateText = Get-Content -Raw -LiteralPath $Template
+    $Enabled = "0"
+    if (Test-Path -LiteralPath $Destination -PathType Leaf) {
+        $ExistingText = Get-Content -Raw -LiteralPath $Destination
+        $Recognized = ($ExistingText -match '(?m)^\[MGS4Ultra120HUD\]\s*$') -or
+            (($ExistingText -match '(?m)^\[Lab\]\s*$') -and
+             ($ExistingText -match '(?m)^Mode=CenteredHUD16x9Preview1\s*$'))
+        if ($Recognized) {
+            $Match = [regex]::Match($ExistingText, '(?m)^Enabled=(0|1)\s*$')
+            if ($Match.Success) { $Enabled = $Match.Groups[1].Value }
+        } elseif (-not (Test-Path -LiteralPath $Backup)) {
+            Copy-Item -LiteralPath $Destination -Destination $Backup
+        }
+    }
+    foreach ($Entry in @{
+        Enabled = $Enabled
+        Width = [string]$Width
+        Height = [string]$Height
+    }.GetEnumerator()) {
+        $TemplateText = [regex]::Replace($TemplateText,
+            "(?m)^$([regex]::Escape($Entry.Key))=.*$",
+            "$($Entry.Key)=$($Entry.Value)", 1)
     }
     $Temporary = "$Destination.tmp"
     [IO.File]::WriteAllText($Temporary, $TemplateText,
@@ -463,6 +501,40 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
     [IO.File]::WriteAllText($AsiHashMarker, $AsiSourceHash,
         [Text.Encoding]::ASCII)
 
+    $HudAsiDestination = Join-Path $ScriptsDir "MGS4CenteredHUD16x9.asi"
+    $HudAsiSource = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
+    $HudAsiBackup = Join-Path $BackupDir "MGS4CenteredHUD16x9.asi.preinstall"
+    $HudAsiHashMarker = Join-Path $BackupDir "hud-asi-installed.sha256"
+    if (-not (Test-Path -LiteralPath $HudAsiSource -PathType Leaf)) {
+        throw "The package is missing MGS4CenteredHUD16x9.asi."
+    }
+    $HudAsiSourceHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $HudAsiSource).Hash
+    if (Test-Path -LiteralPath $HudAsiDestination -PathType Leaf) {
+        $HudTargetHash = (Get-FileHash -Algorithm SHA256 `
+            -LiteralPath $HudAsiDestination).Hash
+        $HudRecordedHash = $null
+        if (Test-Path -LiteralPath $HudAsiHashMarker) {
+            $Candidate = (Get-Content -Raw -LiteralPath $HudAsiHashMarker).Trim()
+            if ($Candidate -match '^[0-9a-fA-F]{64}$') {
+                $HudRecordedHash = $Candidate
+            }
+        }
+        $HudManaged = $HudTargetHash -eq $HudAsiSourceHash -or
+            ($HudRecordedHash -and $HudTargetHash -eq $HudRecordedHash) -or
+            $HudTargetHash -in $Mgs4Ultra120LegacyHudAsiHashes
+        if (-not $HudManaged -and -not (Test-Path -LiteralPath $HudAsiBackup)) {
+            Copy-Item -LiteralPath $HudAsiDestination -Destination $HudAsiBackup
+        } elseif (-not $HudManaged) {
+            $Timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
+            Copy-Item -LiteralPath $HudAsiDestination -Destination `
+                (Join-Path $BackupDir "MGS4CenteredHUD16x9.asi.displaced.$Timestamp")
+        }
+    }
+    Copy-Item -Force -LiteralPath $HudAsiSource -Destination $HudAsiDestination
+    [IO.File]::WriteAllText($HudAsiHashMarker, $HudAsiSourceHash,
+        [Text.Encoding]::ASCII)
+
     $IniDestination = Join-Path $GameDir "mgs4_ultrawide.ini"
     $IniTemplate = Join-Path $PackageDir "config\mgs4_ultrawide.ini"
     $IniBackup = Join-Path $BackupDir "mgs4_ultrawide.ini.preinstall"
@@ -475,6 +547,30 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
         }
         Copy-Item -Force -LiteralPath $IniTemplate -Destination $IniDestination
     }
+
+    $HudIniDestination = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
+    $HudIniTemplate = Join-Path $PackageDir "config\mgs4_centered_hud_16x9.ini"
+    $HudIniBackup = Join-Path $BackupDir "mgs4_centered_hud_16x9.ini.preinstall"
+    if (-not (Test-Path -LiteralPath $HudIniTemplate -PathType Leaf)) {
+        throw "The package is missing the centered-HUD configuration."
+    }
+    $InstalledIniText = Get-Content -Raw -LiteralPath $IniDestination
+    $InstalledWidth = 1920
+    $InstalledHeight = 1080
+    $WidthMatch = [regex]::Match($InstalledIniText,
+        '(?m)^Width=(\d+)\s*$')
+    $HeightMatch = [regex]::Match($InstalledIniText,
+        '(?m)^Height=(\d+)\s*$')
+    if ($WidthMatch.Success -and $HeightMatch.Success) {
+        $CandidateWidth = [int]$WidthMatch.Groups[1].Value
+        $CandidateHeight = [int]$HeightMatch.Groups[1].Value
+        if ($CandidateWidth -gt 0 -and $CandidateHeight -gt 0) {
+            $InstalledWidth = $CandidateWidth
+            $InstalledHeight = $CandidateHeight
+        }
+    }
+    Install-Mgs4Ultra120HudConfig $HudIniTemplate $HudIniDestination `
+        $HudIniBackup $InstalledWidth $InstalledHeight
 
     Save-Mgs4Ultra120GameDir $GameDir
 }

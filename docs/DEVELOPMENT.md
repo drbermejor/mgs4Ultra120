@@ -25,7 +25,7 @@ cmake --build build-mingw -j
 ```
 
 Outputs are written under `build*/bin`: the legacy proxy, cross-platform
-`MGS4Ultra120.asi`, direct `launcher.exe` and test probes. Release packages use
+`MGS4Ultra120.asi`, `MGS4CenteredHUD16x9.asi`, direct `launcher.exe` and test probes. Release packages use
 the pinned Ultimate ASI Loader on both Windows and Proton. MinHook is pinned to
 commit `d94c64d32ea37bc4f5ee47d580709f70c6fb6080`. Ultimate ASI Loader is pinned
 to `v9.7.4`; its fetch script verifies the upstream archive and extracted DLL.
@@ -64,7 +64,7 @@ After a clean successful build, create the platform packages from the repo
 root with:
 
 ```bash
-./scripts/package-release.sh v0.3.3-alpha.1 all
+./scripts/package-release.sh v0.3.4-alpha.1 all
 ```
 
 To package MSVC output from Git Bash instead of the default MinGW directory:
@@ -72,7 +72,7 @@ To package MSVC output from Git Bash instead of the default MinGW directory:
 ```bash
 MGS4ULTRA120_BIN_DIR="$PWD/build/bin/Release" \
 MGS4ULTRA120_ASI_LOADER="$PWD/build-third-party/ultimate-asi-loader/winmm.dll" \
-  ./scripts/package-release.sh v0.3.3-alpha.1 all
+  ./scripts/package-release.sh v0.3.4-alpha.1 all
 ```
 
 The script refuses to package a missing loader, ASI or direct-launch wrapper,
@@ -85,10 +85,10 @@ the source packages.
 To generate the same setup EXE after packaging on Windows:
 
 ```powershell
-$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.3-alpha.1-windows-complete.zip
+$zip = Resolve-Path .\dist\MGS4Ultra120-v0.3.4-alpha.1-windows-complete.zip
 $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash
 .\installer\windows\Build-Installer.ps1 `
-  -Version v0.3.3-alpha.1 `
+  -Version v0.3.4-alpha.1 `
   -WindowsZip $zip `
   -ExpectedZipSha256 $sha
 ```

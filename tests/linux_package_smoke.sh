@@ -11,7 +11,8 @@ FPS_ARCHIVE="${2:-}"
 [[ -x "$PACKAGE_DIR/MGS4Ultra120-Linux-Uninstall.sh" ]]
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
-grep -qx 'v0.3.3-alpha.2-cinematic-fov-preview' "$PACKAGE_DIR/VERSION"
+[[ -f "$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi" ]]
+grep -qx 'v0.3.4-alpha.1' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -69,7 +70,9 @@ env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh"
 [[ -x "$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh" ]]
 [[ -f "$GAME_DIR/winmm.dll" ]]
 [[ -f "$GAME_DIR/mgs4_ultrawide.ini" ]]
+[[ -f "$GAME_DIR/mgs4_centered_hud_16x9.ini" ]]
 [[ -f "$GAME_DIR/scripts/MGS4Ultra120.asi" ]]
+[[ -f "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" ]]
 cmp -s "$PACKAGE_DIR/bin/launcher.exe" "$LAUNCHER_DIR/launcher.exe"
 if [[ -n "$FPS_ARCHIVE" ]]; then
   [[ -f "$GAME_DIR/scripts/MGSFPSUnlock.asi" ]]
@@ -91,22 +94,30 @@ grep -q '^FOVMultiplier=1.200$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^NativeCameraFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=inherit$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^SupersamplingEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^Enabled=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 
 # Managed updates preserve explicit gameplay and cinematic FOV choices.
 sed -i 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^ExperimentalCinematicFOV=.*/ExperimentalCinematicFOV=1/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^CinematicFOVMultiplier=.*/CinematicFOVMultiplier=1.100/' "$GAME_DIR/mgs4_ultrawide.ini"
+sed -i 's/^FOVMultiplier=.*/FOVMultiplier=1.350/' "$GAME_DIR/mgs4_ultrawide.ini"
+sed -i 's/^Enabled=.*/Enabled=1/' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh"
 grep -q '^NativeCameraFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=1.100$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^FOVMultiplier=1.350$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^Enabled=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" MGS4_GAME_DIR="$GAME_DIR" \
   XDG_DATA_HOME="$XDG_DATA" MGS4_DESKTOP_DIR="$DESKTOP_DIR" \
   "$LOCAL_PACKAGE/scripts/linux/uninstall.sh"
 [[ ! -e "$GAME_DIR/winmm.dll" ]]
 [[ ! -e "$GAME_DIR/mgs4_ultrawide.ini" ]]
+[[ ! -e "$GAME_DIR/mgs4_centered_hud_16x9.ini" ]]
 [[ ! -e "$GAME_DIR/scripts/MGS4Ultra120.asi" ]]
+[[ ! -e "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" ]]
 [[ ! -e "$GAME_DIR/scripts/MGSFPSUnlock.ini" ]]
 [[ ! -e "$GAME_DIR/scripts/MGSFPSUnlock.asi" ]]
 grep -q 'original launcher fixture' "$LAUNCHER_DIR/launcher.exe"

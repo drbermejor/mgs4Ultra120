@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.4-alpha.1 - optional cinematic FOV and centered HUD
+
+- Promoted the validated real-time cinematic camera route into the complete
+  Windows and Linux/Proton packages, still disabled by default.
+- Added a separate cinematic multiplier with `inherit` support in both GUIs.
+- Added the opt-in DX12 centered 16:9 HUD companion as an independently
+  reversible module, disabled by default.
+- Made recommended/command-line profiles disable cinematic FOV, centered HUD
+  and supersampling so users can return to the reference behavior without
+  reinstalling.
+- Added managed install, update, backup, conflict and uninstall ownership for
+  the HUD ASI and its independent INI on Windows and Linux.
+- Preserved FOV values above the `1.200` recommendation during Linux updates,
+  matching the already corrected Windows behavior.
+- Kept `v0.3.3-alpha.1` available as the complete legacy fallback.
+
 ## v0.3.3-alpha.2-cinematic-fov-preview
 
 - Added an opt-in real-time cinematic FOV path with either the gameplay

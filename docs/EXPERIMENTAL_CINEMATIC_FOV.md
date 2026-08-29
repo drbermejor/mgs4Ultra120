@@ -1,9 +1,9 @@
-# Experimental cinematic FOV preview
+# Experimental cinematic FOV
 
-The recommended release remains
-[`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1).
-This preview is intended only for users who want to help test expanded FOV in
-real-time, in-engine cutscenes.
+This option is included in `v0.3.4-alpha.1` for users who want expanded FOV in
+real-time, in-engine cutscenes. It is disabled by default. The previous
+[`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
+release remains the complete legacy fallback.
 
 It does not affect pre-rendered video.
 
@@ -39,11 +39,12 @@ This is scene pop-in or early visibility caused by exposing more of the shot.
 It is distinct from the projection/frustum culling regression investigated in
 earlier builds.
 
-## Reporting
+## Disable and report
 
-Use only
-[tracking issue #5](https://github.com/drbermejor/mgs4Ultra120/issues/5).
-Include:
+Close the game and set `ExperimentalCinematicFOV=0`, or clear the option in the
+configurator, to restore the reference behavior without reinstalling.
+
+When reporting a reproducible problem, include:
 
 - exact chapter, scene and checkpoint;
 - resolution and aspect ratio;

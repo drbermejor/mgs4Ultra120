@@ -9,6 +9,8 @@ GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR 
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
 CORE_ASI_SOURCE="$PACKAGE_DIR/bin/MGS4Ultra120.asi"
+HUD_ASI_SOURCE="$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi"
+HUD_INI_SOURCE="$PACKAGE_DIR/config/mgs4_centered_hud_16x9.ini"
 FPS_ASI_BUNDLED="$PACKAGE_DIR/optional/MGSFPSUnlock.asi"
 FPS_INI_SOURCE="$PACKAGE_DIR/config/MGSFPSUnlock.ini"
 FPS_PREPARER="$SCRIPT_DIR/prepare_fpsunlock.py"
@@ -117,6 +119,7 @@ install_patch_config() {
     return
   fi
   python3 - "$template" "$destination" <<'PY'
+import math
 import re
 import sys
 from pathlib import Path
@@ -148,9 +151,42 @@ try:
     parsed_fov = float(fov.group(1).strip().replace(",", ".")) if fov else 1.2
 except ValueError:
     parsed_fov = 1.2
-if not 0.5 <= parsed_fov <= 1.2 or (old_model and abs(parsed_fov - 1.05) < 0.0005):
+if not math.isfinite(parsed_fov) or parsed_fov < 0.5 or (old_model and abs(parsed_fov - 1.05) < 0.0005):
     text = re.sub(r"(?m)^FOVMultiplier=.*$", "FOVMultiplier=1.200", text, count=1)
 
+temporary = destination.with_suffix(".ini.tmp")
+temporary.write_text(text)
+temporary.replace(destination)
+PY
+  chmod 0644 "$destination"
+}
+
+install_hud_config() {
+  local destination="$GAME_DIR/mgs4_centered_hud_16x9.ini"
+  python3 - "$HUD_INI_SOURCE" "$destination" "$GAME_DIR/mgs4_ultrawide.ini" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+template_path, destination, main_path = map(Path, sys.argv[1:])
+text = template_path.read_text()
+enabled = "0"
+if destination.is_file():
+    existing = destination.read_text()
+    recognized = (re.search(r"(?m)^\[MGS4Ultra120HUD\]\s*$", existing) or
+                  (re.search(r"(?m)^\[Lab\]\s*$", existing) and
+                   re.search(r"(?m)^Mode=CenteredHUD16x9Preview1\s*$", existing)))
+    match = re.search(r"(?m)^Enabled=(0|1)\s*$", existing)
+    if recognized and match:
+        enabled = match.group(1)
+main = main_path.read_text()
+width = re.search(r"(?m)^Width=(\d+)\s*$", main)
+height = re.search(r"(?m)^Height=(\d+)\s*$", main)
+if not width or not height:
+    raise SystemExit("Installed Width/Height are missing or invalid")
+for key, value in (("Enabled", enabled), ("Width", width.group(1)),
+                   ("Height", height.group(1))):
+    text = re.sub(rf"(?m)^{key}=.*$", f"{key}={value}", text, count=1)
 temporary = destination.with_suffix(".ini.tmp")
 temporary.write_text(text)
 temporary.replace(destination)
@@ -165,6 +201,8 @@ PY
 [[ -f "$GAME_DIR/mgs4.exe" ]] || { echo "mgs4.exe not found in: $GAME_DIR" >&2; exit 1; }
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]] || { echo "Ultimate ASI Loader not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
 [[ -f "$CORE_ASI_SOURCE" ]] || { echo "MGS4Ultra120.asi not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
+[[ -f "$HUD_ASI_SOURCE" ]] || { echo "MGS4CenteredHUD16x9.asi not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
+[[ -f "$HUD_INI_SOURCE" ]] || { echo "Centered-HUD configuration is missing." >&2; exit 1; }
 [[ -f "$PACKAGE_DIR/config/mgs4_ultrawide.ini" ]] || { echo "Patch configuration is missing." >&2; exit 1; }
 [[ -f "$WRAPPER_SOURCE" ]] || { echo "Direct-launch wrapper is missing." >&2; exit 1; }
 pgrep -f '[m]gs4.exe' >/dev/null && { echo "Exit the game before installing." >&2; exit 1; }
@@ -194,6 +232,7 @@ fi
 mkdir -p -- "$BACKUP_DIR" "$GAME_DIR/scripts"
 managed_preflight "$GAME_DIR/winmm.dll" winmm.dll "$PACKAGE_DIR/bin/winmm.dll"
 managed_preflight "$GAME_DIR/scripts/MGS4Ultra120.asi" MGS4Ultra120.asi "$CORE_ASI_SOURCE"
+managed_preflight "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" MGS4CenteredHUD16x9.asi "$HUD_ASI_SOURCE"
 if [[ "$INSTALL_FPS" == 1 ]]; then
   managed_preflight "$GAME_DIR/scripts/MGSFPSUnlock.asi" MGSFPSUnlock.asi "$FPS_STAGE"
 fi
@@ -203,6 +242,15 @@ if [[ -e "$GAME_DIR/mgs4_ultrawide.ini" &&
       ! -e "$BACKUP_DIR/MGS4Ultra120.asi.installed.sha256" &&
       ! -e "$BACKUP_DIR/MGS4Ultra120.asi.reused.sha256" ]]; then
   cp -a -- "$GAME_DIR/mgs4_ultrawide.ini" "$BACKUP_DIR/mgs4_ultrawide.ini.preinstall"
+fi
+if [[ -e "$GAME_DIR/mgs4_centered_hud_16x9.ini" &&
+      ! -e "$BACKUP_DIR/mgs4_centered_hud_16x9.ini.preinstall" &&
+      ! -e "$BACKUP_DIR/MGS4CenteredHUD16x9.asi.installed.sha256" &&
+      ! -e "$BACKUP_DIR/MGS4CenteredHUD16x9.asi.reused.sha256" ]] &&
+   ! grep -q '^\[MGS4Ultra120HUD\]$' "$GAME_DIR/mgs4_centered_hud_16x9.ini" &&
+   ! grep -q '^Mode=CenteredHUD16x9Preview1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"; then
+  cp -a -- "$GAME_DIR/mgs4_centered_hud_16x9.ini" \
+    "$BACKUP_DIR/mgs4_centered_hud_16x9.ini.preinstall"
 fi
 if [[ "$INSTALL_FPS" == 1 ]]; then
   if [[ -e "$GAME_DIR/scripts/MGSFPSUnlock.ini" &&
@@ -215,7 +263,9 @@ fi
 
 install_managed "$PACKAGE_DIR/bin/winmm.dll" "$GAME_DIR/winmm.dll" winmm.dll
 install_managed "$CORE_ASI_SOURCE" "$GAME_DIR/scripts/MGS4Ultra120.asi" MGS4Ultra120.asi
+install_managed "$HUD_ASI_SOURCE" "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" MGS4CenteredHUD16x9.asi
 install_patch_config
+install_hud_config
 if [[ "$INSTALL_FPS" == 1 ]]; then
   install_managed "$FPS_STAGE" "$GAME_DIR/scripts/MGSFPSUnlock.asi" MGSFPSUnlock.asi
   install -m0644 "$FPS_INI_SOURCE" "$GAME_DIR/scripts/MGSFPSUnlock.ini"
@@ -245,6 +295,6 @@ if [[ "$INSTALL_FPS" == 1 ]]; then
 else
   echo "Corrected FPS component: not installed; the game keeps its normal FPS behavior."
 fi
-echo "Run scripts/linux/configure.sh gui to choose resolution, gameplay/cinematic FOV, supersampling and fullscreen mode."
+echo "Run scripts/linux/configure.sh gui to choose resolution, gameplay/cinematic FOV, centered HUD, supersampling and fullscreen mode."
 echo "Configurator shortcut: $DESKTOP_SHORTCUT"
 echo "Launch through Steam; DirectX 12 is the validated path."

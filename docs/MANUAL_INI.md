@@ -1,11 +1,13 @@
 # Manual copy installation and INI editing
 
-The manual ZIP contains the three files owned by MGS4Ultra120:
+The manual ZIP contains the five files owned by MGS4Ultra120:
 
 ```text
 winmm.dll
 mgs4_ultrawide.ini
+mgs4_centered_hud_16x9.ini
 scripts\MGS4Ultra120.asi
+scripts\MGS4CenteredHUD16x9.asi
 ```
 
 Remove old MGS4 Ultra120 builds first. Do not combine release files or retain a
@@ -35,7 +37,9 @@ Final layout:
 ```text
 MGS4\winmm.dll
 MGS4\mgs4_ultrawide.ini
+MGS4\mgs4_centered_hud_16x9.ini
 MGS4\scripts\MGS4Ultra120.asi
+MGS4\scripts\MGS4CenteredHUD16x9.asi
 MGS4\scripts\MGSFPSUnlock.asi
 MGS4\scripts\MGSFPSUnlock.ini
 ```
@@ -48,6 +52,13 @@ The manual route creates no shortcuts and does not install the Unity-launcher
 bypass. The MGS4Ultra120 GUI and manual edits remain compatible because they use
 the same INIs. Launch through Steam and choose the language in the official
 Unity launcher; `Language=` affects only the optional guided-setup wrapper.
+
+Experimental options are off by default. To enable real-time cinematic FOV,
+set `ExperimentalCinematicFOV=1` in `mgs4_ultrawide.ini`; keep
+`CinematicFOVMultiplier=inherit` or enter a separate finite value of at least
+`0.500`. To enable the centered HUD under DX12, set `Enabled=1` in
+`mgs4_centered_hud_16x9.ini`. Set both switches back to `0` while the game is
+closed to restore the reference behavior.
 
 To remove a purely manual installation, close the game and delete only files
 you personally copied. Never delete a pre-existing loader belonging to another

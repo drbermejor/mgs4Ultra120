@@ -12,8 +12,10 @@ $RequiredFiles = @(
     "MGS4Ultra120-Setup.cmd",
     "bin\winmm.dll",
     "bin\MGS4Ultra120.asi",
+    "bin\MGS4CenteredHUD16x9.asi",
     "bin\launcher.exe",
     "config\mgs4_ultrawide.ini",
+    "config\mgs4_centered_hud_16x9.ini",
     "scripts\windows\setup.ps1",
     "scripts\windows\common.ps1",
     "scripts\windows\install.ps1",
@@ -28,7 +30,9 @@ if (-not $Portable) {
     $RequiredFiles += @(
         "Manual-Install\winmm.dll",
         "Manual-Install\scripts\MGS4Ultra120.asi",
+        "Manual-Install\scripts\MGS4CenteredHUD16x9.asi",
         "Manual-Install\mgs4_ultrawide.ini",
+        "Manual-Install\mgs4_centered_hud_16x9.ini",
         "Manual-Install\README.txt"
     )
 }
@@ -42,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.3-alpha.1") {
+if ($PackageVersion -ne "v0.3.4-alpha.1") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -58,7 +62,10 @@ if ($LoaderInfo.FileDescription -ne "Ultimate ASI Loader" -or
     $LoaderInfo.ProductVersion -notlike "9.7.4*") {
     throw "Ultimate ASI Loader version metadata is incorrect."
 }
-foreach ($RelativePath in @("bin\winmm.dll", "bin\MGS4Ultra120.asi")) {
+foreach ($RelativePath in @(
+    "bin\winmm.dll", "bin\MGS4Ultra120.asi",
+    "bin\MGS4CenteredHUD16x9.asi"
+)) {
     $Bytes = [IO.File]::ReadAllBytes((Join-Path $PackageDir $RelativePath))
     if ($Bytes.Length -lt 256 -or $Bytes[0] -ne 0x4d -or $Bytes[1] -ne 0x5a) {
         throw "$RelativePath is not a valid PE image."
@@ -71,20 +78,30 @@ foreach ($RelativePath in @("bin\winmm.dll", "bin\MGS4Ultra120.asi")) {
     }
 }
 $AsiVersionPath = Join-Path $PackageDir "bin\MGS4Ultra120.asi"
+$HudAsiVersionPath = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
 $WrapperVersionPath = Join-Path $PackageDir "bin\launcher.exe"
 $AsiVersionInfo = (Get-Item -LiteralPath $AsiVersionPath).VersionInfo
+$HudAsiVersionInfo = (Get-Item -LiteralPath $HudAsiVersionPath).VersionInfo
 $WrapperVersionInfo = (Get-Item -LiteralPath $WrapperVersionPath).VersionInfo
-foreach ($VersionInfo in @($AsiVersionInfo, $WrapperVersionInfo)) {
+foreach ($VersionInfo in @($AsiVersionInfo, $HudAsiVersionInfo,
+        $WrapperVersionInfo)) {
     if ($VersionInfo.FileVersion -ne $PackageVersion -or
         $VersionInfo.ProductVersion -ne $PackageVersion) {
         throw "Embedded binary version does not match VERSION."
     }
 }
+if ($HudAsiVersionInfo.OriginalFilename -ne "MGS4CenteredHUD16x9.asi" -or
+    $HudAsiVersionInfo.FileDescription -ne
+        "MGS4 Ultra120 experimental centered HUD") {
+    throw "Centered-HUD binary identity metadata is incorrect."
+}
 if (-not $Portable) {
     foreach ($Pair in @(
         @("bin\winmm.dll", "Manual-Install\winmm.dll"),
         @("bin\MGS4Ultra120.asi", "Manual-Install\scripts\MGS4Ultra120.asi"),
-        @("config\mgs4_ultrawide.ini", "Manual-Install\mgs4_ultrawide.ini")
+        @("bin\MGS4CenteredHUD16x9.asi", "Manual-Install\scripts\MGS4CenteredHUD16x9.asi"),
+        @("config\mgs4_ultrawide.ini", "Manual-Install\mgs4_ultrawide.ini"),
+        @("config\mgs4_centered_hud_16x9.ini", "Manual-Install\mgs4_centered_hud_16x9.ini")
     )) {
         $SourceHash = (Get-FileHash -Algorithm SHA256 `
             -LiteralPath (Join-Path $PackageDir $Pair[0])).Hash
@@ -279,6 +296,21 @@ try {
     if ((Get-Content -Raw -LiteralPath $AsiMarker).Trim() -ne $PackageAsiHash) {
         throw "The installed ASI hash marker is missing or incorrect."
     }
+    $InstalledHudAsi = Join-Path (Join-Path $GameDir "scripts") `
+        "MGS4CenteredHUD16x9.asi"
+    $PackageHudAsi = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
+    $PackageHudAsiHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $PackageHudAsi).Hash
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $InstalledHudAsi).Hash -ne
+        $PackageHudAsiHash) {
+        throw "Installed centered-HUD ASI does not match the bundled plugin."
+    }
+    $HudAsiMarker = Join-Path $GameDir `
+        ".mgs4ultra120-backup\hud-asi-installed.sha256"
+    if ((Get-Content -Raw -LiteralPath $HudAsiMarker).Trim() -ne
+        $PackageHudAsiHash) {
+        throw "The installed centered-HUD ASI hash marker is incorrect."
+    }
 
     & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
         -GameDir $GameDir -Profile stable
@@ -290,6 +322,8 @@ try {
         "RenderScale=1.500",
         "FOVMultiplier=1.200",
         "NativeCameraFOV=1",
+        "ExperimentalCinematicFOV=0",
+        "CinematicFOVMultiplier=inherit",
         "FOVModelVersion=2",
         "Limit=60",
         "ControllerProfileFixEnabled=1",
@@ -297,6 +331,13 @@ try {
     )) {
         if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
             throw "Stable profile did not write: $ExpectedLine"
+        }
+    }
+    $HudIniText = Get-Content -Raw -LiteralPath `
+        (Join-Path $GameDir "mgs4_centered_hud_16x9.ini")
+    foreach ($ExpectedLine in @("Enabled=0", "Width=3440", "Height=1440")) {
+        if ($HudIniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
+            throw "Stable profile did not write centered-HUD setting: $ExpectedLine"
         }
     }
     $InstalledLauncher = Join-Path $LauncherDir "launcher.exe"
@@ -428,13 +469,24 @@ try {
         '(?m)^SupersamplingEnabled=.*$', 'SupersamplingEnabled=1')
     $Customized = [regex]::Replace($Customized,
         '(?m)^RenderScale=.*$', 'RenderScale=2.000')
+    $Customized = [regex]::Replace($Customized,
+        '(?m)^ExperimentalCinematicFOV=.*$', 'ExperimentalCinematicFOV=1')
+    $Customized = [regex]::Replace($Customized,
+        '(?m)^CinematicFOVMultiplier=.*$', 'CinematicFOVMultiplier=1.300')
     [IO.File]::WriteAllText($IniPath, $Customized,
+        [Text.UTF8Encoding]::new($false))
+    $HudIniPath = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
+    $CustomizedHud = [regex]::Replace(
+        (Get-Content -Raw -LiteralPath $HudIniPath),
+        '(?m)^Enabled=.*$', 'Enabled=1')
+    [IO.File]::WriteAllText($HudIniPath, $CustomizedHud,
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     $UpdatedIni = Get-Content -Raw -LiteralPath $IniPath
     foreach ($PreservedLine in @(
         "Width=5120", "Language=sp", "SkipUnityLauncher=1",
-        "SupersamplingEnabled=1", "RenderScale=2.000"
+        "SupersamplingEnabled=1", "RenderScale=2.000",
+        "ExperimentalCinematicFOV=1", "CinematicFOVMultiplier=1.300"
     )) {
         if ($UpdatedIni -notmatch "(?m)^$([regex]::Escape($PreservedLine))\r?$") {
             throw "Update did not preserve setting: $PreservedLine"
@@ -442,6 +494,11 @@ try {
     }
     if ($UpdatedIni -notmatch '(?m)^Limit=60\r?$') {
         throw "Update did not migrate the previous experimental 120 FPS value to 60."
+    }
+    $UpdatedHud = Get-Content -Raw -LiteralPath $HudIniPath
+    if ($UpdatedHud -notmatch '(?m)^Enabled=1\r?$' -or
+        $UpdatedHud -notmatch '(?m)^Width=5120\r?$') {
+        throw "Update did not preserve the HUD opt-in or synchronize its width."
     }
 
     & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir
@@ -455,6 +512,14 @@ try {
         (Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi"))) -ne
         [Convert]::ToBase64String($PreexistingAsi)) {
         throw "Uninstall did not restore the pre-existing ASI plugin."
+    }
+    if (Test-Path -LiteralPath (Join-Path (Join-Path $GameDir "scripts") `
+            "MGS4CenteredHUD16x9.asi")) {
+        throw "Uninstall left the managed centered-HUD ASI behind."
+    }
+    if (Test-Path -LiteralPath (Join-Path $GameDir `
+            "mgs4_centered_hud_16x9.ini")) {
+        throw "Uninstall left the managed centered-HUD INI behind."
     }
     if ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
         (Join-Path $GameDir "mgs4_ultrawide.ini"))) -ne
@@ -496,6 +561,10 @@ try {
     if (Test-Path -LiteralPath `
         (Join-Path (Join-Path $GameDir "scripts") "MGS4Ultra120.asi")) {
         throw "Clean install/uninstall left the managed ASI plugin behind."
+    }
+    if (Test-Path -LiteralPath `
+        (Join-Path (Join-Path $GameDir "scripts") "MGS4CenteredHUD16x9.asi")) {
+        throw "Clean install/uninstall left the centered-HUD ASI behind."
     }
 
     # A loader supplied by another mod must be reused and left in place. Add a

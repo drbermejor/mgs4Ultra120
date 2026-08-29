@@ -206,9 +206,13 @@ try {
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     $MigratedConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
-    if ($MigratedConfig -notmatch '(?m)^FOVMultiplier=1\.200$' -or
-        $MigratedConfig -notmatch '(?m)^FOVModelVersion=2$') {
-        throw "The legacy repeated-route FOV default did not migrate to model 2."
+    if ($MigratedConfig -notmatch '(?m)^FOVMultiplier=1\.200\r?$' -or
+        $MigratedConfig -notmatch '(?m)^FOVModelVersion=2\r?$') {
+        $MigratedFov = [regex]::Match(
+            $MigratedConfig, '(?m)^FOVMultiplier=.*$').Value
+        $MigratedModel = [regex]::Match(
+            $MigratedConfig, '(?m)^FOVModelVersion=.*$').Value
+        throw "The legacy repeated-route FOV default did not migrate to model 2 ($MigratedFov; $MigratedModel)."
     }
     $DeliberateConfig = [regex]::Replace(
         $MigratedConfig, '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.050')
@@ -216,8 +220,19 @@ try {
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
-        '(?m)^FOVMultiplier=1\.050$') {
+        '(?m)^FOVMultiplier=1\.050\r?$') {
         throw "A model-2 update overwrote a deliberate FOV 1.050 choice."
+    }
+
+    $AboveRecommendationConfig = [regex]::Replace(
+        (Get-Content -Raw -LiteralPath $InstalledConfigPath),
+        '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.350')
+    [IO.File]::WriteAllText($InstalledConfigPath,
+        $AboveRecommendationConfig, [Text.UTF8Encoding]::new($false))
+    & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
+        '(?m)^FOVMultiplier=1\.350\r?$') {
+        throw "A managed update overwrote an above-recommendation user FOV value."
     }
 
     $OptOutConfig = Get-Content -Raw -LiteralPath $InstalledConfigPath
@@ -227,7 +242,7 @@ try {
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
     if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
-        '(?m)^NativeCameraFOV=0$') {
+        '(?m)^NativeCameraFOV=0\r?$') {
         throw "A managed update silently re-enabled experimental native FOV."
     }
 
@@ -280,7 +295,7 @@ try {
         "ControllerProfileFixEnabled=1",
         "Language=sp"
     )) {
-        if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))$") {
+        if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
             throw "Stable profile did not write: $ExpectedLine"
         }
     }
@@ -399,7 +414,7 @@ try {
             throw "Language=$($LanguageEntry.Key) did not map to the official launcher value $($LanguageEntry.Value)."
         }
         if ((Get-Content -Raw -LiteralPath $InstalledConfigPath) -notmatch
-            "(?m)^Language=$([regex]::Escape($LanguageEntry.Key))$") {
+            "(?m)^Language=$([regex]::Escape($LanguageEntry.Key))\r?$") {
             throw "Stable profile did not preserve Language=$($LanguageEntry.Key)."
         }
     }
@@ -421,11 +436,11 @@ try {
         "Width=5120", "Language=sp", "SkipUnityLauncher=1",
         "SupersamplingEnabled=1", "RenderScale=2.000"
     )) {
-        if ($UpdatedIni -notmatch "(?m)^$([regex]::Escape($PreservedLine))$") {
+        if ($UpdatedIni -notmatch "(?m)^$([regex]::Escape($PreservedLine))\r?$") {
             throw "Update did not preserve setting: $PreservedLine"
         }
     }
-    if ($UpdatedIni -notmatch '(?m)^Limit=60$') {
+    if ($UpdatedIni -notmatch '(?m)^Limit=60\r?$') {
         throw "Update did not migrate the previous experimental 120 FPS value to 60."
     }
 

@@ -78,7 +78,7 @@ documentation/notices. Choose one installation route; do not perform both.
 ## Defaults and safe updates
 
 The recommended Windows profile uses the primary monitor's physical resolution,
-native-size windowed presentation, FOV 1.200 (the supported maximum), controller-profile correction,
+native-size windowed presentation, the tested FOV 1.200 recommendation, controller-profile correction,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120.
 
 The manual ZIP does not install the launcher bypass. Manual users select the

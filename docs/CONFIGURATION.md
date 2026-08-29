@@ -51,11 +51,15 @@ UsePrimaryPhysicalResolution=1
 - `UltrawideEnabled=1` enables native resolution and Hor+ projection changes.
 - `Width`/`Height` accept physical output dimensions. The GUI supports
   640–16384 by 480–16384 and can read the primary monitor's physical mode.
-- `FOVMultiplier` accepts `0.500`–`1.200`. `1.200` is the tested 21:9 setting
-  and supported maximum with the corrected single-owner camera route; `1.000`
+- `FOVMultiplier` accepts any finite value of `0.500` or greater. `1.200` is
+  the tested 21:9 recommendation with the corrected single-owner camera route;
+  `1.000`
   preserves the game's original vertical FOV but frames Snake more tightly in
   the tested view. Native camera ownership keeps projection and visibility data
-  synchronized. Both `.` and `,` decimal separators are accepted.
+  synchronized. Values above `1.200` are untested and may reveal geometry or
+  animation transitions early, cause culling artifacts, unusual framing or
+  instability; they are accepted under the user's responsibility. Both `.`
+  and `,` decimal separators are accepted.
 - `FOVModelVersion=2` records the single-owner model. Managed Windows updates
   migrate the old repeated-route default `1.050` to `1.200` once; later manual
   choices are preserved.

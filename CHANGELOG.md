@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased maintenance correction
+
+- Removed the unintended `FOVMultiplier=1.200` hard ceiling. Finite values of
+  `0.500` or greater now keep the patch active; values above the tested `1.200`
+  21:9 recommendation produce a warning and remain the user's responsibility.
+- Updated the Windows configurator, managed-update migration and automated
+  package/ASI-loader tests so above-recommendation user values are neither
+  clamped, rejected nor silently overwritten.
+- Kept above-recommendation FOV feedback non-modal: the configurator saves
+  valid values directly and the ASI records the untested-value notice only in
+  `mgs4_ultrawide.log`.
+
 ## v0.3.3-alpha.1 - single-owner experimental FOV and language persistence
 
 - Replaced post-return matrix/frustum reconstruction with a single native
@@ -13,9 +25,9 @@
 - Restricted native FOV ownership to the primary camera route (`0x0ba3a3`).
   This removes repeated multiplication in downstream camera rebuild routes and
   fixes WeaponWindow distortion without losing gameplay or cinematic FOV.
-- Set `1.200` as the tested 21:9 default and public maximum under the corrected
-  single-owner model. `1.000` framed Snake too tightly. The configurators warn
-  that any value above `1.000` can reveal content near cinematic edges.
+- Set `1.200` as the tested 21:9 default and recommendation under the corrected
+  single-owner model. `1.000` framed Snake too tightly. Higher values are
+  untested and can reveal content near cinematic edges.
 - Fixed the configurator language selector, including the incorrect legacy
   German code (`ge` -> `gr`), added Portuguese, and synchronized the selected
   language with both the direct-launch bootstrap and the official Unity

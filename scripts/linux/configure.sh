@@ -46,8 +46,8 @@ except ValueError as error:
     raise SystemExit(f"Invalid numeric value: {error}")
 if not (640 <= width_i <= 16384 and 480 <= height_i <= 16384):
     raise SystemExit("Width/height are outside the allowed range")
-if not (0.5 <= fov_f <= 1.20) or not math.isfinite(fov_f):
-    raise SystemExit("FOV multiplier must be between 0.5 and 1.20")
+if fov_f < 0.5 or not math.isfinite(fov_f):
+    raise SystemExit("FOV multiplier must be finite and at least 0.5")
 if not (1.0 <= render_scale_f <= 8.0) or not math.isfinite(render_scale_f):
     raise SystemExit("Supersampling scale must be between 1.0 and 8.0")
 if supersampling not in ("0", "1"):
@@ -225,7 +225,7 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --text='Changes apply on the next game start. Leave text fields empty to retain their values.' \
   --separator='|' \
   --add-entry="Width (current: $width)" --add-entry="Height (current: $height)" \
-  --add-entry="FOV (current: $fov; 1.200 recommended/maximum)" \
+  --add-entry="FOV (current: $fov; 1.200 tested 21:9 recommendation)" \
   --add-combo='Native FOV correction' --combo-values="$native_fov_values" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
@@ -264,11 +264,6 @@ PY
 )"
   zenity --question --title='Experimental supersampling' \
     --text="Internal render size will be ${internal}. Widths of 4096 or more can make the aiming reticle flicker or disappear. Continue?" || exit 0
-fi
-
-if [[ "$native_fov_value" == 1 ]]; then
-  zenity --question --title='Experimental native FOV' \
-    --text='Native FOV is experimental. For 21:9, 1.200 is the tested recommendation and maximum. For the most stable configuration, disable this option. Continue?' || exit 0
 fi
 
 set_launcher_wrapper "$launcher_value"

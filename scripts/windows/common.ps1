@@ -133,8 +133,8 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
         if (-not [double]::TryParse($FovText,
                 [Globalization.NumberStyles]::Float,
                 [Globalization.CultureInfo]::InvariantCulture,
-                [ref]$ParsedFov) -or $ParsedFov -lt 0.5 -or
-                $ParsedFov -gt 1.20) {
+                [ref]$ParsedFov) -or [double]::IsNaN($ParsedFov) -or
+                [double]::IsInfinity($ParsedFov) -or $ParsedFov -lt 0.5) {
             $TemplateText = [regex]::Replace($TemplateText,
                 '(?m)^FOVMultiplier=.*$', 'FOVMultiplier=1.200', 1)
         } elseif ($NeedsSingleOwnerFovMigration -and

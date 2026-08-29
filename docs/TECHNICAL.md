@@ -40,13 +40,14 @@ the same camera rebuild chain receive the already-corrected state and must not
 apply the multiplier again. This route isolation fixed WeaponWindow distortion
 while retaining gameplay and cinematic FOV.
 
-At 3440x1440, `FOVMultiplier=1.200` is the tested framing and supported
-maximum under this single-owner model. Visual comparison found that `1.000`,
+At 3440x1440, `FOVMultiplier=1.200` is the tested framing recommendation under
+this single-owner model. Visual comparison found that `1.000`,
 while preserving the original vertical FOV exactly, framed Snake too tightly
 in the tested gameplay view. Any value above `1.000` can still show off-camera actors or transitions earlier
 than the authored shot intended even though projection and culling are
-consistent. Wider values were useful as development stress tests but are no
-longer accepted by the release runtime or configurators.
+consistent. Wider values remain useful as development stress tests and are
+accepted by the runtime and configurators, but they are untested and remain
+the user's responsibility.
 The 3440x1440 aiming crosshair is confirmed working; the separately
 reported 5120x2160 case still requires reproduction at that exact resolution.
 The comparison uses the MGS4 entries published through the

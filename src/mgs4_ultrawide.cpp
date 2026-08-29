@@ -992,12 +992,11 @@ static DWORD WINAPI patch_thread(void*) {
         (render_scale_valid && mgs4_supersampling::compute_render_extent(
             width, height, render_scale, &render_width, &render_height));
     if (!width || !height ||
-        (enable_ultrawide && (!fov_valid || fov_multiplier < 0.5f ||
-                              fov_multiplier > 1.20f)) ||
+        (enable_ultrawide && (!fov_valid || fov_multiplier < 0.5f)) ||
         !render_extent_valid) {
         char invalid_message[512] = {};
         std::snprintf(invalid_message, sizeof(invalid_message),
-                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (accepted 0.500-1.200), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
+                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (must be finite and at least 0.500), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
                       ini_path, width, height, fov_text,
                       enable_supersampling ? 1u : 0u, render_scale_text);
         log_line(invalid_message);
@@ -1024,6 +1023,9 @@ static DWORD WINAPI patch_thread(void*) {
                   g_native_camera_fov_requested ? "yes" : "no",
                   controller_profile_fix ? "on" : "off");
     log_line(settings_message);
+    if (enable_ultrawide && fov_multiplier > 1.20f) {
+        log_line("WARNING: FOVMultiplier exceeds the tested 1.200 recommendation. No upper limit is enforced; unusual framing, early edge-of-frame geometry or animation visibility, culling artifacts and instability are the user's responsibility.");
+    }
     if (enable_supersampling && (render_scale > 2.0f ||
         render_width > 16384 || render_height > 16384)) {
         log_line("WARNING: experimental supersampling exceeds the conservative 2x/16384-pixel guidance. No GPU/VRAM capacity limit is enforced; performance, stability and driver behavior are the user's responsibility.");

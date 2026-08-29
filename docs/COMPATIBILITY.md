@@ -47,12 +47,14 @@ driver/display setup.
   multiplier; downstream camera rebuild routes are left untouched. `1.200`
   kept natural character proportions, a working aiming crosshair, an
   undistorted WeaponWindow and clean problematic cinematics. It is the tested
-  recommendation and public maximum; `1.000` framed Snake too tightly.
+  recommendation; `1.000` framed Snake too tightly. Higher values are allowed
+  but untested and remain the user's responsibility.
 - The game now builds projection and CPU visibility planes from the same
   adjusted input. The withdrawn tall/thin alpha.6 regression came from editing
   already-produced camera state; that code is absent.
 - Native FOV remains experimental. Leave it disabled for the most stable
-  configuration; at 21:9, `1.200` is the tested recommendation and maximum.
+  configuration; at 21:9, `1.200` is the tested recommendation. Higher values
+  can produce scene-specific geometry, animation or culling artifacts.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - Optional experimental supersampling at 3440x1440 output,
   1.50x/5160x2160 render resolution and windowed presentation passed the

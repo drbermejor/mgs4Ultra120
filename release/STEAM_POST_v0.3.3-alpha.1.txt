@@ -8,7 +8,7 @@ The final Windows package was tested at 3440x1440 in gameplay, the weapon menu a
 
 [list]
 [*][b]Most stable:[/b] leave [i]Experimental native FOV[/i] disabled. Ultrawide correction still works with the original vertical FOV.
-[*][b]Expanded 21:9 FOV:[/b] enable it and use 1.200. Do not exceed 1.200 at 21:9. Disable it again if a scene behaves incorrectly.
+[*][b]Expanded 21:9 FOV:[/b] enable it and use the tested 1.200 recommendation. Higher values are accepted but untested; check [i]mgs4_ultrawide.log[/i] and disable the option if a scene behaves incorrectly.
 [*][b]Supersampling:[/b] experimental and disabled by default. Keep internal width below 4096 to avoid aiming-reticle problems.
 [/list]
 

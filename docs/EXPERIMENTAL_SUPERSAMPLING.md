@@ -61,8 +61,8 @@ Native Windows validation covered 3440x1440 output and several internal sizes.
 The final release candidate was exercised at `RenderScale=1.15` (3956x1656),
 with natural proportions, native camera FOV active and no fallback.
 Supersampling itself remains experimental and disabled by default. The public
-FOV configuration uses `1.200` as both its tested recommendation and maximum
-under the corrected single-owner camera model.
+FOV configuration uses `1.200` as its tested recommendation under the corrected
+single-owner camera model. Higher FOV values are accepted but untested.
 
 Subsequent same-session near/far tests isolated a depth-aware crosshair defect
 to the internal-width boundary. At 3956x1656 the reticle remained visible while

@@ -67,7 +67,7 @@ function Set-PatchSettings([int]$Width, [int]$Height, [decimal]$Fov,
     if ($Width -lt 640 -or $Width -gt 16384 -or $Height -lt 480 -or $Height -gt 16384) {
         throw "Width/height are outside the allowed range."
     }
-    if ($Fov -lt 0.5 -or $Fov -gt 1.20) { throw "FOV multiplier must be between 0.5 and 1.20." }
+    if ($Fov -lt 0.5) { throw "FOV multiplier must be at least 0.5." }
     if ($NativeCameraFov -notin @(0, 1)) { throw "NativeCameraFOV must be 0 or 1." }
     if ($RenderScale -lt 1.0) { throw "Supersampling render scale must be at least 1.0." }
     if ($SupersamplingEnabled -notin @(0, 1)) { throw "SupersamplingEnabled must be 0 or 1." }
@@ -252,7 +252,7 @@ $Ui = @{
         ImprovedFpsOff = "Core mode: optional MGSFPSUnlock is not installed"
         Width = "Physical output width"; Height = "Physical output height"
         AutoSize = "Primary monitor physical size"
-        Fov = "FOV (1.20 tested recommendation / maximum)"
+        Fov = "FOV (1.20 tested 21:9 recommendation)"
         NativeFov = "Experimental native FOV (disable if unstable)"
         Supersampling = "Experimental supersampling (off by default)"
         RenderScale = "Internal render scale"
@@ -273,14 +273,12 @@ $Ui = @{
         AutoHdrTitle = "Auto HDR warning"
         NvidiaTitle = "NVIDIA multi-monitor warning"
         FullscreenTitle = "Exclusive fullscreen"
-        AggressiveFovTitle = "Experimental native FOV"
         SupersamplingTitle = "Experimental supersampling"
         UnsupportedTitle = "Unsupported executable"
         AutoHdrMessage = "Auto HDR is enabled. The multi-monitor test reproduced a red sweep during focus changes. It was not the final cause, but disabling it is recommended while testing. Save anyway?"
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
-        AggressiveFovMessage = "Native FOV is experimental. For 21:9, 1.200 is the tested recommendation and maximum. For the most stable configuration, disable this option. Continue?"
 }
 
 $Form = [Windows.Forms.Form]@{
@@ -364,7 +362,7 @@ if ($AutoResolutionBox.Checked) {
     $WidthBox.Value = $PrimaryWidth; $HeightBox.Value = $PrimaryHeight
     $WidthBox.Enabled = $false; $HeightBox.Enabled = $false
 }
-Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.50 1.20 ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 2
+Add-Label $Ui.Fov 204; $FovBox = Add-Numeric 204 0.500 ([decimal]::MaxValue) ([decimal]::Parse((Get-IniValue "FOVMultiplier"), [Globalization.CultureInfo]::InvariantCulture)) 3
 $NativeFovBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.NativeFov
     Location = [Drawing.Point]::new(435, 199); Size = [Drawing.Size]::new(175, 42)
@@ -532,12 +530,6 @@ $SaveButton.Add_Click({
         $Answer = [Windows.Forms.MessageBox]::Show(
             "Experimental supersampling will render internally at $RenderWidth x $RenderHeight and present at $([int]$WidthBox.Value) x $([int]$HeightBox.Value). Known crosshair limitation: an internal width of exactly 4096 can flicker, and higher widths can make the reticle disappear depending on aiming depth. Keep the internal width below 4096; 3956 x 1656 is the validated stable setting for 3440 x 1440 output. It does not require AMD VSR, NVIDIA DSR or a desktop-resolution change. It can sharply reduce performance, exhaust VRAM, crash the game or graphics driver, and make the Steam overlay/HUD smaller because the complete frame is downsampled. No automatic limit is applied. Windowed presentation is recommended. Continue under your responsibility?",
             $Ui.SupersamplingTitle, "YesNo", "Warning")
-        if ($Answer -ne "Yes") { return }
-    }
-    if ($NativeFovBox.Checked) {
-        $Answer = [Windows.Forms.MessageBox]::Show(
-            $Ui.AggressiveFovMessage, $Ui.AggressiveFovTitle,
-            "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }
     if ($DisplayModeBox.SelectedIndex -eq 1) {

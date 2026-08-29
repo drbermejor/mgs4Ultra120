@@ -40,8 +40,8 @@ unlock implementation.
 
 - 3440x1440 real-time 3D rendering is validated as correctly proportioned and
   Hor+ rather than a stretched 16:9 image.
-- `FOVMultiplier=1.200` is the tested 21:9 recommendation and supported
-  maximum under the corrected single-owner model. `1.000` preserves the
+- `FOVMultiplier=1.200` is the tested 21:9 recommendation under the corrected
+  single-owner model. `1.000` preserves the
   original vertical FOV but frames Snake more tightly in the tested view.
 - Native FOV is still experimental. Disable it independently in the
   configurator if a new stability or scene-specific issue appears; Hor+ remains
@@ -55,9 +55,11 @@ unlock implementation.
   render/culling mismatch and the withdrawn alpha.6 double transformation.
 - Native Windows validation at 3440x1440 completed with native mode active, no
   fallback, natural object proportions, an undistorted WeaponWindow and clean
-  problematic cinematics. The public range ends at `1.200`.
+  problematic cinematics.
 - Native FOV remains experimental. For maximum stability, leave it disabled;
-  when enabled at 21:9, do not exceed the tested `1.200` recommendation.
+  values above the tested `1.200` recommendation are allowed but untested and
+  may expose early geometry/animation transitions, culling artifacts or other
+  scene-specific problems. Use them under your own responsibility.
 - Native 3440x1440 testing has correct proportions and a working aiming
   crosshair. Experimental supersampling tests isolate a separate
   internal-width boundary: the reticle is stable at 3956x1656, flickers at

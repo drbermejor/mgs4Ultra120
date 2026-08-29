@@ -1,8 +1,9 @@
 MGS4 ULTRA120 - COPY-ONLY MANUAL INSTALL
 
-FOV 1.200 is the tested 21:9 default and supported maximum. Any value above
-1.000 can show actors, geometry or transitions at cinematic edges earlier than
-intended.
+FOV 1.200 is the tested 21:9 recommendation. Higher valid values are accepted
+without a hard limit, but are untested and can show actors, geometry or
+transitions at cinematic edges earlier than intended. Check
+mgs4_ultrawide.log when troubleshooting custom values.
 
 CORE / NORMAL-FPS ROUTE
 

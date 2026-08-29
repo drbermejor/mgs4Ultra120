@@ -17,8 +17,10 @@ setup detects known conflicting loaders and old project ASIs.
 
 - **Most stable:** leave **Experimental native FOV** disabled. Ultrawide aspect
   correction still works with the game's original vertical FOV.
-- **Expanded 21:9 FOV:** enable it and use `1.200`. Do not exceed `1.200` at
-  21:9. Disable the option again if a game scene behaves incorrectly.
+- **Expanded 21:9 FOV:** enable it and use the tested `1.200` recommendation.
+  Higher values are allowed but untested and may expose geometry/animation
+  transitions or culling problems; use them under your responsibility and
+  disable the option if a scene behaves incorrectly.
 - **Supersampling:** experimental and disabled by default. Keep internal width
   below 4096 to avoid aiming-reticle problems.
 
@@ -66,5 +68,5 @@ unknown-publisher warning. The installer is optional: use the Portable or
 Manual ZIP if preferred. The project is open source, contains no game files and
 never modifies `mgs4.exe`.
 
-[Gameplay screenshot](https://github.com/drbermejor/mgs4Ultra120/blob/main/docs/images/v0.3.3-alpha.1-gameplay-3440x1440.png) ·
+[Gameplay screenshot](https://github.com/drbermejor/mgs4Ultra120/blob/main/docs/images/v0.3.3-alpha.1-gameplay-3440x1440.png) |
 [Weapon-menu screenshot](https://github.com/drbermejor/mgs4Ultra120/blob/main/docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png)

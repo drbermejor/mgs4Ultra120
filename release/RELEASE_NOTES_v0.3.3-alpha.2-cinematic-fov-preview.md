@@ -56,8 +56,10 @@ to the recommended build, close the game and restore
 
 ## Reporting
 
-Please use only the centralized tracking issue linked below. Do not open a
-separate issue for each scene. Include the exact scene/checkpoint, resolution,
-both FOV values, screenshot or video, and `mgs4_ultrawide.log`.
+Please use only
+[tracking issue #5](https://github.com/drbermejor/mgs4Ultra120/issues/5).
+Do not open a separate issue for each scene. Include the exact
+scene/checkpoint, resolution, both FOV values, screenshot or video, and
+`mgs4_ultrawide.log`.
 
 Reports without enough reproduction information may not be investigated.

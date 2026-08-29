@@ -32,6 +32,8 @@ REVERT
 Set ExperimentalCinematicFOV=0, or restore the v0.3.3-alpha.1 ASI for a full
 rollback. Never keep two project ASIs under different filenames.
 
-Report results only in the centralized tracking issue linked from the preview
-release. Include the scene, resolution, both FOV values, screenshot/video and
+Report results only in the centralized tracking issue:
+https://github.com/drbermejor/mgs4Ultra120/issues/5
+
+Include the scene, resolution, both FOV values, screenshot/video and
 mgs4_ultrawide.log.

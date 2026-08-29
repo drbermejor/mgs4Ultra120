@@ -41,7 +41,9 @@ earlier builds.
 
 ## Reporting
 
-Use only the tracking issue linked from the preview release. Include:
+Use only
+[tracking issue #5](https://github.com/drbermejor/mgs4Ultra120/issues/5).
+Include:
 
 - exact chapter, scene and checkpoint;
 - resolution and aspect ratio;

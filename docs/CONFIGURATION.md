@@ -31,6 +31,8 @@ Height=1440
 FOVMultiplier=1.200
 FOVModelVersion=2
 NativeCameraFOV=1
+ExperimentalCinematicFOV=0
+CinematicFOVMultiplier=inherit
 
 [FPS]
 Limit=60
@@ -57,8 +59,8 @@ UsePrimaryPhysicalResolution=1
   preserves the game's original vertical FOV but frames Snake more tightly in
   the tested view. Native camera ownership keeps projection and visibility data
   synchronized. Values above `1.200` are untested and may reveal geometry or
-  animation transitions early, cause culling artifacts, unusual framing or
-  instability; they are accepted under the user's responsibility. Both `.`
+  animation transitions early, produce unusual framing or cause instability;
+  they are accepted under the user's responsibility. Both `.`
   and `,` decimal separators are accepted.
 - `FOVModelVersion=2` records the single-owner model. Managed Windows updates
   migrate the old repeated-route default `1.050` to `1.200` once; later manual
@@ -67,6 +69,12 @@ UsePrimaryPhysicalResolution=1
   experimental in this alpha. Set it to `0` first if instability or a
   scene-specific regression appears; Hor+ remains enabled with the game's
   original vertical FOV. Both configurators expose this switch.
+- `ExperimentalCinematicFOV=1` opts into the separate in-engine cinematic
+  camera preview. It is `0` by default and does not affect pre-rendered video.
+- `CinematicFOVMultiplier=inherit` uses the gameplay `FOVMultiplier`. Advanced
+  testers may enter a separate finite value of `0.500` or greater. Expanded
+  cinematic framing can reveal characters, objects or animation transitions
+  before the authored shot intended them to enter the frame.
 - `ControllerProfileFixEnabled=1` preserves the native connected-controller
   family when the port incorrectly attempts to switch to keyboard profile 0.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build

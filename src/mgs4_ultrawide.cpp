@@ -33,14 +33,21 @@ static std::uint32_t g_output_height = 1440;
 static std::uint32_t g_target_width = 3440;
 static std::uint32_t g_target_height = 1440;
 static float g_fov_multiplier = 1.20f;
+static float g_cinematic_fov_multiplier = 1.20f;
 static float g_render_scale = 1.0f;
 static bool g_enable_ultrawide = true;
 static bool g_enable_resolution_override = true;
 static bool g_controller_profile_fix = true;
 static bool g_native_camera_fov_requested;
 static bool g_native_camera_fov_active;
+static bool g_experimental_cinematic_fov_requested;
+static bool g_experimental_cinematic_fov_active;
 static volatile LONG g_locked_controller_profile;
 static volatile LONG g_minhook_state;
+static thread_local unsigned g_cinematic_camera_owner_depth;
+static thread_local void* g_cinematic_camera_object;
+static thread_local ULONGLONG g_cinematic_camera_tick;
+static thread_local float g_cinematic_camera_input_scale;
 
 using TimeBeginPeriodFn = MMRESULT (WINAPI*)(UINT);
 using TimeGetTimeFn = DWORD (WINAPI*)();
@@ -49,12 +56,14 @@ using BuildCameraFn = void (__fastcall*)(void* camera, const void* source,
                                          float projection_scale,
                                          float parameter4, float parameter5,
                                          float aspect_scale);
+using UpdateCinematicCameraFn = void (__fastcall*)(void* context);
 using SetResolutionFn = void (__fastcall*)(std::uint16_t mode, std::int32_t index,
                                            std::uint8_t use_safe_area,
                                            std::uint32_t width,
                                            std::uint32_t height);
 static SetProjectionFn g_original_set_projection;
 static BuildCameraFn g_original_build_camera;
+static UpdateCinematicCameraFn g_original_update_cinematic_camera;
 static SetResolutionFn g_original_set_resolution;
 using SetDetectedProfileFn = void (__fastcall*)(std::int32_t);
 static SetDetectedProfileFn g_original_set_detected_profile;
@@ -157,6 +166,18 @@ static bool parse_ini_decimal(const char* text, float* value) {
     if (negative) result = -result;
     *value = static_cast<float>(result);
     return std::isfinite(*value);
+}
+
+static bool ascii_equals_ignore_case(const char* left, const char* right) {
+    if (!left || !right) return false;
+    while (*left && *right) {
+        char a = *left++;
+        char b = *right++;
+        if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = static_cast<char>(b - 'A' + 'a');
+        if (a != b) return false;
+    }
+    return *left == '\0' && *right == '\0';
 }
 
 // The PC port can spuriously select profile 0 (keyboard) while an XInput slot
@@ -653,16 +674,51 @@ static void __fastcall hooked_build_camera(void* camera, const void* source,
         return_address >= g_executable_base
             ? return_address - g_executable_base
             : return_address;
-    const bool apply_native_fov =
+    const bool direct_cinematic_owner =
+        g_experimental_cinematic_fov_active &&
+        g_cinematic_camera_owner_depth != 0 &&
+        mgs4_camera::owns_cinematic_source(caller_return_rva);
+    const ULONGLONG now_tick = GetTickCount64();
+    const float propagation_tolerance =
+        std::fmax(0.001f, std::fabs(g_cinematic_camera_input_scale) * 0.001f);
+    const bool final_cinematic_rebuild =
+        g_experimental_cinematic_fov_active &&
+        mgs4_camera::owns_cinematic_final_rebuild(caller_return_rva) &&
+        camera == g_cinematic_camera_object &&
+        now_tick - g_cinematic_camera_tick <= 250 &&
+        std::fabs(projection_scale - g_cinematic_camera_input_scale) <=
+            propagation_tolerance;
+    const bool gameplay_owner =
         mgs4_camera::owns_native_fov(caller_return_rva);
+    const bool apply_native_fov = gameplay_owner || direct_cinematic_owner ||
+                                  final_cinematic_rebuild;
+    const float selected_multiplier =
+        direct_cinematic_owner || final_cinematic_rebuild
+            ? g_cinematic_fov_multiplier
+            : g_fov_multiplier;
     const float adjusted_scale = apply_native_fov
         ? mgs4_projection::adjust_camera_input_scale(
-              projection_scale, g_fov_multiplier)
+              projection_scale, selected_multiplier)
         : projection_scale;
+    if (direct_cinematic_owner) {
+        g_cinematic_camera_object = camera;
+        g_cinematic_camera_tick = now_tick;
+        g_cinematic_camera_input_scale = projection_scale;
+    }
     if (adjusted_scale != projection_scale)
         InterlockedIncrement(&g_native_camera_fov_patches);
     g_original_build_camera(camera, source, adjusted_scale, parameter4,
                             parameter5, aspect_scale);
+}
+
+// Runtime ownership tracing isolated FUN_140652e00 as the high-level owner of
+// the tested in-engine cinematic camera. It enters the shared route-02 wrapper,
+// so a TLS scope selects only this owner and leaves WeaponWindow/auxiliary
+// cameras untouched. Route 06 is the validated final rebuild.
+static void __fastcall hooked_update_cinematic_camera(void* context) {
+    ++g_cinematic_camera_owner_depth;
+    g_original_update_cinematic_camera(context);
+    --g_cinematic_camera_owner_depth;
 }
 
 // Central display-mode setter. The launcher keeps the physical output/window
@@ -918,6 +974,39 @@ static bool install_native_camera_fov_hook(std::uintptr_t base) {
     return true;
 }
 
+static bool install_cinematic_camera_owner_hook(std::uintptr_t base) {
+    constexpr std::uintptr_t cinematic_camera_owner_rva = 0x652e00;
+    constexpr unsigned char expected[] =
+        {0x40, 0x55, 0x53, 0x57, 0x41, 0x56, 0x48, 0x8d};
+    auto* target = reinterpret_cast<unsigned char*>(
+        base + cinematic_camera_owner_rva);
+    for (unsigned attempt = 0; attempt < 200; ++attempt) {
+        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
+        if (attempt == 199) {
+            log_line("ERROR: experimental cinematic camera owner did not decrypt in time; cinematic FOV remains disabled.");
+            return false;
+        }
+        Sleep(25);
+    }
+    DWORD old_protection = 0;
+    if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
+        log_line("ERROR: could not enable the experimental cinematic camera hook.");
+        return false;
+    }
+    const bool okay = initialize_minhook() && create_and_enable_hook(
+        target, reinterpret_cast<void*>(&hooked_update_cinematic_camera),
+        reinterpret_cast<void**>(&g_original_update_cinematic_camera),
+        "experimental cinematic camera owner");
+    DWORD ignored = 0;
+    VirtualProtect(target, 32,
+                   okay ? final_code_protection(old_protection) : old_protection,
+                   &ignored);
+    if (!okay) return false;
+    g_experimental_cinematic_fov_active = true;
+    log_line("Experimental cinematic FOV hook installed: scoped route 02 and final rebuild route 06 only.");
+    return true;
+}
+
 static void put32(std::uintptr_t base, std::uintptr_t rva, std::uint32_t value) {
     *reinterpret_cast<volatile std::uint32_t*>(base + rva) = value;
 }
@@ -974,11 +1063,22 @@ static DWORD WINAPI patch_thread(void*) {
         "Input", "ControllerProfileFixEnabled", 1, ini_path) != 0;
     g_native_camera_fov_requested = GetPrivateProfileIntA(
         "Ultrawide", "NativeCameraFOV", 1, ini_path) != 0;
+    g_experimental_cinematic_fov_requested = GetPrivateProfileIntA(
+        "Ultrawide", "ExperimentalCinematicFOV", 0, ini_path) != 0;
     char fov_text[32] = {};
     GetPrivateProfileStringA("Ultrawide", "FOVMultiplier", "1.200", fov_text,
                              sizeof(fov_text), ini_path);
     float fov_multiplier = 1.20f;
     const bool fov_valid = parse_ini_decimal(fov_text, &fov_multiplier);
+    char cinematic_fov_text[32] = {};
+    GetPrivateProfileStringA("Ultrawide", "CinematicFOVMultiplier", "inherit",
+                             cinematic_fov_text,
+                             sizeof(cinematic_fov_text), ini_path);
+    const bool cinematic_fov_inherits =
+        ascii_equals_ignore_case(cinematic_fov_text, "inherit");
+    float cinematic_fov_multiplier = fov_multiplier;
+    const bool cinematic_fov_valid = cinematic_fov_inherits ||
+        parse_ini_decimal(cinematic_fov_text, &cinematic_fov_multiplier);
     char render_scale_text[32] = {};
     GetPrivateProfileStringA("Supersampling", "RenderScale", "1.50",
                              render_scale_text, sizeof(render_scale_text),
@@ -993,11 +1093,14 @@ static DWORD WINAPI patch_thread(void*) {
             width, height, render_scale, &render_width, &render_height));
     if (!width || !height ||
         (enable_ultrawide && (!fov_valid || fov_multiplier < 0.5f)) ||
+        (enable_ultrawide && g_experimental_cinematic_fov_requested &&
+         (!cinematic_fov_valid || cinematic_fov_multiplier < 0.5f)) ||
         !render_extent_valid) {
         char invalid_message[512] = {};
         std::snprintf(invalid_message, sizeof(invalid_message),
-                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s' (must be finite and at least 0.500), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
+                      "ERROR: invalid display configuration in %s: output=%ux%u, FOVMultiplier='%s', CinematicFOVMultiplier='%s' (use 'inherit' or a finite value of at least 0.500), SupersamplingEnabled=%u, RenderScale='%s' (must be finite, at least 1.0, and fit the game's 32-bit resolution fields).",
                       ini_path, width, height, fov_text,
+                      cinematic_fov_text,
                       enable_supersampling ? 1u : 0u, render_scale_text);
         log_line(invalid_message);
         return 0;
@@ -1010,21 +1113,32 @@ static DWORD WINAPI patch_thread(void*) {
     g_target_width = render_width;
     g_target_height = render_height;
     g_fov_multiplier = fov_multiplier;
+    g_cinematic_fov_multiplier = cinematic_fov_inherits
+        ? fov_multiplier : cinematic_fov_multiplier;
     g_render_scale = enable_supersampling ? render_scale : 1.0f;
     g_target_aspect = static_cast<float>(width) / static_cast<float>(height);
 
     char settings_message[512] = {};
     std::snprintf(settings_message, sizeof(settings_message),
-                  "Configuration: output %ux%u; internal render %ux%u; supersampling %s (scale %.3f); ultrawide/FOV %s (aspect %.6f, FOVMultiplier %.3f, NativeCameraFOV requested=%s); controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
+                  "Configuration: output %ux%u; internal render %ux%u; supersampling %s (scale %.3f); ultrawide/FOV %s (aspect %.6f, gameplay FOV %.3f, NativeCameraFOV requested=%s); experimental cinematic FOV requested=%s (multiplier %.3f, %s); controller-profile fix %s. FPS timing is delegated to MGSFPSUnlock.",
                   g_output_width, g_output_height, g_target_width,
                   g_target_height, enable_supersampling ? "on" : "off",
                   g_render_scale, enable_ultrawide ? "on" : "off",
                   g_target_aspect, g_fov_multiplier,
                   g_native_camera_fov_requested ? "yes" : "no",
+                  g_experimental_cinematic_fov_requested ? "yes" : "no",
+                  g_cinematic_fov_multiplier,
+                  cinematic_fov_inherits ? "inherits gameplay" : "separate",
                   controller_profile_fix ? "on" : "off");
     log_line(settings_message);
     if (enable_ultrawide && fov_multiplier > 1.20f) {
-        log_line("WARNING: FOVMultiplier exceeds the tested 1.200 recommendation. No upper limit is enforced; unusual framing, early edge-of-frame geometry or animation visibility, culling artifacts and instability are the user's responsibility.");
+        log_line("WARNING: FOVMultiplier exceeds the tested 1.200 recommendation. No upper limit is enforced; unusual framing and early edge-of-frame geometry or animation visibility are the user's responsibility.");
+    }
+    if (enable_ultrawide && g_experimental_cinematic_fov_requested) {
+        log_line("WARNING: cinematic FOV is an opt-in preview. Expanded framing can reveal characters, objects, geometry or animation transitions before the authored shot intended them to enter the frame. This expected scene pop-in/early visibility is distinct from the old projection/frustum culling regression.");
+        if (g_cinematic_fov_multiplier > 1.20f) {
+            log_line("WARNING: CinematicFOVMultiplier exceeds the 1.200 preview recommendation and has not been broadly validated.");
+        }
     }
     if (enable_supersampling && (render_scale > 2.0f ||
         render_width > 16384 || render_height > 16384)) {
@@ -1050,8 +1164,16 @@ static DWORD WINAPI patch_thread(void*) {
         install_resolution_hook(base);
     }
     if (enable_ultrawide) {
+        bool native_hook_started = false;
         if (g_native_camera_fov_requested)
-            install_native_camera_fov_hook(base);
+            native_hook_started = install_native_camera_fov_hook(base);
+        if (g_experimental_cinematic_fov_requested) {
+            if (native_hook_started) {
+                install_cinematic_camera_owner_hook(base);
+            } else {
+                log_line("WARNING: experimental cinematic FOV requires the native camera hook and remains disabled for this run.");
+            }
+        }
         install_engine_hook(base);
         if (g_native_camera_fov_requested) {
             log_line("Experimental native FOV requested. Route 0x0ba3a3 owns the multiplier; common-setter FOV remains the automatic fallback only if the native hook cannot start.");

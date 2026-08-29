@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(MGS4Ultra120 VERSION 0.3.3 LANGUAGES C CXX)
 
-set(MGS4ULTRA120_RELEASE_VERSION "v0.3.3-alpha.1")
-set(MGS4ULTRA120_VERSION_NUMERIC "0,3,3,1")
+set(MGS4ULTRA120_RELEASE_VERSION "v0.3.3-alpha.2-cinematic-fov-preview")
+set(MGS4ULTRA120_VERSION_NUMERIC "0,3,3,2")
 
 include(CTest)
 

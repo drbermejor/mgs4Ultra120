@@ -156,6 +156,10 @@ int main() {
     if (mgs4_camera::owns_native_fov(0x0eb0eb)) return 42;
     if (mgs4_camera::owns_native_fov(0x0eb191)) return 43;
     if (mgs4_camera::owns_native_fov(0)) return 44;
+    if (!mgs4_camera::owns_cinematic_source(0x0b9ba0)) return 48;
+    if (mgs4_camera::owns_cinematic_source(0x0ba3a3)) return 49;
+    if (!mgs4_camera::owns_cinematic_final_rebuild(0x0eb0eb)) return 50;
+    if (mgs4_camera::owns_cinematic_final_rebuild(0x0eb191)) return 51;
     if (!mgs4_camera::renderer_is_aspect_only(true, true)) return 45;
     if (mgs4_camera::renderer_is_aspect_only(false, true)) return 46;
     if (!mgs4_camera::renderer_is_aspect_only(false, false)) return 47;

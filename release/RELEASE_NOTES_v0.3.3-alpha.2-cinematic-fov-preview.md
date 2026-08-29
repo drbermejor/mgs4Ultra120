@@ -6,8 +6,9 @@ play, continue using
 
 ## What it tests
 
-The preview can apply configurable FOV to real-time, in-engine cutscenes while
-keeping gameplay and cinematic multipliers independent:
+The preview can apply configurable FOV to real-time, in-engine cutscenes.
+
+To use the **same multiplier for gameplay and cutscenes**:
 
 ```ini
 FOVMultiplier=1.200
@@ -15,9 +16,19 @@ ExperimentalCinematicFOV=1
 CinematicFOVMultiplier=inherit
 ```
 
-`inherit` uses the gameplay value. Advanced testers can enter a separate
-cinematic multiplier such as `1.100`. Values are not artificially capped, but
-`1.200` or lower is recommended for initial 21:9 testing.
+`inherit` makes the cinematic FOV use the normal `FOVMultiplier` value.
+
+To use **separate gameplay and cinematic multipliers**:
+
+```ini
+FOVMultiplier=1.200
+ExperimentalCinematicFOV=1
+CinematicFOVMultiplier=1.100
+```
+
+In this example, gameplay uses `1.200` and real-time cutscenes use `1.100`.
+Values are not artificially capped, but `1.200` or lower is recommended for
+initial 21:9 testing.
 
 Pre-rendered videos are unaffected.
 

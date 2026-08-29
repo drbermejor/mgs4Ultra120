@@ -3,7 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-VERSION="v0.3.3-alpha.1"
+VERSION="$(tr -d '\r\n' <"$PACKAGE_DIR/VERSION")"
+[[ -n "$VERSION" ]] || { echo "Package VERSION is empty." >&2; exit 1; }
 GAME_DIR="${MGS4_GAME_DIR:-$HOME/.local/share/Steam/steamapps/common/METAL GEAR SOLID 4/MGS4}"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
@@ -126,6 +127,7 @@ existing = destination.read_text()
 preserved = (
     "UltrawideEnabled", "FPSOverrideEnabled", "AllowUnsupportedExecutable",
     "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
+    "ExperimentalCinematicFOV", "CinematicFOVMultiplier",
     "SupersamplingEnabled", "RenderScale", "Limit",
     "ControllerProfileFixEnabled", "SkipUnityLauncher", "Region",
     "SelfRegion", "Language", "ControllerType", "DisplayMode",
@@ -243,6 +245,6 @@ if [[ "$INSTALL_FPS" == 1 ]]; then
 else
   echo "Corrected FPS component: not installed; the game keeps its normal FPS behavior."
 fi
-echo "Run scripts/linux/configure.sh gui to choose resolution, FOV, supersampling and fullscreen mode."
+echo "Run scripts/linux/configure.sh gui to choose resolution, gameplay/cinematic FOV, supersampling and fullscreen mode."
 echo "Configurator shortcut: $DESKTOP_SHORTCUT"
 echo "Launch through Steam; DirectX 12 is the validated path."

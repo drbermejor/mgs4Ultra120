@@ -6,8 +6,8 @@ REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 VERSION="${1:-}"
 PLATFORM="${2:-all}"
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-946684800}"
-[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]] || {
-  echo "Usage: $0 vX.Y.Z-alpha.N [windows|linux|all]" >&2
+[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+(-[a-z0-9][a-z0-9.-]*)?$ ]] || {
+  echo "Usage: $0 vX.Y.Z-alpha.N[-preview-name] [windows|linux|all]" >&2
   exit 1
 }
 [[ "$PLATFORM" == windows || "$PLATFORM" == linux || "$PLATFORM" == all ]] || {
@@ -154,8 +154,10 @@ if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
   # never leak CRLF shebangs into the Linux tarball.
   sed -i 's/\r$//' "$linux_root/scripts/linux/"*.sh \
     "$linux_root/scripts/linux/"*.py "$linux_root/"*.sh
+  find "$linux_root" -type d -exec chmod 0755 {} +
+  find "$linux_root" -type f -exec chmod 0644 {} +
   chmod +x "$linux_root/scripts/linux/"*.sh "$linux_root/scripts/linux/"*.py \
-    "$linux_root/"*.sh
+    "$linux_root/"*.sh "$linux_root/bin/launcher.exe"
   find "$linux_root" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
   linux_asset="$DIST/MGS4Ultra120-$VERSION-linux.tar.gz"
   rm -f -- "$linux_asset"

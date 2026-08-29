@@ -14,6 +14,7 @@ pop-in/early visibility, not the earlier projection/frustum culling regression.
 
 Please include all of the following:
 
+- operating system; on Linux include the distribution and Proton version;
 - chapter, scene and checkpoint;
 - output resolution and aspect ratio;
 - `FOVMultiplier`;

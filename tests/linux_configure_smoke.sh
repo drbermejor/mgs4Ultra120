@@ -19,9 +19,12 @@ cp "$REPO_DIR/config/MGSFPSUnlock.ini" "$FIXTURE/scripts/MGSFPSUnlock.ini"
 MGS4_GAME_DIR="$FIXTURE" "$REPO_DIR/scripts/linux/configure.sh" stable
 grep -q '^UltrawideEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.200$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^ExperimentalCinematicFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^CinematicFOVMultiplier=inherit$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^FPSOverrideEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^Limit=60$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^ControllerProfileFixEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^ExperimentalCinematicFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^TargetFrameRate = 120$' "$FIXTURE/scripts/MGSFPSUnlock.ini"
 
 MGS4_GAME_DIR="$FIXTURE" \

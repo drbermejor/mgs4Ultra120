@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.3-alpha.2-cinematic-fov-preview
+
+- Added an opt-in real-time cinematic FOV path with either the gameplay
+  multiplier (`inherit`) or an independent cinematic multiplier.
+- Added a Linux/Proton preview package using the same ASI, with cinematic FOV
+  controls in the Linux configurator and preservation across managed updates.
+- Kept the stable behavior as the default and documented possible authored
+  scene pop-in or early visibility separately from projection/frustum culling.
+
 ## Unreleased maintenance correction
 
 - Removed the unintended `FOVMultiplier=1.200` hard ceiling. Finite values of

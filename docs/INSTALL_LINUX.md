@@ -5,6 +5,20 @@ as Windows. It provides ultrawide/Hor+, configurable FOV and resolution,
 experimental supersampling, the controller-profile correction, optional direct
 launch and optional corrected 30/60/120 FPS.
 
+The separate cinematic-FOV preview adds an **experimental real-time cinematic
+FOV** control to the same Linux configurator. Leave it disabled for the
+recommended behavior. When enabled, use `inherit` to reuse the gameplay FOV or
+enter a different cinematic multiplier, for example:
+
+```ini
+FOVMultiplier=1.200
+ExperimentalCinematicFOV=1
+CinematicFOVMultiplier=1.100
+```
+
+Pre-rendered videos are unaffected. Expanded framing can reveal characters,
+objects or animation transitions earlier than the original shot intended.
+
 Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
 the supported Steam executable. Other Proton versions may work but have not
 passed the same release checks.

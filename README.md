@@ -5,7 +5,7 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
 > **Experimental branch:** this branch contains the opt-in cinematic FOV
-> preview. Normal users should install the recommended
+> preview for Windows and Linux/Proton. Normal users should install the recommended
 > [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1).
 > The preview is distributed separately and does not replace that release.
 

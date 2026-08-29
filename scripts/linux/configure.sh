@@ -15,7 +15,8 @@ LAUNCHER_BACKUP="$BACKUP_DIR/launcher.exe.preinstall"
 WRAPPER_SOURCE="$PACKAGE_DIR/bin/launcher.exe"
 KNOWN_EXE_SHA256="9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 MODE="${1:-gui}"
-VERSION="v0.3.3-alpha.1"
+VERSION="$(tr -d '\r\n' <"$PACKAGE_DIR/VERSION")"
+[[ -n "$VERSION" ]] || { echo "ERROR: Package VERSION is empty." >&2; exit 1; }
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 ini_value() { sed -n "s/^$1=//p" "$INI" | tr -d '\r' | head -n1; }
@@ -28,8 +29,8 @@ game_running() {
 game_running && die "Exit the game before changing settings."
 
 apply_values() {
-  local width="$1" height="$2" fov="$3" native_fov="$4" ultrawide="$5" controller_fix="$6" skip_launcher="$7" language="$8" allow_unsupported="$9" supersampling="${10}" render_scale="${11}" fps_target="${12}"
-  python3 - "$INI" "$FPS_INI" "$width" "$height" "$fov" "$native_fov" "$ultrawide" "$controller_fix" "$skip_launcher" "$language" "$allow_unsupported" "$supersampling" "$render_scale" "$fps_target" <<'PY'
+  local width="$1" height="$2" fov="$3" native_fov="$4" cinematic_fov="$5" cinematic_multiplier="$6" ultrawide="$7" controller_fix="$8" skip_launcher="$9" language="${10}" allow_unsupported="${11}" supersampling="${12}" render_scale="${13}" fps_target="${14}"
+  python3 - "$INI" "$FPS_INI" "$width" "$height" "$fov" "$native_fov" "$cinematic_fov" "$cinematic_multiplier" "$ultrawide" "$controller_fix" "$skip_launcher" "$language" "$allow_unsupported" "$supersampling" "$render_scale" "$fps_target" <<'PY'
 import math
 import re
 import sys
@@ -37,7 +38,7 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 fps_path = Path(sys.argv[2])
-width, height, fov, native_fov, ultrawide, controller_fix, skip_launcher, language, allow_unsupported, supersampling, render_scale, fps_target = sys.argv[3:]
+width, height, fov, native_fov, cinematic_fov, cinematic_multiplier, ultrawide, controller_fix, skip_launcher, language, allow_unsupported, supersampling, render_scale, fps_target = sys.argv[3:]
 try:
     width_i, height_i = int(width), int(height)
     fov_f = float(fov.replace(",", "."))
@@ -54,6 +55,17 @@ if supersampling not in ("0", "1"):
     raise SystemExit("Invalid supersampling state")
 if native_fov not in ("0", "1"):
     raise SystemExit("Invalid experimental native FOV state")
+if cinematic_fov not in ("0", "1"):
+    raise SystemExit("Invalid experimental cinematic FOV state")
+cinematic_multiplier = cinematic_multiplier.strip().lower().replace(",", ".")
+if cinematic_multiplier != "inherit":
+    try:
+        cinematic_multiplier_f = float(cinematic_multiplier)
+    except ValueError as error:
+        raise SystemExit(f"Invalid cinematic FOV multiplier: {error}")
+    if cinematic_multiplier_f < 0.5 or not math.isfinite(cinematic_multiplier_f):
+        raise SystemExit("Cinematic FOV multiplier must be 'inherit' or a finite value of at least 0.5")
+    cinematic_multiplier = f"{cinematic_multiplier_f:.3f}"
 if fps_target not in ("30", "60", "120"):
     raise SystemExit("FPS target must be 30, 60 or 120")
 if language == "ge":
@@ -64,6 +76,8 @@ values = {
     "Width": str(width_i), "Height": str(height_i),
     "FOVMultiplier": f"{fov_f:.3f}", "Limit": "60",
     "NativeCameraFOV": native_fov,
+    "ExperimentalCinematicFOV": cinematic_fov,
+    "CinematicFOVMultiplier": cinematic_multiplier,
     "UltrawideEnabled": ultrawide,
     "FPSOverrideEnabled": "0",
     "ControllerProfileFixEnabled": controller_fix,
@@ -177,12 +191,12 @@ fi
 case "$MODE" in
   detected)
     [[ -n "$detected_width" && -n "$detected_height" ]] || die "Could not detect the primary physical display mode."
-    apply_values "$detected_width" "$detected_height" 1.000 1 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"
+    apply_values "$detected_width" "$detected_height" 1.000 1 0 inherit 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"
     exit 0
     ;;
-  stable) apply_values 3440 1440 1.200 1 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
-  ultrawide-only) apply_values 3440 1440 1.200 1 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
-  controller-fix-only) apply_values 3440 1440 1.000 0 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  stable) apply_values 3440 1440 1.200 1 0 inherit 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  ultrawide-only) apply_values 3440 1440 1.200 1 0 inherit 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
+  controller-fix-only) apply_values 3440 1440 1.000 0 0 inherit 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" "$current_supersampling" "$current_render_scale" "$current_fps_target"; exit 0 ;;
   status) show_status; exit $? ;;
   gui) ;;
   *) die "Usage: $0 [gui|detected|stable|ultrawide-only|controller-fix-only|status]" ;;
@@ -193,6 +207,8 @@ command -v zenity >/dev/null || die "zenity is required for GUI mode."
 width="$(ini_value Width)"; height="$(ini_value Height)"
 fov="$(ini_value FOVMultiplier)"
 native_fov="$(ini_value NativeCameraFOV)"
+cinematic_fov="$(ini_value ExperimentalCinematicFOV)"
+cinematic_multiplier="$(ini_value CinematicFOVMultiplier)"
 ultrawide="$(ini_value UltrawideEnabled)"
 controller_fix="$(ini_value ControllerProfileFixEnabled)"
 skip_launcher="$(ini_value SkipUnityLauncher)"; language="$(ini_value Language)"
@@ -203,6 +219,8 @@ if [[ "$ultrawide" == 1 ]]; then ultrawide_values='Enabled|Disabled'
 else ultrawide_values='Disabled|Enabled'; fi
 if [[ "$native_fov" == 1 ]]; then native_fov_values='Enabled (experimental)|Disabled (original vertical FOV)'
 else native_fov_values='Disabled (original vertical FOV)|Enabled (experimental)'; fi
+if [[ "$cinematic_fov" == 1 ]]; then cinematic_fov_values='Enabled (experimental)|Disabled'
+else cinematic_fov_values='Disabled|Enabled (experimental)'; fi
 if [[ "$controller_fix" == 1 ]]; then controller_values='Enabled (recommended)|Disabled'
 else controller_values='Disabled|Enabled (recommended)'; fi
 if [[ "$supersampling" == 1 ]]; then supersampling_values='Enabled (experimental)|Disabled'
@@ -227,6 +245,8 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --add-entry="Width (current: $width)" --add-entry="Height (current: $height)" \
   --add-entry="FOV (current: $fov; 1.200 tested 21:9 recommendation)" \
   --add-combo='Native FOV correction' --combo-values="$native_fov_values" \
+  --add-combo='Real-time cinematic FOV' --combo-values="$cinematic_fov_values" \
+  --add-entry="Cinematic FOV (current: $cinematic_multiplier; use inherit or a number)" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
   --add-entry="Render scale (current: $render_scale; 1.15 keeps 3440 output below 4096 internal)" \
@@ -237,14 +257,16 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --add-combo='Unknown executable policy' --combo-values="$unsupported_values" \
   --add-combo='Linux fullscreen launch' --combo-values='Keep current Steam options|Gamescope fullscreen|Native/no Gamescope' \
   --add-entry="Gamescope refresh rate (detected/default: $detected_refresh)" \
-  --width=860 --height=760)" || exit 0
+  --width=860 --height=840)" || exit 0
 
-IFS='|' read -r new_width new_height new_fov new_native_fov new_ultrawide new_supersampling new_render_scale new_fps new_controller new_launcher new_language new_unsupported steam_mode refresh <<<"$result"
+IFS='|' read -r new_width new_height new_fov new_native_fov new_cinematic_fov new_cinematic_multiplier new_ultrawide new_supersampling new_render_scale new_fps new_controller new_launcher new_language new_unsupported steam_mode refresh <<<"$result"
 new_width="${new_width:-$width}"; new_height="${new_height:-$height}"
 new_fov="${new_fov:-$fov}"; new_render_scale="${new_render_scale:-$render_scale}"
+new_cinematic_multiplier="${new_cinematic_multiplier:-$cinematic_multiplier}"
 new_fps="${new_fps:-$fps_target}"; refresh="${refresh:-$detected_refresh}"
 [[ "$new_ultrawide" == Enabled ]] && ultrawide_value=1 || ultrawide_value=0
 [[ "$new_native_fov" == Enabled* ]] && native_fov_value=1 || native_fov_value=0
+[[ "$new_cinematic_fov" == Enabled* ]] && cinematic_fov_value=1 || cinematic_fov_value=0
 [[ "$new_supersampling" == Enabled* ]] && supersampling_value=1 || supersampling_value=0
 [[ "$new_controller" == Enabled* ]] && controller_value=1 || controller_value=0
 [[ "$new_launcher" == 'Skip Unity launcher' ]] && launcher_value=1 || launcher_value=0
@@ -267,7 +289,7 @@ PY
 fi
 
 set_launcher_wrapper "$launcher_value"
-apply_values "$new_width" "$new_height" "$new_fov" "$native_fov_value" "$ultrawide_value" "$controller_value" "$launcher_value" "$new_language" "$unsupported_value" "$supersampling_value" "$new_render_scale" "$new_fps"
+apply_values "$new_width" "$new_height" "$new_fov" "$native_fov_value" "$cinematic_fov_value" "$new_cinematic_multiplier" "$ultrawide_value" "$controller_value" "$launcher_value" "$new_language" "$unsupported_value" "$supersampling_value" "$new_render_scale" "$new_fps"
 
 launch_note='Steam launch options were left unchanged.'
 if [[ "$steam_mode" != 'Keep current Steam options' ]]; then
@@ -293,4 +315,4 @@ show_status >/dev/null 2>&1 || status='UNSUPPORTED executable; the DLL will fail
 if [[ "$fps_installed" == 1 ]]; then fps_note="corrected FPS ${new_fps}"
 else fps_note='corrected FPS component not installed'; fi
 zenity --info --title="MGS4 Ultra120 $VERSION" \
-  --text="Saved: ultrawide ${new_ultrawide}, ${new_width}x${new_height}, FOV ${new_fov}; supersampling ${new_supersampling} at ${new_render_scale}x; ${fps_note}; controller fix ${new_controller}; ${new_launcher}.\n${launch_note}\nStatus: ${status}."
+  --text="Saved: ultrawide ${new_ultrawide}, ${new_width}x${new_height}, gameplay FOV ${new_fov}; cinematic FOV ${new_cinematic_fov} (${new_cinematic_multiplier}); supersampling ${new_supersampling} at ${new_render_scale}x; ${fps_note}; controller fix ${new_controller}; ${new_launcher}.\n${launch_note}\nStatus: ${status}."

@@ -1,7 +1,7 @@
 # MGS4 Ultra120 v0.3.3-alpha.2 — cinematic FOV preview
 
-This is an **opt-in Windows preview**, not the recommended release. For normal
-play, continue using
+This is an **opt-in Windows and Linux/Proton preview**, not the recommended
+release. For normal play, continue using
 [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1).
 
 ## What it tests
@@ -42,9 +42,9 @@ This is scene pop-in or early visibility from showing more of the authored
 shot. It is **not** the old projection/frustum culling regression discussed
 during earlier FOV experiments.
 
-## Installation
+## Windows installation
 
-This preview intentionally has no installer or complete package.
+The Windows preview intentionally has no installer or complete package.
 
 1. Install and verify `v0.3.3-alpha.1` first.
 2. Close the game.
@@ -59,11 +59,31 @@ This preview intentionally has no installer or complete package.
 Do not copy the preview over alpha.5, alpha.6 or a mixed installation. Do not
 keep the old ASI under another `.asi` filename.
 
+## Linux / Proton installation
+
+1. Download and extract the Linux `.tar.gz` from this release.
+2. Exit Steam completely.
+3. Open a terminal in the extracted folder and run:
+
+   ```bash
+   ./MGS4Ultra120-Linux-Setup.sh
+   ```
+
+4. In the configurator, enable **Real-time cinematic FOV (experimental)**.
+5. Enter `inherit` to reuse the gameplay FOV, or enter a separate cinematic
+   multiplier.
+6. Start Steam and launch the game normally using DirectX 12.
+
+The package uses the same preview ASI as Windows through Proton. Its
+install/configure/uninstall paths passed automated Ubuntu/WSL packaging tests;
+real game behavior on Linux remains experimental and needs community
+validation.
+
 ## Reverting
 
 Set `ExperimentalCinematicFOV=0` to disable the preview path. To return fully
-to the recommended build, close the game and restore
-`v0.3.3-alpha.1`'s `MGS4Ultra120.asi` or reinstall its Manual ZIP.
+to the recommended build, close the game and reinstall the appropriate
+`v0.3.3-alpha.1` Windows or Linux package.
 
 ## Reporting
 

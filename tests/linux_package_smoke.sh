@@ -11,6 +11,7 @@ FPS_ARCHIVE="${2:-}"
 [[ -x "$PACKAGE_DIR/MGS4Ultra120-Linux-Uninstall.sh" ]]
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
+grep -qx 'v0.3.3-alpha.2-cinematic-fov-preview' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -88,11 +89,17 @@ MGS4_GAME_DIR="$GAME_DIR" "$LOCAL_PACKAGE/scripts/linux/configure.sh" stable
 grep -q '^FPSOverrideEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.200$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^NativeCameraFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^ExperimentalCinematicFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^CinematicFOVMultiplier=inherit$' "$GAME_DIR/mgs4_ultrawide.ini"
 
-# Managed updates preserve an explicit experimental-FOV opt-out.
+# Managed updates preserve explicit gameplay and cinematic FOV choices.
 sed -i 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' "$GAME_DIR/mgs4_ultrawide.ini"
+sed -i 's/^ExperimentalCinematicFOV=.*/ExperimentalCinematicFOV=1/' "$GAME_DIR/mgs4_ultrawide.ini"
+sed -i 's/^CinematicFOVMultiplier=.*/CinematicFOVMultiplier=1.100/' "$GAME_DIR/mgs4_ultrawide.ini"
 env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh"
 grep -q '^NativeCameraFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^ExperimentalCinematicFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^CinematicFOVMultiplier=1.100$' "$GAME_DIR/mgs4_ultrawide.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" MGS4_GAME_DIR="$GAME_DIR" \
   XDG_DATA_HOME="$XDG_DATA" MGS4_DESKTOP_DIR="$DESKTOP_DIR" \

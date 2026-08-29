@@ -1,6 +1,6 @@
 # Experimental supersampling
 
-This optional feature is included in `v0.3.4-alpha.3`, but remains experimental
+This optional feature is included in `v0.3.4-alpha.4`, but remains experimental
 and disabled by default. The single-owner experimental FOV route does not depend on
 supersampling; users who do not need downsampling should leave it off.
 
@@ -33,7 +33,7 @@ continues to use the physical output aspect.
 
 ## 16:9 4K-to-1080p preset
 
-`v0.3.4-alpha.3` includes a separate
+`v0.3.4-alpha.4` includes a separate
 `windows-16x9-supersampling.zip` portable package and a
 **16:9 4K -> 1080p preset** button in the normal Windows configurator. The same
 profile is available from the command line on Windows and Linux.

@@ -1,4 +1,4 @@
-$Mgs4Ultra120Version = "v0.3.4-alpha.3"
+$Mgs4Ultra120Version = "v0.3.4-alpha.4"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an

@@ -20,6 +20,11 @@
 #include "camera_route_policy.h"
 #include "fov_strategy.h"
 #include "hud_anchor_math.h"
+#include "indexed_draw_math.h"
+#include "menu_pass_viewport.h"
+#include "ui_emitter_cache_model.h"
+#include "ui_emitter_transform.h"
+#include "ui_route_policy.h"
 
 static HMODULE g_real_winmm;
 static float g_target_aspect = 43.0f / 18.0f;
@@ -36,6 +41,29 @@ static float g_fov_multiplier = 1.0f;
 static bool g_constrain_ui = false;
 static bool g_anchor_ui = false;
 static bool g_center_hud_16x9 = false;
+static bool g_full_canvas_test = false;
+static bool g_ui_emitter_transform_test = false;
+static bool g_preview_3d_uniform_fit_test = false;
+// The broader output-RTV provenance experiment is deliberately not exposed by
+// the public build. Keep the validated geometric preview path independent.
+static constexpr bool g_preview_rtv_gate_test = false;
+static volatile LONG g_ui_route_test_mode;
+static volatile LONG g_ui_route_enabled_mask =
+    static_cast<LONG>(mgs4_hud::kRouteKnown);
+static char g_ui_route_control_path[MAX_PATH];
+static volatile LONG g_selected_viewport_route;
+static volatile LONG g_viewport_transform_mode = 2;
+static volatile LONG64 g_ui_emitter_capture_until;
+static volatile LONG g_ui_emitter_capture_epoch;
+static volatile LONG g_ui_emitter_capture_count;
+static volatile LONG g_ui_emitter_capture_unreadable;
+static volatile LONG g_ui_emitter_capture_duration_ms = 5000;
+static char g_ui_emitter_capture_label[64] = "unlabelled";
+static SRWLOCK g_ui_emitter_capture_label_lock = SRWLOCK_INIT;
+static volatile LONG64 g_text_capture_until;
+static volatile LONG g_text_capture_epoch;
+static volatile LONG g_text_capture_count;
+static void begin_text_capture();
 static bool g_ui_diagnostics = false;
 static bool g_cinematic_diagnostics = false;
 static bool g_projection_diagnostics = false;
@@ -140,6 +168,9 @@ static SetDetectedProfileFn g_original_set_detected_profile;
 static void apply_resolution_state();
 static bool initialize_minhook();
 static void log_line(const char* message);
+static unsigned char* make_centered_ui_emitter_batch_copy(
+    const unsigned char* records, std::uint32_t count, int type,
+    std::uint32_t* patched_records);
 
 // The public patch is an ASI under MGS4\scripts, while its INI and log live
 // beside mgs4.exe. Resolve from the host executable so ASI and proxy loading
@@ -178,23 +209,47 @@ struct CommonUIContext {
     const unsigned char* records;
     std::uint32_t count;
     std::uint32_t cursor;
+    int type;
+    std::uint32_t stride;
     LONG batch;
+    LONG emitter_route;
+    unsigned char cache50[0x50];
+    unsigned char cache10[0x10];
     bool active;
     bool log_batch;
 };
 
 struct CommonUISnapshot {
     std::uintptr_t resource;
-    std::uint64_t transform_hash;
+    std::uint64_t emitter_state_hash;
     std::uint32_t draw[5];
     std::uint32_t record;
+    int record_type;
     LONG batch;
+    LONG emitter_route;
+    bool call50;
+    bool call10;
     bool valid;
+};
+
+struct UIEmitterRouteSlot {
+    volatile LONG64 key;
+    volatile LONG id;
+    volatile LONG calls;
+    std::uint32_t stack_count;
+    std::uintptr_t stack_rvas[10];
+};
+
+struct UIEmitterObservationSlot {
+    volatile LONG64 key;
 };
 
 static thread_local CommonUIContext g_common_ui_context = {};
 static volatile LONG g_common_ui_batch_sequence;
 static volatile LONG g_cinematic_diagnostic_state = LONG_MIN;
+static UIEmitterRouteSlot g_ui_emitter_routes[64];
+static volatile LONG g_ui_emitter_route_count;
+static UIEmitterObservationSlot g_ui_emitter_observations[8192];
 
 static std::uint64_t fnv1a_bytes(const void* data, std::size_t size) {
     const auto* bytes = static_cast<const unsigned char*>(data);
@@ -206,20 +261,162 @@ static std::uint64_t fnv1a_bytes(const void* data, std::size_t size) {
     return hash;
 }
 
-static CommonUISnapshot take_common_ui_snapshot() {
+static LONG remember_ui_emitter_route() {
+    if (!g_full_canvas_test || !g_executable_base) return 0;
+
+    void* frames[24] = {};
+    const USHORT frame_count = RtlCaptureStackBackTrace(
+        0, static_cast<ULONG>(std::size(frames)), frames, nullptr);
+    std::uintptr_t stack_rvas[10] = {};
+    std::uint32_t game_count = 0;
+    const std::uintptr_t game_end =
+        g_executable_base + kSupportedExecutableSize;
+    for (USHORT index = 0; index < frame_count && game_count < 10; ++index) {
+        const auto address = reinterpret_cast<std::uintptr_t>(frames[index]);
+        if (address >= g_executable_base && address < game_end)
+            stack_rvas[game_count++] = address - g_executable_base;
+    }
+    if (!game_count) return 0;
+
+    const std::uint64_t raw_key = fnv1a_bytes(
+        stack_rvas, static_cast<std::size_t>(game_count) * sizeof(stack_rvas[0]));
+    const std::uint64_t key = raw_key ? raw_key : 1;
+    const std::size_t start = static_cast<std::size_t>(
+        key % std::size(g_ui_emitter_routes));
+    for (std::size_t probe = 0; probe < std::size(g_ui_emitter_routes); ++probe) {
+        UIEmitterRouteSlot& slot =
+            g_ui_emitter_routes[(start + probe) % std::size(g_ui_emitter_routes)];
+        const LONG64 existing = InterlockedCompareExchange64(
+            &slot.key, static_cast<LONG64>(key), 0);
+        if (existing == static_cast<LONG64>(key)) {
+            InterlockedIncrement(&slot.calls);
+            return InterlockedCompareExchange(&slot.id, 0, 0);
+        }
+        if (existing == 0) {
+            slot.stack_count = game_count;
+            std::memcpy(slot.stack_rvas, stack_rvas, sizeof(stack_rvas));
+            InterlockedExchange(&slot.calls, 1);
+            const LONG id = InterlockedIncrement(&g_ui_emitter_route_count);
+            InterlockedExchange(&slot.id, id);
+
+            char message[640] = {};
+            int used = std::snprintf(message, sizeof(message),
+                "UI-EMITTER-ROUTE id=%ld hash=0x%016llx stack_rvas=",
+                id, static_cast<unsigned long long>(key));
+            for (std::uint32_t index = 0; index < game_count && used > 0 &&
+                 static_cast<std::size_t>(used) < sizeof(message); ++index) {
+                used += std::snprintf(message + used, sizeof(message) - used,
+                    "%s0x%llx", index ? "," : "",
+                    static_cast<unsigned long long>(stack_rvas[index]));
+            }
+            log_line(message);
+            return id;
+        }
+    }
+    return 0;
+}
+
+static bool remember_ui_emitter_observation(std::uint64_t key) {
+    if (InterlockedCompareExchange(&g_ui_emitter_capture_count, 0, 0) >= 4096)
+        return false;
+    if (!key) key = 1;
+    const std::size_t start = static_cast<std::size_t>(
+        key % std::size(g_ui_emitter_observations));
+    for (std::size_t probe = 0; probe < std::size(g_ui_emitter_observations);
+         ++probe) {
+        UIEmitterObservationSlot& slot = g_ui_emitter_observations[
+            (start + probe) % std::size(g_ui_emitter_observations)];
+        const LONG64 existing = InterlockedCompareExchange64(
+            &slot.key, static_cast<LONG64>(key), 0);
+        if (existing == static_cast<LONG64>(key)) return false;
+        if (existing == 0) return true;
+    }
+    return false;
+}
+
+static void copy_ui_emitter_capture_label(char (&label)[64]) {
+    AcquireSRWLockShared(&g_ui_emitter_capture_label_lock);
+    std::memcpy(label, g_ui_emitter_capture_label, sizeof(label));
+    ReleaseSRWLockShared(&g_ui_emitter_capture_label_lock);
+    label[sizeof(label) - 1] = '\0';
+}
+
+static void begin_ui_emitter_passive_capture(const char* requested_label,
+                                             LONG requested_duration_ms) {
+    char normalized[64] = {};
+    const char* source = requested_label && *requested_label
+        ? requested_label : "unlabelled";
+    std::size_t output = 0;
+    for (std::size_t index = 0; source[index] && output + 1 < sizeof(normalized);
+         ++index) {
+        const unsigned char value = static_cast<unsigned char>(source[index]);
+        normalized[output++] = (value >= 'a' && value <= 'z') ||
+            (value >= 'A' && value <= 'Z') ||
+            (value >= '0' && value <= '9') || value == '-' || value == '_'
+                ? static_cast<char>(value) : '_';
+    }
+    normalized[output] = '\0';
+    const LONG duration = requested_duration_ms >= 1000 &&
+        requested_duration_ms <= 15000 ? requested_duration_ms : 5000;
+
+    AcquireSRWLockExclusive(&g_ui_emitter_capture_label_lock);
+    std::memcpy(g_ui_emitter_capture_label, normalized, sizeof(normalized));
+    ReleaseSRWLockExclusive(&g_ui_emitter_capture_label_lock);
+    for (UIEmitterObservationSlot& slot : g_ui_emitter_observations)
+        InterlockedExchange64(&slot.key, 0);
+    InterlockedExchange(&g_ui_emitter_capture_count, 0);
+    InterlockedExchange(&g_ui_emitter_capture_unreadable, 0);
+    InterlockedExchange(&g_ui_emitter_capture_duration_ms, duration);
+    const LONG epoch = InterlockedIncrement(&g_ui_emitter_capture_epoch);
+    InterlockedExchange64(&g_ui_emitter_capture_until,
+                          static_cast<LONG64>(GetTickCount64() + duration));
+    char message[224] = {};
+    std::snprintf(message, sizeof(message),
+        "UI-EMITTER-CAPTURE-BEGIN epoch=%ld label=%s duration_ms=%ld "
+        "mutation=none", epoch, normalized, duration);
+    log_line(message);
+}
+
+static CommonUISnapshot take_common_ui_snapshot(
+    bool indexed, const std::uint32_t (&draw)[5]) {
     CommonUISnapshot snapshot = {};
     CommonUIContext& context = g_common_ui_context;
     if (!context.active || !context.records || context.cursor >= context.count)
         return snapshot;
 
-    const std::uint32_t record_index = context.cursor++;
+    // FUN_14079f2b0 owns two queues. Type 0 emits DrawInstanced from 0x68-byte
+    // records; type 1 emits DrawIndexedInstanced from 0x80-byte records. A
+    // backend call may submit auxiliary work while the flush scope is active,
+    // so only consume the next record when its draw arguments match exactly.
+    if ((context.type == 1) != indexed) return snapshot;
+
+    const std::uint32_t record_index = context.cursor;
     const unsigned char* record = context.records +
-        static_cast<std::size_t>(record_index) * 0x80u;
-    snapshot.transform_hash = fnv1a_bytes(record, 0x60);
-    std::memcpy(&snapshot.resource, record + 0x60, sizeof(snapshot.resource));
-    std::memcpy(snapshot.draw, record + 0x68, sizeof(snapshot.draw));
+        static_cast<std::size_t>(record_index) * context.stride;
+    const std::size_t resource_offset = context.type == 1 ? 0x60u : 0x50u;
+    const std::size_t draw_offset = context.type == 1 ? 0x68u : 0x58u;
+    const std::size_t draw_words = context.type == 1 ? 5u : 4u;
+    std::uint32_t expected[5] = {};
+    std::memcpy(expected, record + draw_offset,
+                draw_words * sizeof(expected[0]));
+    if (std::memcmp(expected, draw, draw_words * sizeof(draw[0])) != 0)
+        return snapshot;
+
+    ++context.cursor;
+    snapshot.call50 = std::memcmp(context.cache50, record, 0x50) != 0;
+    if (snapshot.call50) std::memcpy(context.cache50, record, 0x50);
+    snapshot.call10 = context.type == 1 &&
+        std::memcmp(context.cache10, record + 0x50, 0x10) != 0;
+    if (snapshot.call10)
+        std::memcpy(context.cache10, record + 0x50, 0x10);
+    snapshot.emitter_state_hash = fnv1a_bytes(record, resource_offset);
+    std::memcpy(&snapshot.resource, record + resource_offset,
+                sizeof(snapshot.resource));
+    std::memcpy(snapshot.draw, expected, sizeof(snapshot.draw));
     snapshot.record = record_index;
+    snapshot.record_type = context.type;
     snapshot.batch = context.batch;
+    snapshot.emitter_route = context.emitter_route;
     snapshot.valid = true;
     return snapshot;
 }
@@ -229,34 +426,91 @@ static void __fastcall hooked_common_ui_flush(std::uintptr_t owner,
                                               int type) {
     const CommonUIContext previous = g_common_ui_context;
     CommonUIContext current = {};
-    if ((g_ui_diagnostics || g_crosshair_diagnostics) && owner && type == 1) {
-        current.count = *reinterpret_cast<const std::uint32_t*>(owner + 0x14);
-        current.records = *reinterpret_cast<const unsigned char* const*>(owner + 0x20);
+    unsigned char* private_records = nullptr;
+    const unsigned char* original_records = nullptr;
+    void* volatile* record_pointer = nullptr;
+    bool private_records_active = false;
+    LONG emitter_route = 0;
+    if (g_full_canvas_test && owner && (type == 0 || type == 1)) {
+        emitter_route = remember_ui_emitter_route();
+    }
+
+    if ((g_ui_diagnostics || g_crosshair_diagnostics || g_full_canvas_test ||
+         g_ui_emitter_transform_test) &&
+        owner && (type == 0 || type == 1)) {
+        current.count = *reinterpret_cast<const std::uint32_t*>(
+            owner + 0x10 + static_cast<std::uintptr_t>(type) * 4);
+        current.records = *reinterpret_cast<const unsigned char* const*>(
+            owner + 0x18 + static_cast<std::uintptr_t>(type) * 8);
         if (current.records && current.count > 0 && current.count <= 100000) {
+            current.type = type;
+            current.stride = type == 1 ? 0x80u : 0x68u;
             current.batch = InterlockedIncrement(&g_common_ui_batch_sequence);
+            current.emitter_route = emitter_route;
+            std::memcpy(current.cache50,
+                        reinterpret_cast<const void*>(owner + 0xe30),
+                        sizeof(current.cache50));
+            std::memcpy(current.cache10,
+                        reinterpret_cast<const void*>(owner + 0xe80),
+                        sizeof(current.cache10));
             current.active = true;
-            current.log_batch = current.batch <= 128;
+            current.log_batch = g_ui_diagnostics && current.batch <= 128;
             g_common_ui_context = current;
 
             if (current.log_batch) {
                 char message[192] = {};
                 std::snprintf(message, sizeof(message),
-                    "UIBATCH batch=%ld count=%u records=%p backend=%p",
-                    current.batch, current.count,
+                    "UIBATCH batch=%ld type=%d count=%u records=%p backend=%p",
+                    current.batch, current.type, current.count,
                     static_cast<const void*>(current.records),
                     static_cast<void*>(backend));
                 log_line(message);
+            }
+
+            if (g_ui_emitter_transform_test) {
+                std::uint32_t patched = 0;
+                private_records = make_centered_ui_emitter_batch_copy(
+                    current.records, current.count, current.type, &patched);
+                if (private_records && patched) {
+                    original_records = current.records;
+                    record_pointer = reinterpret_cast<void* volatile*>(
+                        owner + 0x18 + static_cast<std::uintptr_t>(type) * 8);
+                    void* prior = InterlockedCompareExchangePointer(
+                        record_pointer, private_records,
+                        const_cast<unsigned char*>(original_records));
+                    if (prior == original_records) {
+                        current.records = private_records;
+                        g_common_ui_context = current;
+                        private_records_active = true;
+                    } else {
+                        HeapFree(GetProcessHeap(), 0, private_records);
+                        private_records = nullptr;
+                        log_line("UI-EMITTER-BATCH pointer swap skipped: owner record pointer changed concurrently.");
+                    }
+                }
             }
         }
     }
 
     g_original_common_ui_flush(owner, backend, type);
 
+    if (private_records_active) {
+        void* prior = InterlockedCompareExchangePointer(
+            record_pointer, const_cast<unsigned char*>(original_records),
+            private_records);
+        if (prior == private_records) {
+            HeapFree(GetProcessHeap(), 0, private_records);
+        } else {
+            log_line("UI-EMITTER-BATCH WARNING: owner record pointer changed during flush; private copy intentionally retained.");
+        }
+    }
+
     if (current.active && current.log_batch) {
         char message[160] = {};
         std::snprintf(message, sizeof(message),
-            "UIBATCH-END batch=%ld correlated=%u count=%u",
-            current.batch, g_common_ui_context.cursor, current.count);
+            "UIBATCH-END batch=%ld type=%d correlated=%u count=%u",
+            current.batch, current.type, g_common_ui_context.cursor,
+            current.count);
         log_line(message);
     }
     g_common_ui_context = previous;
@@ -592,6 +846,127 @@ static DWORD WINAPI camera_route_control_thread(void*) {
     }
 }
 
+static mgs4_hud::UIRouteMode current_ui_route_test_mode() {
+    const LONG raw = InterlockedCompareExchange(&g_ui_route_test_mode, 0, 0);
+    if (raw == static_cast<LONG>(mgs4_hud::UIRouteMode::FullKnownUI))
+        return mgs4_hud::UIRouteMode::FullKnownUI;
+    if (raw == static_cast<LONG>(mgs4_hud::UIRouteMode::Selective))
+        return mgs4_hud::UIRouteMode::Selective;
+    return mgs4_hud::UIRouteMode::Conservative;
+}
+
+static const char* ui_route_mode_name(mgs4_hud::UIRouteMode mode) {
+    switch (mode) {
+    case mgs4_hud::UIRouteMode::FullKnownUI: return "full-known-ui";
+    case mgs4_hud::UIRouteMode::Selective: return "selective";
+    default: return "alpha.3-conservative";
+    }
+}
+
+static DWORD WINAPI ui_route_control_thread(void*) {
+    LONG previous_mode = -1;
+    LONG previous_mask = -1;
+    LONG previous_viewport_route = -1;
+    LONG previous_viewport_transform = -1;
+    LONG previous_capture_request = 0;
+    bool capture_request_initialized = false;
+    bool capture_was_active = false;
+    for (;;) {
+        const bool capture_hotkey = (GetAsyncKeyState(VK_F8) & 1) != 0;
+        const LONG mode = GetPrivateProfileIntA(
+            "RouteTest", "Mode", 0, g_ui_route_control_path);
+        char mask_text[32] = {};
+        GetPrivateProfileStringA("RouteTest", "EnabledMask", "0x3ff",
+                                 mask_text, sizeof(mask_text),
+                                 g_ui_route_control_path);
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(mask_text, &end, 0);
+        const bool valid_mask = end != mask_text && end && *end == '\0';
+        const LONG normalized_mode = mode >= 0 && mode <= 2 ? mode : 0;
+        const LONG normalized_mask = static_cast<LONG>(
+            (valid_mask ? parsed : mgs4_hud::kRouteKnown) &
+            mgs4_hud::kRouteAll);
+        const LONG viewport_route = GetPrivateProfileIntA(
+            "RouteTest", "ViewportRoute", 0, g_ui_route_control_path);
+        const LONG normalized_viewport_route =
+            viewport_route >= 0 && viewport_route <= 64
+                ? viewport_route : 0;
+        const LONG viewport_transform = GetPrivateProfileIntA(
+            "RouteTest", "ViewportTransform", 2, g_ui_route_control_path);
+        const LONG normalized_viewport_transform =
+            viewport_transform == 1 ? 1 : 2;
+        const LONG capture_request = GetPrivateProfileIntA(
+            "EmitterPassiveCapture", "RequestEpoch", 0,
+            g_ui_route_control_path);
+        const LONG capture_duration = GetPrivateProfileIntA(
+            "EmitterPassiveCapture", "DurationMs", 5000,
+            g_ui_route_control_path);
+        char capture_label[64] = {};
+        GetPrivateProfileStringA(
+            "EmitterPassiveCapture", "Label", "unlabelled",
+            capture_label, sizeof(capture_label),
+            g_ui_route_control_path);
+        InterlockedExchange(&g_ui_route_test_mode, normalized_mode);
+        InterlockedExchange(&g_ui_route_enabled_mask, normalized_mask);
+        InterlockedExchange(&g_selected_viewport_route,
+                            normalized_viewport_route);
+        InterlockedExchange(&g_viewport_transform_mode,
+                            normalized_viewport_transform);
+
+        if (!capture_request_initialized) {
+            previous_capture_request = capture_request;
+            capture_request_initialized = true;
+        } else if (capture_hotkey || capture_request != previous_capture_request) {
+            begin_ui_emitter_passive_capture(capture_label, capture_duration);
+            previous_capture_request = capture_request;
+            capture_was_active = true;
+        }
+
+        const auto capture_until = static_cast<ULONGLONG>(
+            InterlockedCompareExchange64(&g_ui_emitter_capture_until, 0, 0));
+        if (capture_was_active && capture_until && GetTickCount64() > capture_until) {
+            char completed_label[64] = {};
+            copy_ui_emitter_capture_label(completed_label);
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                "UI-EMITTER-CAPTURE-END epoch=%ld label=%s observations=%ld "
+                "unreadable=%ld mutation=none",
+                InterlockedCompareExchange(&g_ui_emitter_capture_epoch, 0, 0),
+                completed_label,
+                InterlockedCompareExchange(&g_ui_emitter_capture_count, 0, 0),
+                InterlockedCompareExchange(
+                    &g_ui_emitter_capture_unreadable, 0, 0));
+            log_line(message);
+            InterlockedExchange64(&g_ui_emitter_capture_until, 0);
+            capture_was_active = false;
+        }
+        if (normalized_mode != previous_mode || normalized_mask != previous_mask) {
+            char message[256] = {};
+            std::snprintf(message, sizeof(message),
+                "HUD-ROUTE-TEST applied: mode=%s enabled_mask=0x%03lx control=%s",
+                ui_route_mode_name(current_ui_route_test_mode()),
+                static_cast<unsigned long>(normalized_mask),
+                g_ui_route_control_path);
+            log_line(message);
+            previous_mode = normalized_mode;
+            previous_mask = normalized_mask;
+        }
+        if (normalized_viewport_route != previous_viewport_route ||
+            normalized_viewport_transform != previous_viewport_transform) {
+            char message[192] = {};
+            std::snprintf(message, sizeof(message),
+                "MENU-PASS-TEST applied: viewport_route=%ld transform=%s "
+                "(0=disabled)", normalized_viewport_route,
+                normalized_viewport_transform == 2
+                    ? "preserve-16x9" : "mapped-canvas");
+            log_line(message);
+            previous_viewport_route = normalized_viewport_route;
+            previous_viewport_transform = normalized_viewport_transform;
+        }
+        Sleep(200);
+    }
+}
+
 // The game's UI vertex shader is shared by the D3D11 and D3D12 renderers. Its
 // DXBC container is stable for the supported executable. Matching the exact
 // shader plus reconstructed final bounds provides experimental per-draw UI
@@ -661,10 +1036,15 @@ using RSSetViewportsFn = void (STDMETHODCALLTYPE*)(
     ID3D12GraphicsCommandList*, UINT, const D3D12_VIEWPORT*);
 using RSSetScissorRectsFn = void (STDMETHODCALLTYPE*)(
     ID3D12GraphicsCommandList*, UINT, const D3D12_RECT*);
+using OMSetRenderTargetsFn = void (STDMETHODCALLTYPE*)(
+    ID3D12GraphicsCommandList*, UINT, const D3D12_CPU_DESCRIPTOR_HANDLE*, BOOL,
+    const D3D12_CPU_DESCRIPTOR_HANDLE*);
 using SetPipelineStateFn = void (STDMETHODCALLTYPE*)(
     ID3D12GraphicsCommandList*, ID3D12PipelineState*);
 using IASetVertexBuffersFn = void (STDMETHODCALLTYPE*)(
     ID3D12GraphicsCommandList*, UINT, UINT, const D3D12_VERTEX_BUFFER_VIEW*);
+using IASetIndexBufferFn = void (STDMETHODCALLTYPE*)(
+    ID3D12GraphicsCommandList*, const D3D12_INDEX_BUFFER_VIEW*);
 using CopyBufferRegionFn = void (STDMETHODCALLTYPE*)(
     ID3D12GraphicsCommandList*, ID3D12Resource*, UINT64, ID3D12Resource*,
     UINT64, UINT64);
@@ -675,6 +1055,16 @@ using CreateCommittedResourceFn = HRESULT (STDMETHODCALLTYPE*)(
 using CreatePlacedResourceFn = HRESULT (STDMETHODCALLTYPE*)(
     ID3D12Device*, ID3D12Heap*, UINT64, const D3D12_RESOURCE_DESC*,
     D3D12_RESOURCE_STATES, const D3D12_CLEAR_VALUE*, REFIID, void**);
+using CreateRenderTargetViewFn = void (STDMETHODCALLTYPE*)(
+    ID3D12Device*, ID3D12Resource*, const D3D12_RENDER_TARGET_VIEW_DESC*,
+    D3D12_CPU_DESCRIPTOR_HANDLE);
+using CopyDescriptorsFn = void (STDMETHODCALLTYPE*)(
+    ID3D12Device*, UINT, const D3D12_CPU_DESCRIPTOR_HANDLE*, const UINT*, UINT,
+    const D3D12_CPU_DESCRIPTOR_HANDLE*, const UINT*,
+    D3D12_DESCRIPTOR_HEAP_TYPE);
+using CopyDescriptorsSimpleFn = void (STDMETHODCALLTYPE*)(
+    ID3D12Device*, UINT, D3D12_CPU_DESCRIPTOR_HANDLE,
+    D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_DESCRIPTOR_HEAP_TYPE);
 using ResourceMapFn = HRESULT (STDMETHODCALLTYPE*)(
     ID3D12Resource*, UINT, const D3D12_RANGE*, void**);
 using ResourceUnmapFn = void (STDMETHODCALLTYPE*)(
@@ -689,11 +1079,16 @@ static DrawInstancedFn g_original_draw_instanced;
 static DrawIndexedInstancedFn g_original_draw_indexed_instanced;
 static RSSetViewportsFn g_original_rs_set_viewports;
 static RSSetScissorRectsFn g_original_rs_set_scissor_rects;
+static OMSetRenderTargetsFn g_original_om_set_render_targets;
 static SetPipelineStateFn g_original_set_pipeline_state;
 static IASetVertexBuffersFn g_original_ia_set_vertex_buffers;
+static IASetIndexBufferFn g_original_ia_set_index_buffer;
 static CopyBufferRegionFn g_original_copy_buffer_region;
 static CreateCommittedResourceFn g_original_create_committed_resource;
 static CreatePlacedResourceFn g_original_create_placed_resource;
+static CreateRenderTargetViewFn g_original_create_render_target_view;
+static CopyDescriptorsFn g_original_copy_descriptors;
+static CopyDescriptorsSimpleFn g_original_copy_descriptors_simple;
 static ResourceMapFn g_original_resource_map;
 static ResourceUnmapFn g_original_resource_unmap;
 static volatile LONG g_d3d12_device_hooks_installed;
@@ -708,6 +1103,34 @@ static volatile LONG g_ui_pipeline_active[128];
 static volatile LONG g_ui_stack_count;
 static volatile LONG64 g_ui_stack_keys[256];
 static volatile LONG g_d3d12_resource_hooks_installed;
+
+struct UIAffineCacheSlot {
+    std::uint64_t hash;
+    float original[24];
+};
+
+static constexpr std::size_t ui_affine_cache_size = 65536;
+static constexpr UINT64 ui_affine_upload_size =
+    static_cast<UINT64>(ui_affine_cache_size) * sizeof(float) * 24ull;
+static UIAffineCacheSlot g_ui_affine_cache[ui_affine_cache_size] = {};
+static ID3D12Resource* g_ui_affine_upload_resource;
+static unsigned char* g_ui_affine_upload_mapped;
+static D3D12_GPU_VIRTUAL_ADDRESS g_ui_affine_upload_gpu;
+static SRWLOCK g_ui_affine_upload_lock = SRWLOCK_INIT;
+static volatile LONG g_ui_affine_upload_state;
+static volatile LONG g_ui_affine_cache_full_logged;
+static volatile LONG g_ui_affine_runtime_disabled;
+static volatile LONG g_ui_affine_cache_entries;
+static volatile LONG g_ui_affine_cache_report_entries;
+static volatile LONG64 g_ui_affine_cache_report_tick;
+static volatile LONG64 g_ui_emitter_total_logical;
+static volatile LONG64 g_ui_emitter_total_patched;
+static volatile LONG64 g_ui_emitter_total_fullscreen;
+static volatile LONG64 g_ui_emitter_total_unknown;
+static volatile LONG64 g_ui_emitter_report_logical;
+static volatile LONG64 g_ui_emitter_report_patched;
+static volatile LONG64 g_ui_emitter_report_fullscreen;
+static volatile LONG64 g_ui_emitter_report_unknown;
 
 struct ResourceState {
     ID3D12Resource* resource;
@@ -736,6 +1159,21 @@ static volatile LONG g_resource_table_full_logged;
 static volatile LONG g_shadow_budget_logged;
 static SRWLOCK g_resource_lock = SRWLOCK_INIT;
 
+struct RTVDescriptorState {
+    SIZE_T handle;
+    UINT64 width;
+    UINT height;
+    volatile LONG64 last_used;
+    bool known;
+};
+
+static constexpr std::size_t rtv_descriptor_table_size = 4096;
+static RTVDescriptorState g_rtv_descriptors[rtv_descriptor_table_size] = {};
+static SRWLOCK g_rtv_descriptor_lock = SRWLOCK_INIT;
+static volatile LONG64 g_rtv_descriptor_serial;
+static volatile LONG g_rtv_descriptor_table_full_logged;
+static volatile LONG g_rtv_descriptor_increment;
+
 static bool create_and_enable_hook(void*, void*, void**, const char*);
 static HRESULT STDMETHODCALLTYPE hooked_resource_map(
     ID3D12Resource*, UINT, const D3D12_RANGE*, void**);
@@ -751,12 +1189,33 @@ struct CommandListState {
     volatile LONG has_scissor;
     D3D12_VERTEX_BUFFER_VIEW vertex_buffers[4];
     volatile LONG vertex_buffer_mask;
+    D3D12_INDEX_BUFFER_VIEW index_buffer;
+    volatile LONG has_index_buffer;
+    volatile LONG active_viewport_route;
+    D3D12_VIEWPORT preview_source_viewports[16];
+    D3D12_VIEWPORT preview_transformed_viewports[16];
+    volatile LONG preview_viewport_mask;
+    volatile LONG preview_viewport_count;
+    // 1: a tracked output-sized RTV is bound; -1: tracked RTVs are known but
+    // none is output-sized; 0: descriptor provenance is unavailable.
+    volatile LONG preview_rtv_state;
+};
+
+struct ViewportRouteSlot {
+    volatile LONG64 key;
+    volatile LONG id;
+    UINT viewport_count;
+    D3D12_VIEWPORT viewport;
+    std::uintptr_t stack_rvas[6];
+    UINT stack_count;
 };
 
 static constexpr std::size_t state_table_size = 256;
 static constexpr std::size_t pipeline_table_size = 128;
 static CommandListState g_command_states[state_table_size] = {};
 static void* volatile g_ui_pipelines[pipeline_table_size] = {};
+static ViewportRouteSlot g_viewport_routes[64] = {};
+static volatile LONG g_viewport_route_count;
 
 static std::size_t pointer_hash(const void* pointer, std::size_t table_size) {
     const auto value = reinterpret_cast<std::uintptr_t>(pointer);
@@ -1016,6 +1475,105 @@ static CommandListState* command_state(ID3D12GraphicsCommandList* command_list,
     return nullptr;
 }
 
+static LONG64 next_rtv_descriptor_serial() {
+    return InterlockedIncrement64(&g_rtv_descriptor_serial);
+}
+
+static RTVDescriptorState* rtv_descriptor_state_locked(SIZE_T handle,
+                                                       bool create) {
+    if (!handle) return nullptr;
+    const std::size_t start = static_cast<std::size_t>(
+        ((handle >> 4) ^ (handle >> 17)) % rtv_descriptor_table_size);
+    RTVDescriptorState* oldest = nullptr;
+    LONG64 oldest_use = LLONG_MAX;
+    for (std::size_t probe = 0; probe < rtv_descriptor_table_size; ++probe) {
+        RTVDescriptorState& state = g_rtv_descriptors[
+            (start + probe) % rtv_descriptor_table_size];
+        if (state.handle == handle) {
+            InterlockedExchange64(&state.last_used,
+                                  next_rtv_descriptor_serial());
+            return &state;
+        }
+        if (!state.handle) {
+            if (!create) return nullptr;
+            state = {};
+            state.handle = handle;
+            InterlockedExchange64(&state.last_used,
+                                  next_rtv_descriptor_serial());
+            return &state;
+        }
+        const LONG64 used = InterlockedCompareExchange64(
+            &state.last_used, 0, 0);
+        if (used < oldest_use) {
+            oldest_use = used;
+            oldest = &state;
+        }
+    }
+    if (!create || !oldest) return nullptr;
+    if (InterlockedCompareExchange(
+            &g_rtv_descriptor_table_full_logged, 1, 0) == 0) {
+        log_line("D3D12: RTV descriptor table reached capacity; recycling least-recently-used entries.");
+    }
+    *oldest = {};
+    oldest->handle = handle;
+    InterlockedExchange64(&oldest->last_used, next_rtv_descriptor_serial());
+    return oldest;
+}
+
+static void remember_rtv_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE handle,
+                                    ID3D12Resource* resource) {
+    if (!handle.ptr) return;
+    UINT64 width = 0;
+    UINT height = 0;
+    bool known = false;
+    if (resource) {
+        const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+        if (desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D &&
+            desc.Width && desc.Height) {
+            width = desc.Width;
+            height = desc.Height;
+            known = true;
+        }
+    }
+    AcquireSRWLockExclusive(&g_rtv_descriptor_lock);
+    if (RTVDescriptorState* state =
+            rtv_descriptor_state_locked(handle.ptr, true)) {
+        state->width = width;
+        state->height = height;
+        state->known = known;
+    }
+    ReleaseSRWLockExclusive(&g_rtv_descriptor_lock);
+}
+
+static bool lookup_rtv_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE handle,
+                                  UINT64* width, UINT* height) {
+    bool known = false;
+    AcquireSRWLockExclusive(&g_rtv_descriptor_lock);
+    if (RTVDescriptorState* state =
+            rtv_descriptor_state_locked(handle.ptr, false)) {
+        known = state->known;
+        if (known && width) *width = state->width;
+        if (known && height) *height = state->height;
+    }
+    ReleaseSRWLockExclusive(&g_rtv_descriptor_lock);
+    return known;
+}
+
+static void copy_rtv_descriptor_metadata(D3D12_CPU_DESCRIPTOR_HANDLE destination,
+                                         D3D12_CPU_DESCRIPTOR_HANDLE source) {
+    UINT64 width = 0;
+    UINT height = 0;
+    const bool known = lookup_rtv_descriptor(source, &width, &height);
+    AcquireSRWLockExclusive(&g_rtv_descriptor_lock);
+    if (RTVDescriptorState* state =
+            rtv_descriptor_state_locked(destination.ptr, true)) {
+        state->width = known ? width : 0;
+        state->height = known ? height : 0;
+        state->known = known;
+    }
+    ReleaseSRWLockExclusive(&g_rtv_descriptor_lock);
+}
+
 static std::uint64_t shader_bytecode_hash(const D3D12_SHADER_BYTECODE& shader) {
     if (!shader.pShaderBytecode || !shader.BytecodeLength) return 0;
     const auto* bytes = static_cast<const unsigned char*>(shader.pShaderBytecode);
@@ -1094,7 +1652,9 @@ static void remember_ui_pipeline(ID3D12PipelineState* pipeline,
                 log_line(message);
             }
             if (count == 1) {
-                if (g_center_hud_16x9)
+                if (g_ui_emitter_transform_test)
+                    log_line("D3D12: immutable whole-batch UI affine transform active.");
+                else if (g_center_hud_16x9)
                     log_line("D3D12: exact UI shader recognized; selective centered 16:9 HUD active.");
                 else if (g_anchor_ui)
                     log_line("D3D12: UI shader recognized; experimental proportional anchoring active.");
@@ -1181,6 +1741,179 @@ static bool is_anchor_ui_pipeline(ID3D12PipelineState* pipeline) {
     return false;
 }
 
+static std::uint64_t viewport_route_hash(UINT count,
+                                         const D3D12_VIEWPORT& viewport,
+                                         const std::uintptr_t* stack_rvas,
+                                         UINT stack_count) {
+    std::uint64_t hash = 1469598103934665603ull;
+    const auto append = [&hash](const void* data, std::size_t size) {
+        const auto* bytes = static_cast<const unsigned char*>(data);
+        for (std::size_t index = 0; index < size; ++index) {
+            hash ^= bytes[index];
+            hash *= 1099511628211ull;
+        }
+    };
+    append(&count, sizeof(count));
+    append(&viewport, sizeof(viewport));
+    append(stack_rvas, sizeof(*stack_rvas) * stack_count);
+    return hash ? hash : 1;
+}
+
+static LONG remember_viewport_route(UINT count,
+                                    const D3D12_VIEWPORT* viewports) {
+    // Do not consume diagnostic slots with startup/runtime calls that cannot
+    // yet be tied to a stable game call route.
+    if (!g_full_canvas_test || !g_executable_base || !count || !viewports)
+        return 0;
+
+    void* frames[20] = {};
+    const USHORT frame_count = RtlCaptureStackBackTrace(
+        0, static_cast<ULONG>(std::size(frames)), frames, nullptr);
+    std::uintptr_t stack_rvas[6] = {};
+    UINT game_count = 0;
+    const std::uintptr_t game_end =
+        g_executable_base + kSupportedExecutableSize;
+    for (USHORT index = 0; index < frame_count && game_count < 6; ++index) {
+        const auto address = reinterpret_cast<std::uintptr_t>(frames[index]);
+        if (g_executable_base && address >= g_executable_base &&
+            address < game_end)
+            stack_rvas[game_count++] = address - g_executable_base;
+    }
+    const std::uint64_t key = viewport_route_hash(
+        count, viewports[0], stack_rvas, game_count);
+    const std::size_t start = static_cast<std::size_t>(key %
+        std::size(g_viewport_routes));
+    for (std::size_t probe = 0; probe < std::size(g_viewport_routes); ++probe) {
+        ViewportRouteSlot& slot =
+            g_viewport_routes[(start + probe) % std::size(g_viewport_routes)];
+        const LONG64 existing = InterlockedCompareExchange64(
+            &slot.key, static_cast<LONG64>(key), 0);
+        if (existing == static_cast<LONG64>(key)) {
+            return InterlockedCompareExchange(&slot.id, 0, 0);
+        }
+        if (existing == 0) {
+            slot.viewport_count = count;
+            slot.viewport = viewports[0];
+            slot.stack_count = game_count;
+            std::memcpy(slot.stack_rvas, stack_rvas,
+                        sizeof(stack_rvas));
+            const LONG id = InterlockedIncrement(&g_viewport_route_count);
+            InterlockedExchange(&slot.id, id);
+            char message[512] = {};
+            int used = std::snprintf(message, sizeof(message),
+                "VIEWPORT-ROUTE id=%ld count=%u rect=%.2f,%.2f %.2fx%.2f "
+                "depth=%.3f..%.3f stack_rvas=",
+                id, count, viewports[0].TopLeftX, viewports[0].TopLeftY,
+                viewports[0].Width, viewports[0].Height,
+                viewports[0].MinDepth, viewports[0].MaxDepth);
+            for (UINT index = 0; index < game_count && used > 0 &&
+                 static_cast<std::size_t>(used) < sizeof(message); ++index) {
+                used += std::snprintf(message + used, sizeof(message) - used,
+                    "%s0x%llx", index ? "," : "",
+                    static_cast<unsigned long long>(stack_rvas[index]));
+            }
+            log_line(message);
+            return id;
+        }
+    }
+    return 0;
+}
+
+static void log_preview_viewport_decision_once(
+    UINT count, UINT index, const D3D12_VIEWPORT& viewport,
+    bool geometry_candidate, LONG rtv_state, bool accepted) {
+    if (!g_preview_3d_uniform_fit_test) return;
+    struct QuantizedViewport {
+        LONG count;
+        LONG index;
+        LONG left;
+        LONG top;
+        LONG width;
+        LONG height;
+        LONG geometry_candidate;
+        LONG rtv_state;
+        LONG accepted;
+    } key_data{
+        static_cast<LONG>(count), static_cast<LONG>(index),
+        static_cast<LONG>(std::lround(viewport.TopLeftX / 4.0f)),
+        static_cast<LONG>(std::lround(viewport.TopLeftY / 4.0f)),
+        static_cast<LONG>(std::lround(viewport.Width / 4.0f)),
+        static_cast<LONG>(std::lround(viewport.Height / 4.0f)),
+        geometry_candidate ? 1L : 0L, rtv_state,
+        accepted ? 1L : 0L,
+    };
+    std::uint64_t key = fnv1a_bytes(&key_data, sizeof(key_data));
+    if (!key) key = 1;
+    static volatile LONG64 logged[256];
+    const std::size_t start = static_cast<std::size_t>(key % std::size(logged));
+    bool inserted = false;
+    for (std::size_t probe = 0; probe < std::size(logged); ++probe) {
+        volatile LONG64* slot = &logged[(start + probe) % std::size(logged)];
+        const LONG64 prior = InterlockedCompareExchange64(
+            slot, static_cast<LONG64>(key), 0);
+        if (prior == static_cast<LONG64>(key)) return;
+        if (prior == 0) {
+            inserted = true;
+            break;
+        }
+    }
+    if (!inserted) return;
+    const float width = static_cast<float>(g_target_width);
+    const float height = static_cast<float>(g_target_height);
+    mgs4_hud::PassViewport target{};
+    const mgs4_hud::PassViewport source{
+        viewport.TopLeftX, viewport.TopLeftY,
+        viewport.Width, viewport.Height};
+    const bool target_valid = accepted &&
+        mgs4_hud::transform_preview_viewport_uniform(
+            width, height, source, &target);
+    char message[416] = {};
+    std::snprintf(message, sizeof(message),
+        "PREVIEW-VIEWPORT-EVAL index=%u/%u rect=%.2f,%.2f %.2fx%.2f "
+        "ratios=%.4f,%.4f %.4fx%.4f geometry=%s rtv=%s accepted=%s "
+        "target=%.2f,%.2f %.2fx%.2f",
+        index, count, viewport.TopLeftX, viewport.TopLeftY,
+        viewport.Width, viewport.Height,
+        width > 0.0f ? viewport.TopLeftX / width : 0.0f,
+        height > 0.0f ? viewport.TopLeftY / height : 0.0f,
+        width > 0.0f ? viewport.Width / width : 0.0f,
+        height > 0.0f ? viewport.Height / height : 0.0f,
+        geometry_candidate ? "yes" : "no",
+        rtv_state > 0 ? "output" : (rtv_state < 0 ? "other" : "unknown"),
+        accepted ? "yes" : "no",
+        target_valid ? target.left : 0.0f,
+        target_valid ? target.top : 0.0f,
+        target_valid ? target.width : 0.0f,
+        target_valid ? target.height : 0.0f);
+    log_line(message);
+}
+
+static mgs4_hud::UIPixelKind ui_pipeline_pixel_kind(
+    ID3D12PipelineState* pipeline) {
+    if (!pipeline) return mgs4_hud::UIPixelKind::Unknown;
+    std::size_t slot = pointer_hash(pipeline, pipeline_table_size);
+    for (std::size_t probe = 0; probe < pipeline_table_size; ++probe) {
+        const std::size_t index = (slot + probe) % pipeline_table_size;
+        void* existing = InterlockedCompareExchangePointer(
+            &g_ui_pipelines[index], nullptr, nullptr);
+        if (existing == pipeline) {
+            if (InterlockedCompareExchange(
+                    &g_ui_pipeline_active[index], 0, 0) == 0 ||
+                InterlockedCompareExchange(
+                    &g_ui_pipeline_exact_vs[index], 0, 0) == 0)
+                return mgs4_hud::UIPixelKind::Unknown;
+            const std::uint64_t hash = g_ui_pipeline_ps_hashes[index];
+            if (hash == ui_text_pixel_shader_hash)
+                return mgs4_hud::UIPixelKind::Text;
+            if (hash == ui_image_pixel_shader_hash)
+                return mgs4_hud::UIPixelKind::Image;
+            return mgs4_hud::UIPixelKind::OtherExact;
+        }
+        if (!existing) return mgs4_hud::UIPixelKind::Unknown;
+    }
+    return mgs4_hud::UIPixelKind::Unknown;
+}
+
 enum class UIAnchor {
     Unknown,
     FullScreen,
@@ -1199,8 +1932,139 @@ static const char* ui_anchor_name(UIAnchor anchor) {
     }
 }
 
+static mgs4_hud::UIRouteAnchor route_anchor(UIAnchor anchor) {
+    switch (anchor) {
+    case UIAnchor::FullScreen: return mgs4_hud::UIRouteAnchor::FullScreen;
+    case UIAnchor::Left: return mgs4_hud::UIRouteAnchor::Left;
+    case UIAnchor::Center: return mgs4_hud::UIRouteAnchor::Center;
+    case UIAnchor::Right: return mgs4_hud::UIRouteAnchor::Right;
+    default: return mgs4_hud::UIRouteAnchor::Unknown;
+    }
+}
+
+static ResourceState* resource_for_gpu_range_locked(
+    D3D12_GPU_VIRTUAL_ADDRESS address, UINT64 bytes) {
+    if (!address || !bytes || address + bytes < address) return nullptr;
+    ResourceState* resource = nullptr;
+    LONG64 newest_generation = 0;
+    for (ResourceState& candidate : g_resources) {
+        if (!candidate.resource || !candidate.gpu_address || !candidate.size ||
+            candidate.gpu_address + candidate.size < candidate.gpu_address ||
+            address < candidate.gpu_address ||
+            address + bytes > candidate.gpu_address + candidate.size ||
+            candidate.generation <= newest_generation)
+            continue;
+        resource = &candidate;
+        newest_generation = candidate.generation;
+    }
+    return resource;
+}
+
+template <typename VertexAt>
+static UIAnchor classify_ui_positions(CommandListState* state,
+                                      UINT vertex_count,
+                                      const VertexAt& vertex_at,
+                                      float* bounds,
+                                      bool force_slot1_transform = false) {
+    std::int16_t minimum_x = INT16_MAX;
+    std::int16_t minimum_y = INT16_MAX;
+    std::int16_t maximum_x = INT16_MIN;
+    std::int16_t maximum_y = INT16_MIN;
+    for (UINT index = 0; index < vertex_count; ++index) {
+        std::int16_t x = 0;
+        std::int16_t y = 0;
+        if (!vertex_at(index, &x, &y)) return UIAnchor::Unknown;
+        if (x < minimum_x) minimum_x = x;
+        if (x > maximum_x) maximum_x = x;
+        if (y < minimum_y) minimum_y = y;
+        if (y > maximum_y) maximum_y = y;
+    }
+    float virtual_minimum_x = minimum_x / 16.0f;
+    float virtual_minimum_y = minimum_y / 16.0f;
+    float virtual_maximum_x = maximum_x / 16.0f;
+    float virtual_maximum_y = maximum_y / 16.0f;
+
+    // Slot 0 can contain local glyph geometry. The exact UI shader consumes a
+    // 96-byte, stride-zero transform from slot 1. Resolve the final canvas
+    // bounds for both sequential and indexed text before moving the viewport.
+    const LONG vertex_mask = InterlockedCompareExchange(
+        &state->vertex_buffer_mask, 0, 0);
+    if ((force_slot1_transform || is_exact_ui_pipeline(
+            reinterpret_cast<ID3D12PipelineState*>(
+            InterlockedCompareExchangePointer(
+                &state->pipeline_state, nullptr, nullptr)))) &&
+        (vertex_mask & 2) != 0) {
+        const D3D12_VERTEX_BUFFER_VIEW transform_view = state->vertex_buffers[1];
+        ResourceState* transform_resource = resource_for_gpu_range_locked(
+            transform_view.BufferLocation, 96);
+        if (transform_resource) {
+            InterlockedExchange(&transform_resource->ui_relevant, 1);
+            InterlockedExchange64(&transform_resource->last_used,
+                                  next_resource_serial());
+            const UINT64 transform_begin = transform_view.BufferLocation -
+                transform_resource->gpu_address;
+            const unsigned char* transform_bytes = resource_bytes_locked(
+                transform_resource, transform_begin, 96);
+            if (transform_bytes) {
+                float transform[24] = {};
+                std::memcpy(transform, transform_bytes, sizeof(transform));
+                float screen_minimum_x = FLT_MAX;
+                float screen_minimum_y = FLT_MAX;
+                float screen_maximum_x = -FLT_MAX;
+                float screen_maximum_y = -FLT_MAX;
+                bool plausible = true;
+                for (UINT index = 0; index < vertex_count; ++index) {
+                    std::int16_t x = 0;
+                    std::int16_t y = 0;
+                    if (!vertex_at(index, &x, &y)) {
+                        plausible = false;
+                        break;
+                    }
+                    const float scaled_x = x * transform[0];
+                    const float scaled_y = y * transform[1];
+                    const float clip_x = scaled_x * transform[12] +
+                        scaled_y * transform[16] + transform[20];
+                    const float clip_y = scaled_x * transform[13] +
+                        scaled_y * transform[17] + transform[21];
+                    const float screen_x = (clip_x + 1.0f) * 640.0f;
+                    const float screen_y = (1.0f - clip_y) * 360.0f;
+                    plausible &= std::isfinite(screen_x) &&
+                        std::isfinite(screen_y) &&
+                        screen_x >= -4096.0f && screen_x <= 4096.0f &&
+                        screen_y >= -4096.0f && screen_y <= 4096.0f;
+                    if (screen_x < screen_minimum_x) screen_minimum_x = screen_x;
+                    if (screen_x > screen_maximum_x) screen_maximum_x = screen_x;
+                    if (screen_y < screen_minimum_y) screen_minimum_y = screen_y;
+                    if (screen_y > screen_maximum_y) screen_maximum_y = screen_y;
+                }
+                if (plausible) {
+                    virtual_minimum_x = screen_minimum_x;
+                    virtual_minimum_y = screen_minimum_y;
+                    virtual_maximum_x = screen_maximum_x;
+                    virtual_maximum_y = screen_maximum_y;
+                }
+            }
+        }
+    }
+    if (bounds) {
+        bounds[0] = virtual_minimum_x;
+        bounds[1] = virtual_minimum_y;
+        bounds[2] = virtual_maximum_x;
+        bounds[3] = virtual_maximum_y;
+    }
+    const float width = virtual_maximum_x - virtual_minimum_x;
+    const float height = virtual_maximum_y - virtual_minimum_y;
+    if (width >= 1200.0f && height >= 650.0f)
+        return UIAnchor::FullScreen;
+    const float center = (virtual_minimum_x + virtual_maximum_x) * 0.5f;
+    if (center < 480.0f) return UIAnchor::Left;
+    if (center > 800.0f) return UIAnchor::Right;
+    return UIAnchor::Center;
+}
+
 static UIAnchor classify_ui_draw(CommandListState* state, UINT vertex_count,
-                                  UINT first_vertex, float* bounds) {
+                                 UINT first_vertex, float* bounds,
+                                 bool force_slot1_transform = false) {
     if (!state || vertex_count == 0 || vertex_count > 200000 ||
         (InterlockedCompareExchange(&state->vertex_buffer_mask, 0, 0) & 1) == 0)
         return UIAnchor::Unknown;
@@ -1208,163 +2072,542 @@ static UIAnchor classify_ui_draw(CommandListState* state, UINT vertex_count,
     if (!view.BufferLocation || view.StrideInBytes < 12 ||
         view.StrideInBytes > 256)
         return UIAnchor::Unknown;
+    const UINT64 offset = static_cast<UINT64>(first_vertex) * view.StrideInBytes;
+    const UINT64 bytes = static_cast<UINT64>(vertex_count) * view.StrideInBytes;
+    if (offset > view.SizeInBytes || bytes > view.SizeInBytes - offset)
+        return UIAnchor::Unknown;
 
     UIAnchor result = UIAnchor::Unknown;
     AcquireSRWLockShared(&g_resource_lock);
-    ResourceState* resource = nullptr;
-    LONG64 resource_generation = 0;
-    for (std::size_t index = 0; index < resource_table_size; ++index) {
-        ResourceState& candidate = g_resources[index];
-        if (candidate.resource && candidate.gpu_address && candidate.size &&
-            view.BufferLocation >= candidate.gpu_address &&
-            view.BufferLocation < candidate.gpu_address + candidate.size &&
-            candidate.generation > resource_generation) {
-            resource = &candidate;
-            resource_generation = candidate.generation;
-        }
-    }
+    const D3D12_GPU_VIRTUAL_ADDRESS address = view.BufferLocation + offset;
+    ResourceState* resource = address >= view.BufferLocation
+        ? resource_for_gpu_range_locked(address, bytes) : nullptr;
     if (resource) {
         InterlockedExchange(&resource->ui_relevant, 1);
         InterlockedExchange64(&resource->last_used, next_resource_serial());
-        const UINT64 begin = view.BufferLocation - resource->gpu_address +
-            static_cast<UINT64>(first_vertex) * view.StrideInBytes;
-        const UINT64 bytes = static_cast<UINT64>(vertex_count) * view.StrideInBytes;
         const unsigned char* vertices = resource_bytes_locked(
-            resource, begin, bytes);
+            resource, address - resource->gpu_address, bytes);
         if (vertices) {
-            std::int16_t minimum_x = INT16_MAX;
-            std::int16_t minimum_y = INT16_MAX;
-            std::int16_t maximum_x = INT16_MIN;
-            std::int16_t maximum_y = INT16_MIN;
-            for (UINT index = 0; index < vertex_count; ++index) {
-                std::int16_t x = 0;
-                std::int16_t y = 0;
+            const auto vertex_at = [vertices, &view](
+                UINT index, std::int16_t* x, std::int16_t* y) {
                 const unsigned char* vertex = vertices +
                     static_cast<UINT64>(index) * view.StrideInBytes;
-                std::memcpy(&x, vertex + 8, sizeof(x));
-                std::memcpy(&y, vertex + 10, sizeof(y));
-                if (x < minimum_x) minimum_x = x;
-                if (x > maximum_x) maximum_x = x;
-                if (y < minimum_y) minimum_y = y;
-                if (y > maximum_y) maximum_y = y;
-            }
-            float virtual_minimum_x = minimum_x / 16.0f;
-            float virtual_minimum_y = minimum_y / 16.0f;
-            float virtual_maximum_x = maximum_x / 16.0f;
-            float virtual_maximum_y = maximum_y / 16.0f;
-
-            // Slot 0 is often local glyph geometry. The exact UI shader also
-            // consumes a 96-byte, stride-zero transform from slot 1; without
-            // it, top-right labels can look like left-anchored text. Recover
-            // the final 1280x720-canvas bounds before choosing an anchor.
-            const LONG vertex_mask = InterlockedCompareExchange(
-                &state->vertex_buffer_mask, 0, 0);
-            if (is_exact_ui_pipeline(reinterpret_cast<ID3D12PipelineState*>(
-                    InterlockedCompareExchangePointer(
-                        &state->pipeline_state, nullptr, nullptr))) &&
-                (vertex_mask & 2) != 0) {
-                const D3D12_VERTEX_BUFFER_VIEW transform_view =
-                    state->vertex_buffers[1];
-                ResourceState* transform_resource = nullptr;
-                LONG64 transform_generation = 0;
-                for (std::size_t index = 0; index < resource_table_size; ++index) {
-                    ResourceState& candidate = g_resources[index];
-                    if (candidate.resource && candidate.gpu_address &&
-                        candidate.size && transform_view.BufferLocation >=
-                            candidate.gpu_address &&
-                        transform_view.BufferLocation + 96 >=
-                            transform_view.BufferLocation &&
-                        transform_view.BufferLocation + 96 <=
-                            candidate.gpu_address + candidate.size &&
-                        candidate.generation > transform_generation) {
-                        transform_resource = &candidate;
-                        transform_generation = candidate.generation;
-                    }
-                }
-                if (transform_resource) {
-                    InterlockedExchange(&transform_resource->ui_relevant, 1);
-                    InterlockedExchange64(&transform_resource->last_used,
-                                          next_resource_serial());
-                    const UINT64 transform_begin =
-                        transform_view.BufferLocation -
-                        transform_resource->gpu_address;
-                    const unsigned char* transform_bytes =
-                        resource_bytes_locked(transform_resource,
-                                              transform_begin, 96);
-                    if (transform_bytes) {
-                        float transform[24] = {};
-                        std::memcpy(transform, transform_bytes,
-                                    sizeof(transform));
-                        float screen_minimum_x = FLT_MAX;
-                        float screen_minimum_y = FLT_MAX;
-                        float screen_maximum_x = -FLT_MAX;
-                        float screen_maximum_y = -FLT_MAX;
-                        bool plausible = true;
-                        for (UINT index = 0; index < vertex_count; ++index) {
-                            std::int16_t x = 0;
-                            std::int16_t y = 0;
-                            const unsigned char* vertex = vertices +
-                                static_cast<UINT64>(index) *
-                                    view.StrideInBytes;
-                            std::memcpy(&x, vertex + 8, sizeof(x));
-                            std::memcpy(&y, vertex + 10, sizeof(y));
-                            const float scaled_x = x * transform[0];
-                            const float scaled_y = y * transform[1];
-                            const float clip_x = scaled_x * transform[12] +
-                                scaled_y * transform[16] + transform[20];
-                            const float clip_y = scaled_x * transform[13] +
-                                scaled_y * transform[17] + transform[21];
-                            const float screen_x = (clip_x + 1.0f) * 640.0f;
-                            const float screen_y = (1.0f - clip_y) * 360.0f;
-                            plausible &= std::isfinite(screen_x) &&
-                                std::isfinite(screen_y) &&
-                                screen_x >= -4096.0f && screen_x <= 4096.0f &&
-                                screen_y >= -4096.0f && screen_y <= 4096.0f;
-                            if (screen_x < screen_minimum_x)
-                                screen_minimum_x = screen_x;
-                            if (screen_x > screen_maximum_x)
-                                screen_maximum_x = screen_x;
-                            if (screen_y < screen_minimum_y)
-                                screen_minimum_y = screen_y;
-                            if (screen_y > screen_maximum_y)
-                                screen_maximum_y = screen_y;
-                        }
-                        if (plausible) {
-                            virtual_minimum_x = screen_minimum_x;
-                            virtual_minimum_y = screen_minimum_y;
-                            virtual_maximum_x = screen_maximum_x;
-                            virtual_maximum_y = screen_maximum_y;
-                        }
-                    }
-                }
-            }
-            if (bounds) {
-                bounds[0] = virtual_minimum_x;
-                bounds[1] = virtual_minimum_y;
-                bounds[2] = virtual_maximum_x;
-                bounds[3] = virtual_maximum_y;
-            }
-            const float width = virtual_maximum_x - virtual_minimum_x;
-            const float height = virtual_maximum_y - virtual_minimum_y;
-            if (width >= 1200.0f && height >= 650.0f) {
-                result = UIAnchor::FullScreen;
-            } else if ((virtual_minimum_x + virtual_maximum_x) * 0.5f <
-                       480.0f) {
-                result = UIAnchor::Left;
-            } else if ((virtual_minimum_x + virtual_maximum_x) * 0.5f >
-                       800.0f) {
-                result = UIAnchor::Right;
-            } else {
-                result = UIAnchor::Center;
-            }
+                std::memcpy(x, vertex + 8, sizeof(*x));
+                std::memcpy(y, vertex + 10, sizeof(*y));
+                return true;
+            };
+            result = classify_ui_positions(
+                state, vertex_count, vertex_at, bounds,
+                force_slot1_transform);
         }
     }
     ReleaseSRWLockShared(&g_resource_lock);
     return result;
 }
 
-static void log_ui_bounds(ID3D12PipelineState* pipeline, UINT vertex_count,
-                          UINT first_vertex, UIAnchor anchor, const float* bounds) {
+static UIAnchor classify_ui_indexed_draw(CommandListState* state,
+                                         UINT index_count, UINT first_index,
+                                         INT base_vertex, float* bounds,
+                                         bool force_slot1_transform = false) {
+    if (!state || index_count == 0 || index_count > 200000 ||
+        InterlockedCompareExchange(&state->has_index_buffer, 0, 0) == 0 ||
+        (InterlockedCompareExchange(&state->vertex_buffer_mask, 0, 0) & 1) == 0)
+        return UIAnchor::Unknown;
+    const D3D12_INDEX_BUFFER_VIEW index_view = state->index_buffer;
+    const D3D12_VERTEX_BUFFER_VIEW vertex_view = state->vertex_buffers[0];
+    const UINT index_stride = index_view.Format == DXGI_FORMAT_R16_UINT ? 2u :
+        index_view.Format == DXGI_FORMAT_R32_UINT ? 4u : 0u;
+    if (!index_view.BufferLocation || !vertex_view.BufferLocation ||
+        vertex_view.StrideInBytes < 12 || vertex_view.StrideInBytes > 256)
+        return UIAnchor::Unknown;
+    UINT64 index_offset = 0;
+    UINT64 index_bytes_size = 0;
+    if (!mgs4_hud::index_byte_range(first_index, index_count, index_stride,
+                                    index_view.SizeInBytes, &index_offset,
+                                    &index_bytes_size))
+        return UIAnchor::Unknown;
+
+    UIAnchor result = UIAnchor::Unknown;
+    AcquireSRWLockShared(&g_resource_lock);
+    const D3D12_GPU_VIRTUAL_ADDRESS index_address =
+        index_view.BufferLocation + index_offset;
+    ResourceState* index_resource = index_address >= index_view.BufferLocation
+        ? resource_for_gpu_range_locked(index_address, index_bytes_size) : nullptr;
+    const unsigned char* indices = index_resource
+        ? resource_bytes_locked(index_resource,
+              index_address - index_resource->gpu_address, index_bytes_size)
+        : nullptr;
+    if (indices) {
+        InterlockedExchange(&index_resource->ui_relevant, 1);
+        InterlockedExchange64(&index_resource->last_used, next_resource_serial());
+        std::uint32_t minimum_vertex = UINT32_MAX;
+        std::uint32_t maximum_vertex = 0;
+        bool valid = true;
+        for (UINT index = 0; index < index_count; ++index) {
+            std::uint32_t raw = 0;
+            if (index_stride == 2) {
+                std::uint16_t value = 0;
+                std::memcpy(&value, indices + static_cast<UINT64>(index) * 2,
+                            sizeof(value));
+                raw = value;
+            } else {
+                std::memcpy(&raw, indices + static_cast<UINT64>(index) * 4,
+                            sizeof(raw));
+            }
+            std::uint32_t resolved = 0;
+            if (!mgs4_hud::resolve_vertex_index(raw, base_vertex, &resolved)) {
+                valid = false;
+                break;
+            }
+            if (resolved < minimum_vertex) minimum_vertex = resolved;
+            if (resolved > maximum_vertex) maximum_vertex = resolved;
+        }
+        UINT64 vertex_offset = 0;
+        UINT64 vertex_bytes_size = 0;
+        if (valid) {
+            valid = mgs4_hud::vertex_byte_range(
+                minimum_vertex, maximum_vertex, vertex_view.StrideInBytes,
+                vertex_view.SizeInBytes, &vertex_offset, &vertex_bytes_size);
+        }
+        const D3D12_GPU_VIRTUAL_ADDRESS vertex_address =
+            vertex_view.BufferLocation + vertex_offset;
+        ResourceState* vertex_resource = valid &&
+            vertex_address >= vertex_view.BufferLocation
+            ? resource_for_gpu_range_locked(vertex_address, vertex_bytes_size)
+            : nullptr;
+        const unsigned char* vertices = vertex_resource
+            ? resource_bytes_locked(vertex_resource,
+                  vertex_address - vertex_resource->gpu_address,
+                  vertex_bytes_size)
+            : nullptr;
+        if (vertices) {
+            InterlockedExchange(&vertex_resource->ui_relevant, 1);
+            InterlockedExchange64(&vertex_resource->last_used,
+                                  next_resource_serial());
+            const auto vertex_at = [indices, index_stride, base_vertex,
+                                    minimum_vertex, vertices, &vertex_view](
+                UINT index, std::int16_t* x, std::int16_t* y) {
+                std::uint32_t raw = 0;
+                if (index_stride == 2) {
+                    std::uint16_t value = 0;
+                    std::memcpy(&value,
+                        indices + static_cast<UINT64>(index) * 2,
+                        sizeof(value));
+                    raw = value;
+                } else {
+                    std::memcpy(&raw,
+                        indices + static_cast<UINT64>(index) * 4,
+                        sizeof(raw));
+                }
+                std::uint32_t resolved = 0;
+                if (!mgs4_hud::resolve_vertex_index(
+                        raw, base_vertex, &resolved) ||
+                    resolved < minimum_vertex)
+                    return false;
+                const unsigned char* vertex = vertices +
+                    static_cast<UINT64>(resolved - minimum_vertex) *
+                        vertex_view.StrideInBytes;
+                std::memcpy(x, vertex + 8, sizeof(*x));
+                std::memcpy(y, vertex + 10, sizeof(*y));
+                return true;
+            };
+            result = classify_ui_positions(
+                state, index_count, vertex_at, bounds,
+                force_slot1_transform);
+        }
+    }
+    ReleaseSRWLockShared(&g_resource_lock);
+    return result;
+}
+
+static bool copy_ui_transform_view(
+    const D3D12_VERTEX_BUFFER_VIEW& view, float (&transform)[24]) {
+    if (!view.BufferLocation || view.SizeInBytes < sizeof(transform))
+        return false;
+
+    bool copied = false;
+    AcquireSRWLockShared(&g_resource_lock);
+    ResourceState* resource = resource_for_gpu_range_locked(
+        view.BufferLocation, sizeof(transform));
+    if (resource) {
+        InterlockedExchange(&resource->ui_relevant, 1);
+        InterlockedExchange64(&resource->last_used, next_resource_serial());
+        const unsigned char* bytes = resource_bytes_locked(
+            resource, view.BufferLocation - resource->gpu_address,
+            sizeof(transform));
+        if (bytes) {
+            std::memcpy(transform, bytes, sizeof(transform));
+            copied = true;
+        }
+    }
+    ReleaseSRWLockShared(&g_resource_lock);
+    return copied;
+}
+
+static bool copy_bound_ui_transform(CommandListState* state,
+                                    float (&transform)[24],
+                                    D3D12_VERTEX_BUFFER_VIEW* captured_view) {
+    if (!state ||
+        (InterlockedCompareExchange(&state->vertex_buffer_mask, 0, 0) & 2) == 0)
+        return false;
+    const D3D12_VERTEX_BUFFER_VIEW view = state->vertex_buffers[1];
+    const bool copied = copy_ui_transform_view(view, transform);
+    if (copied && captured_view) *captured_view = view;
+    return copied;
+}
+
+static bool initialize_ui_affine_upload_arena(ID3D12Device* device) {
+    if (!g_ui_emitter_transform_test || !device) return false;
+    const LONG previous = InterlockedCompareExchange(
+        &g_ui_affine_upload_state, 1, 0);
+    if (previous != 0) return previous == 2;
+
+    D3D12_HEAP_PROPERTIES heap = {};
+    heap.Type = D3D12_HEAP_TYPE_UPLOAD;
+    heap.CreationNodeMask = 1;
+    heap.VisibleNodeMask = 1;
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Width = ui_affine_upload_size;
+    desc.Height = 1;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    ID3D12Resource* resource = nullptr;
+    const HRESULT created = g_original_create_committed_resource
+        ? g_original_create_committed_resource(
+              device, &heap, D3D12_HEAP_FLAG_NONE, &desc,
+              D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+              __uuidof(ID3D12Resource),
+              reinterpret_cast<void**>(&resource))
+        : E_UNEXPECTED;
+    if (FAILED(created) || !resource) {
+        char message[160] = {};
+        std::snprintf(message, sizeof(message),
+            "UI-EMITTER-BATCH upload arena creation failed: hr=0x%08lx.",
+            static_cast<unsigned long>(created));
+        log_line(message);
+        InterlockedExchange(&g_ui_affine_upload_state, -1);
+        return false;
+    }
+
+    unsigned char* mapped = nullptr;
+    const D3D12_RANGE no_reads = {0, 0};
+    const HRESULT mapped_result = resource->Map(
+        0, &no_reads, reinterpret_cast<void**>(&mapped));
+    if (FAILED(mapped_result) || !mapped) {
+        char message[160] = {};
+        std::snprintf(message, sizeof(message),
+            "UI-EMITTER-BATCH upload arena map failed: hr=0x%08lx.",
+            static_cast<unsigned long>(mapped_result));
+        log_line(message);
+        resource->Release();
+        InterlockedExchange(&g_ui_affine_upload_state, -1);
+        return false;
+    }
+
+    g_ui_affine_upload_resource = resource;
+    g_ui_affine_upload_mapped = mapped;
+    g_ui_affine_upload_gpu = resource->GetGPUVirtualAddress();
+    InterlockedExchange(&g_ui_affine_upload_state, 2);
+    log_line("UI-EMITTER-BATCH immutable GPU arena ready: 65536 transform slots; no in-flight reuse.");
+    return true;
+}
+
+static bool centered_ui_transform_gpu_address(
+    const float (&original)[24], D3D12_GPU_VIRTUAL_ADDRESS* address) {
+    if (!address || InterlockedCompareExchange(
+            &g_ui_affine_runtime_disabled, 0, 0) != 0 ||
+        InterlockedCompareExchange(
+            &g_ui_affine_upload_state, 0, 0) != 2)
+        return false;
+    std::uint64_t hash = fnv1a_bytes(original, sizeof(original));
+    if (!hash) hash = 1;
+
+    bool found = false;
+    bool inserted = false;
+    AcquireSRWLockExclusive(&g_ui_affine_upload_lock);
+    const std::size_t start = static_cast<std::size_t>(
+        hash % ui_affine_cache_size);
+    for (std::size_t probe = 0; probe < ui_affine_cache_size; ++probe) {
+        const std::size_t index = (start + probe) % ui_affine_cache_size;
+        UIAffineCacheSlot& slot = g_ui_affine_cache[index];
+        if (slot.hash == hash &&
+            std::memcmp(slot.original, original, sizeof(original)) == 0) {
+            *address = g_ui_affine_upload_gpu +
+                static_cast<UINT64>(index) * sizeof(original);
+            found = true;
+            break;
+        }
+        if (slot.hash != 0) continue;
+
+        float centered[24] = {};
+        std::memcpy(centered, original, sizeof(centered));
+        mgs4_hud::apply_centered_16x9_clip_x(
+            centered, mgs4_hud::centered_16x9_clip_scale(
+                g_target_width, g_target_height));
+        const UINT64 offset = static_cast<UINT64>(index) * sizeof(centered);
+        std::memcpy(g_ui_affine_upload_mapped + offset,
+                    centered, sizeof(centered));
+        std::memcpy(slot.original, original, sizeof(original));
+        slot.hash = hash;
+        *address = g_ui_affine_upload_gpu + offset;
+        found = true;
+        inserted = true;
+        break;
+    }
+    ReleaseSRWLockExclusive(&g_ui_affine_upload_lock);
+
+    if (inserted) InterlockedIncrement(&g_ui_affine_cache_entries);
+
+    if (!found) {
+        InterlockedExchange(&g_ui_affine_runtime_disabled, 1);
+        if (InterlockedCompareExchange(
+                &g_ui_affine_cache_full_logged, 1, 0) == 0) {
+            log_line("UI-EMITTER-BATCH transform cache exhausted; centered HUD disabled for the remainder of this run to avoid mixing coordinate systems.");
+        }
+    }
+    return found;
+}
+
+static void report_ui_affine_cache_rate() {
+    const LONG64 now = static_cast<LONG64>(GetTickCount64());
+    const LONG64 last = InterlockedCompareExchange64(
+        &g_ui_affine_cache_report_tick, 0, 0);
+    if (last && now - last < 1000) return;
+    const LONG64 claimed = InterlockedCompareExchange64(
+        &g_ui_affine_cache_report_tick, now, last);
+    if (claimed != last) return;
+
+    const LONG entries = InterlockedCompareExchange(
+        &g_ui_affine_cache_entries, 0, 0);
+    const LONG previous_entries = InterlockedExchange(
+        &g_ui_affine_cache_report_entries, entries);
+    const LONG64 logical = InterlockedCompareExchange64(
+        &g_ui_emitter_total_logical, 0, 0);
+    const LONG64 patched = InterlockedCompareExchange64(
+        &g_ui_emitter_total_patched, 0, 0);
+    const LONG64 fullscreen = InterlockedCompareExchange64(
+        &g_ui_emitter_total_fullscreen, 0, 0);
+    const LONG64 unknown = InterlockedCompareExchange64(
+        &g_ui_emitter_total_unknown, 0, 0);
+    const LONG64 prior_logical = InterlockedExchange64(
+        &g_ui_emitter_report_logical, logical);
+    const LONG64 prior_patched = InterlockedExchange64(
+        &g_ui_emitter_report_patched, patched);
+    const LONG64 prior_fullscreen = InterlockedExchange64(
+        &g_ui_emitter_report_fullscreen, fullscreen);
+    const LONG64 prior_unknown = InterlockedExchange64(
+        &g_ui_emitter_report_unknown, unknown);
+    char message[320] = {};
+    std::snprintf(message, sizeof(message),
+        "UI-EMITTER-CACHE entries=%ld new_since_report=%ld interval_ms=%lld capacity=%zu "
+        "draws_delta(logical=%lld patched=%lld fullscreen=%lld formerly_unknown=%lld)",
+        entries, entries - previous_entries,
+        static_cast<long long>(last ? now - last : 0),
+        ui_affine_cache_size,
+        static_cast<long long>(logical - prior_logical),
+        static_cast<long long>(patched - prior_patched),
+        static_cast<long long>(fullscreen - prior_fullscreen),
+        static_cast<long long>(unknown - prior_unknown));
+    log_line(message);
+}
+
+static unsigned char* make_centered_ui_emitter_batch_copy(
+    const unsigned char* records, std::uint32_t count, int type,
+    std::uint32_t* patched_records) {
+    if (patched_records) *patched_records = 0;
+    if (!records || !count || (type != 0 && type != 1) ||
+        InterlockedCompareExchange(&g_ui_affine_runtime_disabled, 0, 0) != 0 ||
+        InterlockedCompareExchange(&g_ui_affine_upload_state, 0, 0) != 2)
+        return nullptr;
+
+    const std::size_t stride = type == 1 ? 0x80u : 0x68u;
+    if (count > SIZE_MAX / stride) return nullptr;
+    const std::size_t bytes = static_cast<std::size_t>(count) * stride;
+    unsigned char* copy = nullptr;
+    std::uint32_t logical = 0;
+    std::uint32_t fullscreen = 0;
+    std::uint32_t unknown = 0;
+    std::uint32_t patched = 0;
+
+    for (std::uint32_t index = 0; index < count; ++index) {
+        const unsigned char* record = records +
+            static_cast<std::size_t>(index) * stride;
+        D3D12_VERTEX_BUFFER_VIEW views[5] = {};
+        std::memcpy(views, record, sizeof(views));
+        float transform[24] = {};
+        if (!copy_ui_transform_view(views[1], transform) ||
+            !mgs4_hud::transform_is_2d_16x9_affine(transform))
+            continue;
+        ++logical;
+
+        CommandListState scratch = {};
+        std::memcpy(scratch.vertex_buffers, views,
+                    sizeof(scratch.vertex_buffers));
+        scratch.vertex_buffer_mask = 0x0f;
+        float bounds[4] = {};
+        UIAnchor anchor = UIAnchor::Unknown;
+        if (type == 0) {
+            std::uint32_t draw[4] = {};
+            std::memcpy(draw, record + 0x58, sizeof(draw));
+            anchor = classify_ui_draw(
+                &scratch, draw[0], draw[2], bounds, true);
+        } else {
+            std::memcpy(&scratch.index_buffer, record + 0x50,
+                        sizeof(scratch.index_buffer));
+            scratch.has_index_buffer = 1;
+            std::uint32_t draw[5] = {};
+            std::memcpy(draw, record + 0x68, sizeof(draw));
+            anchor = classify_ui_indexed_draw(
+                &scratch, draw[0], draw[2],
+                static_cast<INT>(draw[3]), bounds, true);
+        }
+        if (anchor == UIAnchor::FullScreen) {
+            ++fullscreen;
+            continue;
+        }
+        if (anchor == UIAnchor::Unknown) {
+            ++unknown;
+            // The logical 1280x720 affine is the emitter-level UI signal. The
+            // geometry mirror can legitimately be unavailable for decorative
+            // panels and text batches; treating that as a rejection leaves
+            // pieces of one screen on the ultrawide canvas. Only a positively
+            // identified native fullscreen quad is passed through unchanged.
+        }
+
+        D3D12_GPU_VIRTUAL_ADDRESS transformed_address = 0;
+        if (!centered_ui_transform_gpu_address(
+                transform, &transformed_address)) {
+            if (InterlockedCompareExchange(
+                    &g_ui_affine_runtime_disabled, 0, 0) != 0) {
+                if (copy) HeapFree(GetProcessHeap(), 0, copy);
+                if (patched_records) *patched_records = 0;
+                return nullptr;
+            }
+            continue;
+        }
+        if (!copy) {
+            copy = static_cast<unsigned char*>(HeapAlloc(
+                GetProcessHeap(), 0, bytes));
+            if (!copy) {
+                log_line("UI-EMITTER-BATCH record-array copy allocation failed.");
+                return nullptr;
+            }
+            std::memcpy(copy, records, bytes);
+        }
+        auto* transformed_view = reinterpret_cast<D3D12_VERTEX_BUFFER_VIEW*>(
+            copy + static_cast<std::size_t>(index) * stride + 0x10);
+        transformed_view->BufferLocation = transformed_address;
+        transformed_view->SizeInBytes = sizeof(transform);
+        transformed_view->StrideInBytes = 0;
+        ++patched;
+    }
+
+    InterlockedExchangeAdd64(&g_ui_emitter_total_logical, logical);
+    InterlockedExchangeAdd64(&g_ui_emitter_total_patched, patched);
+    InterlockedExchangeAdd64(&g_ui_emitter_total_fullscreen, fullscreen);
+    InterlockedExchangeAdd64(&g_ui_emitter_total_unknown, unknown);
+    static volatile LONG logical_batch_log_count;
+    const LONG log_number = logical
+        ? InterlockedIncrement(&logical_batch_log_count) : 0;
+    if (log_number > 0 && log_number <= 64) {
+        char message[224] = {};
+        std::snprintf(message, sizeof(message),
+            "UI-EMITTER-BATCH #%ld type=%d count=%u logical=%u patched=%u fullscreen=%u unknown=%u copy=%s",
+            log_number, type, count, logical, patched, fullscreen, unknown,
+            copy ? "yes" : "no");
+        log_line(message);
+    }
+    if (patched_records) *patched_records = patched;
+    report_ui_affine_cache_rate();
+    return copy;
+}
+
+static void log_passive_ui_transform(CommandListState* state,
+                                     ID3D12PipelineState* pipeline,
+                                     const char* draw_kind,
+                                     UINT element_count,
+                                     const CommonUISnapshot& snapshot) {
+    // The common emitter also submits world and auxiliary 3D records. Logging
+    // all of them exhausts the bounded observation table before the UI pass.
+    // Use the same recognized UI-pipeline boundary as the working visual
+    // classifier. Some valid UI PSOs are identified by their input layout
+    // rather than the one exact vertex-shader bytecode. Fullscreen effects
+    // sharing either signature remain present for the next comparison.
+    if (!g_full_canvas_test || !snapshot.valid ||
+        !is_ui_pipeline(pipeline))
+        return;
+    const auto until = static_cast<ULONGLONG>(InterlockedCompareExchange64(
+        &g_ui_emitter_capture_until, 0, 0));
+    if (!until || GetTickCount64() > until) return;
+
+    float transform[24] = {};
+    D3D12_VERTEX_BUFFER_VIEW view = {};
+    if (!copy_bound_ui_transform(state, transform, &view)) {
+        InterlockedIncrement(&g_ui_emitter_capture_unreadable);
+        return;
+    }
+
+    const LONG epoch = InterlockedCompareExchange(
+        &g_ui_emitter_capture_epoch, 0, 0);
+    const std::uint64_t transform_hash = fnv1a_bytes(
+        transform, sizeof(transform));
+    struct ObservationKey {
+        LONG epoch;
+        LONG route;
+        LONG pipeline;
+        std::uint64_t emitter_state_hash;
+        std::uint64_t transform_hash;
+        std::uint32_t draw[5];
+        std::uint32_t elements;
+        unsigned char indexed;
+    } key_data = {};
+    key_data.epoch = epoch;
+    key_data.route = snapshot.emitter_route;
+    key_data.pipeline = ui_pipeline_id(pipeline);
+    key_data.emitter_state_hash = snapshot.emitter_state_hash;
+    key_data.transform_hash = transform_hash;
+    std::memcpy(key_data.draw, snapshot.draw, sizeof(snapshot.draw));
+    key_data.elements = element_count;
+    key_data.indexed = std::strcmp(draw_kind, "indexed") == 0 ? 1 : 0;
+    if (!remember_ui_emitter_observation(
+            fnv1a_bytes(&key_data, sizeof(key_data))))
+        return;
+
+    const LONG observation = InterlockedIncrement(&g_ui_emitter_capture_count);
+    if (observation > 4096) return;
+    char label[64] = {};
+    copy_ui_emitter_capture_label(label);
+    char message[1792] = {};
+    int used = std::snprintf(message, sizeof(message),
+        "UI-TRANSFORM-OBS epoch=%ld label=%s obs=%ld route=%ld batch=%ld "
+        "type=%d record=%u kind=%s pso=%ld elements=%u call50=%u call10=%u "
+        "emitter_state=%016llx transform_hash=%016llx "
+        "slot1=0x%llx,%u,%u draw=%u,%u,%u,%u,%u transform=",
+        epoch, label, observation, snapshot.emitter_route, snapshot.batch,
+        snapshot.record_type, snapshot.record, draw_kind,
+        ui_pipeline_id(pipeline), element_count,
+        snapshot.call50 ? 1u : 0u, snapshot.call10 ? 1u : 0u,
+        static_cast<unsigned long long>(snapshot.emitter_state_hash),
+        static_cast<unsigned long long>(transform_hash),
+        static_cast<unsigned long long>(view.BufferLocation),
+        view.SizeInBytes, view.StrideInBytes,
+        snapshot.draw[0], snapshot.draw[1], snapshot.draw[2],
+        snapshot.draw[3], snapshot.draw[4]);
+    for (unsigned value = 0; value < 24 && used > 0 &&
+         static_cast<std::size_t>(used) < sizeof(message); ++value) {
+        used += std::snprintf(message + used, sizeof(message) - used,
+                              "%s%.9g", value ? "," : "", transform[value]);
+    }
+    log_line(message);
+}
+
+static void log_ui_bounds(ID3D12PipelineState* pipeline, const char* draw_kind,
+                          UINT vertex_count, UINT first_vertex,
+                          UIAnchor anchor, const float* bounds) {
     if (!g_ui_diagnostics) return;
     static volatile LONG64 keys[512];
     std::uint64_t key = 1469598103934665603ull;
@@ -1391,8 +2634,8 @@ static void log_ui_bounds(ID3D12PipelineState* pipeline, UINT vertex_count,
     if (number > 512) return;
     char message[256] = {};
     std::snprintf(message, sizeof(message),
-        "UIBOUNDS #%ld pso=%ld vertices=%u first=%u anchor=%s bounds=%.2f,%.2f..%.2f,%.2f",
-        number, ui_pipeline_id(pipeline), vertex_count, first_vertex,
+        "UIBOUNDS #%ld kind=%s pso=%ld elements=%u first=%u anchor=%s bounds=%.2f,%.2f..%.2f,%.2f",
+        number, draw_kind, ui_pipeline_id(pipeline), vertex_count, first_vertex,
         ui_anchor_name(anchor),
         bounds[0], bounds[1], bounds[2], bounds[3]);
     log_line(message);
@@ -1410,7 +2653,7 @@ static void log_ui_correlation(ID3D12PipelineState* pipeline,
         static_cast<std::uint64_t>(ui_pipeline_id(pipeline)),
         static_cast<std::uint64_t>(element_count),
         static_cast<std::uint64_t>(snapshot.resource),
-        snapshot.transform_hash,
+        snapshot.emitter_state_hash,
         snapshot.draw[0], snapshot.draw[1], snapshot.draw[2],
         snapshot.draw[3], snapshot.draw[4],
     };
@@ -1434,11 +2677,11 @@ static void log_ui_correlation(ID3D12PipelineState* pipeline,
     char message[512] = {};
     std::snprintf(message, sizeof(message),
         "UICORR #%ld batch=%ld record=%u kind=%s pso=%ld elements=%u "
-        "resource=%p transform=%016llx draw=%08x,%08x,%08x,%08x,%08x",
+        "resource=%p emitter_state=%016llx draw=%08x,%08x,%08x,%08x,%08x",
         number, snapshot.batch, snapshot.record, draw_kind,
         ui_pipeline_id(pipeline), element_count,
         reinterpret_cast<void*>(snapshot.resource),
-        static_cast<unsigned long long>(snapshot.transform_hash),
+        static_cast<unsigned long long>(snapshot.emitter_state_hash),
         snapshot.draw[0], snapshot.draw[1], snapshot.draw[2],
         snapshot.draw[3], snapshot.draw[4]);
     log_line(message);
@@ -1479,7 +2722,7 @@ static void log_crosshair_ui_candidate(ID3D12PipelineState* pipeline,
         sample, static_cast<unsigned long long>(GetTickCount64()), draw_kind,
         ui_pipeline_id(pipeline), element_count,
         reinterpret_cast<void*>(snapshot.resource),
-        static_cast<unsigned long long>(snapshot.transform_hash),
+        static_cast<unsigned long long>(snapshot.emitter_state_hash),
         ui_anchor_name(anchor),
         bounds ? bounds[0] : 0.0f, bounds ? bounds[1] : 0.0f,
         bounds ? bounds[2] : 0.0f, bounds ? bounds[3] : 0.0f,
@@ -1566,6 +2809,11 @@ static bool make_ui_viewport(CommandListState* state, D3D12_VIEWPORT* safe,
         !state || !safe ||
         InterlockedCompareExchange(&state->has_viewport, 0, 0) == 0)
         return false;
+    // A selected pass-level route already owns both viewport and scissor.
+    // Do not apply the per-draw HUD transform a second time inside it.
+    if (InterlockedCompareExchange(
+            &state->active_viewport_route, 0, 0) > 0)
+        return false;
     auto* pipeline = reinterpret_cast<ID3D12PipelineState*>(
         InterlockedCompareExchangePointer(&state->pipeline_state, nullptr, nullptr));
     if (!is_ui_pipeline(pipeline)) return false;
@@ -1578,23 +2826,39 @@ static bool make_ui_viewport(CommandListState* state, D3D12_VIEWPORT* safe,
         // the actual UI vertex shader. Restrict proportional anchoring to the
         // exact shader; otherwise those full-screen passes can become a
         // 2560-pixel colour/effect strip on a 3440-pixel output.
-        if (!is_anchor_ui_pipeline(pipeline))
+        const mgs4_hud::UIRouteMode route_mode = g_full_canvas_test
+            ? current_ui_route_test_mode()
+            : mgs4_hud::UIRouteMode::Conservative;
+        const std::uint32_t enabled_mask = static_cast<std::uint32_t>(
+            InterlockedCompareExchange(&g_ui_route_enabled_mask, 0, 0));
+        const mgs4_hud::UIPixelKind pixel =
+            ui_pipeline_pixel_kind(pipeline);
+        const bool approved_pipeline = is_anchor_ui_pipeline(pipeline);
+        const bool private_exact_candidate = g_full_canvas_test &&
+            route_mode == mgs4_hud::UIRouteMode::Selective &&
+            is_exact_ui_pipeline(pipeline);
+        if (!approved_pipeline && !private_exact_candidate)
             return false;
-        if (!bounds || anchor == UIAnchor::Unknown ||
-            anchor == UIAnchor::FullScreen || vertex_count == 0 ||
-            vertex_count > 1536)
+        const bool unclassified_text_fallback = g_full_canvas_test &&
+            route_mode == mgs4_hud::UIRouteMode::Selective &&
+            pixel == mgs4_hud::UIPixelKind::Text &&
+            anchor == UIAnchor::Unknown &&
+            (enabled_mask & mgs4_hud::kRouteUnclassifiedText) != 0;
+        if (!bounds || anchor == UIAnchor::FullScreen || vertex_count == 0 ||
+            (anchor == UIAnchor::Unknown && !unclassified_text_fallback))
             return false;
-        const float width = bounds[2] - bounds[0];
-        const float height = bounds[3] - bounds[1];
+        const float width = unclassified_text_fallback
+            ? 1.0f : bounds[2] - bounds[0];
+        const float height = unclassified_text_fallback
+            ? 1.0f : bounds[3] - bounds[1];
         if (!std::isfinite(width) || !std::isfinite(height) ||
             width <= 0.0f || height <= 0.0f)
             return false;
-        // Single-quad post-processing tiles share the exact UI shader and
-        // vertex layout. Exclude them by geometry: ordinary HUD icons/panels
-        // are smaller, while long menu bars deliberately remain edge-to-edge.
-        if (vertex_count == 6 &&
-            (width >= 512.0f || height >= 360.0f ||
-             width * height >= 19600.0f))
+        const bool selected = unclassified_text_fallback ||
+            mgs4_hud::route_ui_draw(
+                route_mode, enabled_mask, pixel, route_anchor(anchor),
+                vertex_count, width, height);
+        if (!selected)
             return false;
     }
     mgs4_hud::HorizontalAnchor horizontal = mgs4_hud::HorizontalAnchor::Center;
@@ -1640,6 +2904,141 @@ static bool make_ui_scissor(CommandListState* state,
     return safe_scissor->right > safe_scissor->left;
 }
 
+struct TextDrawObservation {
+    volatile LONG64 sequence;
+    ULONGLONG tick;
+    LONG pso;
+    UINT elements;
+    LONG anchor;
+    float bounds[4];
+    D3D12_VIEWPORT viewport;
+    D3D12_VIEWPORT output;
+    LONG transformed;
+    LONG indexed;
+    LONG batch;
+    std::uintptr_t resource;
+    std::uint64_t transform_hash;
+};
+
+static constexpr std::size_t text_history_size = 4096;
+static TextDrawObservation g_text_history[text_history_size] = {};
+static volatile LONG64 g_text_history_sequence;
+
+static void log_text_observation(const char* prefix, LONG epoch, LONG item,
+                                 const TextDrawObservation& observation,
+                                 ULONGLONG age_ms) {
+    char message[640] = {};
+    std::snprintf(message, sizeof(message),
+        "%s epoch=%ld item=%ld tick=%llu age_ms=%llu kind=%s pso=%ld "
+        "elements=%u anchor=%s bounds=%.3f,%.3f..%.3f,%.3f "
+        "viewport=%.1f,%.1f %.1fx%.1f transformed=%s "
+        "output=%.1f,%.1f %.1fx%.1f batch=%ld resource=0x%llx "
+        "transform_hash=%016llx",
+        prefix, epoch, item,
+        static_cast<unsigned long long>(observation.tick),
+        static_cast<unsigned long long>(age_ms),
+        observation.indexed ? "indexed" : "draw", observation.pso,
+        observation.elements,
+        ui_anchor_name(static_cast<UIAnchor>(observation.anchor)),
+        observation.bounds[0], observation.bounds[1],
+        observation.bounds[2], observation.bounds[3],
+        observation.viewport.TopLeftX, observation.viewport.TopLeftY,
+        observation.viewport.Width, observation.viewport.Height,
+        observation.transformed ? "yes" : "no",
+        observation.output.TopLeftX, observation.output.TopLeftY,
+        observation.output.Width, observation.output.Height,
+        observation.batch,
+        static_cast<unsigned long long>(observation.resource),
+        static_cast<unsigned long long>(observation.transform_hash));
+    log_line(message);
+}
+
+static void begin_text_capture() {
+    const ULONGLONG now = GetTickCount64();
+    const LONG epoch = InterlockedIncrement(&g_text_capture_epoch);
+    InterlockedExchange(&g_text_capture_count, 0);
+    InterlockedExchange64(&g_text_capture_until,
+        static_cast<LONG64>(now + 1500));
+    char message[192] = {};
+    std::snprintf(message, sizeof(message),
+        "TEXT-CAPTURE-BEGIN epoch=%ld hotkey=F8 history_ms=15000 "
+        "future_ms=1500", epoch);
+    log_line(message);
+
+    const LONG64 newest = InterlockedCompareExchange64(
+        &g_text_history_sequence, 0, 0);
+    const LONG64 oldest = std::max<LONG64>(1, newest - 767);
+    for (LONG64 sequence = oldest; sequence <= newest; ++sequence) {
+        TextDrawObservation& slot =
+            g_text_history[(sequence - 1) % text_history_size];
+        if (InterlockedCompareExchange64(&slot.sequence, 0, 0) != sequence)
+            continue;
+        TextDrawObservation snapshot{};
+        snapshot.tick = slot.tick;
+        snapshot.pso = slot.pso;
+        snapshot.elements = slot.elements;
+        snapshot.anchor = slot.anchor;
+        std::memcpy(snapshot.bounds, slot.bounds, sizeof(snapshot.bounds));
+        snapshot.viewport = slot.viewport;
+        snapshot.output = slot.output;
+        snapshot.transformed = slot.transformed;
+        snapshot.indexed = slot.indexed;
+        snapshot.batch = slot.batch;
+        snapshot.resource = slot.resource;
+        snapshot.transform_hash = slot.transform_hash;
+        MemoryBarrier();
+        if (InterlockedCompareExchange64(&slot.sequence, 0, 0) != sequence)
+            continue;
+        const ULONGLONG age = now >= snapshot.tick ? now - snapshot.tick : 0;
+        if (age > 15000) continue;
+        const LONG item = InterlockedIncrement(&g_text_capture_count);
+        if (item > 768) break;
+        log_text_observation("TEXT-HISTORY", epoch, item, snapshot, age);
+    }
+}
+
+static void log_live_text_draw(ID3D12PipelineState* pipeline,
+                               const char* draw_kind, UINT element_count,
+                               UIAnchor anchor, const float* bounds,
+                               CommandListState* state, bool transformed,
+                               const D3D12_VIEWPORT* safe,
+                               const CommonUISnapshot& common) {
+    if (ui_pipeline_pixel_kind(pipeline) != mgs4_hud::UIPixelKind::Text)
+        return;
+    const ULONGLONG now = GetTickCount64();
+    const D3D12_VIEWPORT original = state ? state->viewport : D3D12_VIEWPORT{};
+    const D3D12_VIEWPORT output = transformed && safe ? *safe : original;
+    const LONG64 sequence = InterlockedIncrement64(&g_text_history_sequence);
+    TextDrawObservation& slot =
+        g_text_history[(sequence - 1) % text_history_size];
+    InterlockedExchange64(&slot.sequence, -sequence);
+    slot.tick = now;
+    slot.pso = ui_pipeline_id(pipeline);
+    slot.elements = element_count;
+    slot.anchor = static_cast<LONG>(anchor);
+    slot.bounds[0] = bounds ? bounds[0] : 0.0f;
+    slot.bounds[1] = bounds ? bounds[1] : 0.0f;
+    slot.bounds[2] = bounds ? bounds[2] : 0.0f;
+    slot.bounds[3] = bounds ? bounds[3] : 0.0f;
+    slot.viewport = original;
+    slot.output = output;
+    slot.transformed = transformed ? 1 : 0;
+    slot.indexed = std::strcmp(draw_kind, "indexed") == 0 ? 1 : 0;
+    slot.batch = common.batch;
+    slot.resource = common.resource;
+    slot.transform_hash = common.emitter_state_hash;
+    MemoryBarrier();
+    InterlockedExchange64(&slot.sequence, sequence);
+
+    const LONG64 until = InterlockedCompareExchange64(
+        &g_text_capture_until, 0, 0);
+    if (!until || static_cast<LONG64>(now) > until) return;
+    const LONG item = InterlockedIncrement(&g_text_capture_count);
+    if (item > 768) return;
+    const LONG epoch = InterlockedCompareExchange(&g_text_capture_epoch, 0, 0);
+    log_text_observation("TEXT-CAPTURE", epoch, item, slot, 0);
+}
+
 static HRESULT STDMETHODCALLTYPE hooked_command_list_reset(
     ID3D12GraphicsCommandList* command_list, ID3D12CommandAllocator* allocator,
     ID3D12PipelineState* initial_state) {
@@ -1651,6 +3050,11 @@ static HRESULT STDMETHODCALLTYPE hooked_command_list_reset(
             InterlockedExchange(&state->has_viewport, 0);
             InterlockedExchange(&state->has_scissor, 0);
             InterlockedExchange(&state->vertex_buffer_mask, 0);
+            InterlockedExchange(&state->has_index_buffer, 0);
+            InterlockedExchange(&state->active_viewport_route, 0);
+            InterlockedExchange(&state->preview_viewport_mask, 0);
+            InterlockedExchange(&state->preview_viewport_count, 0);
+            InterlockedExchange(&state->preview_rtv_state, 0);
         }
     }
     return result;
@@ -1658,37 +3062,236 @@ static HRESULT STDMETHODCALLTYPE hooked_command_list_reset(
 
 static void STDMETHODCALLTYPE hooked_command_list_clear_state(
     ID3D12GraphicsCommandList* command_list, ID3D12PipelineState* pipeline) {
-    if (CommandListState* state = command_state(command_list, true))
+    if (CommandListState* state = command_state(command_list, true)) {
         InterlockedExchangePointer(&state->pipeline_state, pipeline);
+        InterlockedExchange(&state->has_viewport, 0);
+        InterlockedExchange(&state->has_scissor, 0);
+        InterlockedExchange(&state->vertex_buffer_mask, 0);
+        InterlockedExchange(&state->has_index_buffer, 0);
+        InterlockedExchange(&state->active_viewport_route, 0);
+        InterlockedExchange(&state->preview_viewport_mask, 0);
+        InterlockedExchange(&state->preview_viewport_count, 0);
+        InterlockedExchange(&state->preview_rtv_state, 0);
+    }
     g_original_command_list_clear_state(command_list, pipeline);
+}
+
+static void STDMETHODCALLTYPE hooked_om_set_render_targets(
+    ID3D12GraphicsCommandList* command_list, UINT count,
+    const D3D12_CPU_DESCRIPTOR_HANDLE* descriptors,
+    BOOL descriptors_are_contiguous,
+    const D3D12_CPU_DESCRIPTOR_HANDLE* depth_stencil) {
+    LONG rtv_state = 0;
+    bool any_known = false;
+    bool output_sized = false;
+    if (g_preview_rtv_gate_test && count && descriptors) {
+        const UINT increment = static_cast<UINT>(InterlockedCompareExchange(
+            &g_rtv_descriptor_increment, 0, 0));
+        for (UINT index = 0; index < count; ++index) {
+            D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptors[index];
+            if (descriptors_are_contiguous) {
+                if (!increment && index) break;
+                handle.ptr = descriptors[0].ptr +
+                    static_cast<SIZE_T>(index) * increment;
+            }
+            UINT64 width = 0;
+            UINT height = 0;
+            if (!lookup_rtv_descriptor(handle, &width, &height)) continue;
+            any_known = true;
+            if (width == g_target_width && height == g_target_height) {
+                output_sized = true;
+                break;
+            }
+        }
+        rtv_state = output_sized ? 1L : (any_known ? -1L : 0L);
+    }
+    if (CommandListState* state = command_state(command_list, true))
+        InterlockedExchange(&state->preview_rtv_state, rtv_state);
+    g_original_om_set_render_targets(
+        command_list, count, descriptors, descriptors_are_contiguous,
+        depth_stencil);
 }
 
 static void STDMETHODCALLTYPE hooked_rs_set_viewports(
     ID3D12GraphicsCommandList* command_list, UINT count,
     const D3D12_VIEWPORT* viewports) {
+    const LONG route_id = remember_viewport_route(count, viewports);
+    const LONG selected_route = InterlockedCompareExchange(
+        &g_selected_viewport_route, 0, 0);
+    const LONG transform_mode = InterlockedCompareExchange(
+        &g_viewport_transform_mode, 0, 0);
+    D3D12_VIEWPORT transformed[16] = {};
+    const D3D12_VIEWPORT* effective = viewports;
+    LONG preview_mask = 0;
+    CommandListState* preview_state = command_state(command_list, true);
+    const LONG preview_rtv_state = g_preview_rtv_gate_test && preview_state
+        ? InterlockedCompareExchange(&preview_state->preview_rtv_state, 0, 0)
+        : 0;
+    if (g_preview_3d_uniform_fit_test && viewports && count > 0 &&
+        count <= std::size(transformed)) {
+        std::memcpy(transformed, viewports,
+                    static_cast<std::size_t>(count) * sizeof(transformed[0]));
+        for (UINT index = 0; index < count; ++index) {
+            const mgs4_hud::PassViewport source{
+                viewports[index].TopLeftX, viewports[index].TopLeftY,
+                viewports[index].Width, viewports[index].Height};
+            const bool geometry_candidate =
+                mgs4_hud::is_preview_viewport_candidate(
+                static_cast<float>(g_target_width),
+                static_cast<float>(g_target_height), source);
+            // A known non-output RTV disproves the preview hypothesis. When
+            // descriptor provenance is unavailable (some Proton/driver paths),
+            // retain the validated geometric fallback instead of disabling the
+            // feature. Output-sized RTV + geometry is the preferred dual gate.
+            const bool accepted = mgs4_hud::should_transform_preview_viewport(
+                geometry_candidate, preview_rtv_state);
+            log_preview_viewport_decision_once(count, index, viewports[index],
+                geometry_candidate, preview_rtv_state, accepted);
+            if (!accepted) continue;
+            mgs4_hud::PassViewport output{};
+            if (!mgs4_hud::transform_preview_viewport_uniform(
+                    static_cast<float>(g_target_width),
+                    static_cast<float>(g_target_height), source, &output))
+                continue;
+            transformed[index].TopLeftX = output.left;
+            transformed[index].TopLeftY = output.top;
+            transformed[index].Width = output.width;
+            transformed[index].Height = output.height;
+            preview_mask |= static_cast<LONG>(1u << index);
+        }
+        if (preview_mask) effective = transformed;
+    }
+    const bool transform_route = route_id > 0 && route_id == selected_route &&
+        !preview_mask && viewports && count > 0 &&
+        count <= std::size(transformed);
+    bool transformed_all = transform_route;
+    if (transform_route) {
+        for (UINT index = 0; index < count; ++index) {
+            const mgs4_hud::PassViewport source{
+                viewports[index].TopLeftX, viewports[index].TopLeftY,
+                viewports[index].Width, viewports[index].Height};
+            mgs4_hud::PassViewport output{};
+            const bool transformed_ok = transform_mode == 2
+                ? mgs4_hud::transform_pass_viewport_preserve_16x9(
+                    static_cast<float>(g_target_width),
+                    static_cast<float>(g_target_height), source, &output)
+                : mgs4_hud::transform_pass_viewport(
+                    static_cast<float>(g_target_width),
+                    static_cast<float>(g_target_height), source, &output);
+            if (!transformed_ok) {
+                transformed_all = false;
+                break;
+            }
+            transformed[index] = viewports[index];
+            transformed[index].TopLeftX = output.left;
+            transformed[index].TopLeftY = output.top;
+            transformed[index].Width = output.width;
+            transformed[index].Height = output.height;
+        }
+        if (transformed_all) effective = transformed;
+    }
     if (CommandListState* state = command_state(command_list, true)) {
-        if (count && viewports) {
-            state->viewport = viewports[0];
+        InterlockedExchange(&state->preview_viewport_mask, 0);
+        InterlockedExchange(&state->preview_viewport_count, 0);
+        if (preview_mask) {
+            std::memcpy(state->preview_source_viewports, viewports,
+                        static_cast<std::size_t>(count) * sizeof(viewports[0]));
+            std::memcpy(state->preview_transformed_viewports, effective,
+                        static_cast<std::size_t>(count) * sizeof(effective[0]));
+            InterlockedExchange(&state->preview_viewport_count,
+                                static_cast<LONG>(count));
+            MemoryBarrier();
+            InterlockedExchange(&state->preview_viewport_mask, preview_mask);
+        }
+        if (count && effective) {
+            state->viewport = effective[0];
             InterlockedExchange(&state->has_viewport, 1);
+            InterlockedExchange(&state->active_viewport_route,
+                                transformed_all ? route_id : 0);
         } else {
             InterlockedExchange(&state->has_viewport, 0);
+            InterlockedExchange(&state->active_viewport_route, 0);
         }
     }
-    g_original_rs_set_viewports(command_list, count, viewports);
+    g_original_rs_set_viewports(command_list, count, effective);
 }
 
 static void STDMETHODCALLTYPE hooked_rs_set_scissor_rects(
     ID3D12GraphicsCommandList* command_list, UINT count,
     const D3D12_RECT* scissors) {
-    if (CommandListState* state = command_state(command_list, true)) {
-        if (count && scissors) {
-            state->scissor = scissors[0];
+    CommandListState* state = command_state(command_list, true);
+    D3D12_RECT transformed[16] = {};
+    const D3D12_RECT* effective = scissors;
+    // A viewport/scissor pair is consumed once. Keeping this mask live until
+    // the next RSSetViewports call can accidentally remap a second, unrelated
+    // scissor update recorded on the same command list.
+    const LONG preview_mask = state
+        ? InterlockedExchange(&state->preview_viewport_mask, 0) : 0;
+    const LONG preview_count = state
+        ? InterlockedExchange(&state->preview_viewport_count, 0) : 0;
+    if (preview_mask && state && scissors && count > 0 &&
+        count <= std::size(transformed)) {
+        std::memcpy(transformed, scissors,
+                    static_cast<std::size_t>(count) * sizeof(transformed[0]));
+        bool changed = false;
+        for (UINT index = 0; index < count &&
+             index < static_cast<UINT>(preview_count); ++index) {
+            if ((preview_mask & static_cast<LONG>(1u << index)) == 0) continue;
+            const D3D12_VIEWPORT& source_viewport =
+                state->preview_source_viewports[index];
+            const D3D12_VIEWPORT& target_viewport =
+                state->preview_transformed_viewports[index];
+            const mgs4_hud::PassViewport source{
+                source_viewport.TopLeftX, source_viewport.TopLeftY,
+                source_viewport.Width, source_viewport.Height};
+            const mgs4_hud::PassViewport target{
+                target_viewport.TopLeftX, target_viewport.TopLeftY,
+                target_viewport.Width, target_viewport.Height};
+            const mgs4_hud::PassScissor source_scissor{
+                scissors[index].left, scissors[index].top,
+                scissors[index].right, scissors[index].bottom};
+            mgs4_hud::PassScissor target_scissor{};
+            if (!mgs4_hud::transform_preview_scissor_uniform(
+                    source, target, source_scissor, &target_scissor))
+                continue;
+            transformed[index] = {target_scissor.left, target_scissor.top,
+                                  target_scissor.right, target_scissor.bottom};
+            changed = true;
+        }
+        if (changed) effective = transformed;
+    }
+    const LONG active_route = state
+        ? InterlockedCompareExchange(&state->active_viewport_route, 0, 0) : 0;
+    bool transformed_all = !preview_mask && active_route > 0 && scissors &&
+        count > 0 && count <= std::size(transformed);
+    if (transformed_all) {
+        for (UINT index = 0; index < count; ++index) {
+            const mgs4_hud::PassScissor source{
+                scissors[index].left, scissors[index].top,
+                scissors[index].right, scissors[index].bottom};
+            mgs4_hud::PassScissor output{};
+            if (!mgs4_hud::transform_pass_scissor(
+                    static_cast<float>(g_target_width),
+                    static_cast<float>(g_target_height), source, &output)) {
+                transformed_all = false;
+                break;
+            }
+            transformed[index] = {
+                output.left, output.top, output.right, output.bottom};
+        }
+        if (transformed_all) effective = transformed;
+    }
+    if (state) {
+        if (active_route > 0 && !transformed_all)
+            InterlockedExchange(&state->active_viewport_route, 0);
+        if (count && effective) {
+            state->scissor = effective[0];
             InterlockedExchange(&state->has_scissor, 1);
         } else {
             InterlockedExchange(&state->has_scissor, 0);
         }
     }
-    g_original_rs_set_scissor_rects(command_list, count, scissors);
+    g_original_rs_set_scissor_rects(command_list, count, effective);
 }
 
 static void STDMETHODCALLTYPE hooked_set_pipeline_state(
@@ -1718,11 +3321,27 @@ static void STDMETHODCALLTYPE hooked_ia_set_vertex_buffers(
     g_original_ia_set_vertex_buffers(command_list, start_slot, count, views);
 }
 
+static void STDMETHODCALLTYPE hooked_ia_set_index_buffer(
+    ID3D12GraphicsCommandList* command_list,
+    const D3D12_INDEX_BUFFER_VIEW* view) {
+    if (CommandListState* state = command_state(command_list, true)) {
+        if (view) {
+            state->index_buffer = *view;
+            InterlockedExchange(&state->has_index_buffer, 1);
+        } else {
+            state->index_buffer = {};
+            InterlockedExchange(&state->has_index_buffer, 0);
+        }
+    }
+    g_original_ia_set_index_buffer(command_list, view);
+}
+
 static void shadow_buffer_copy(ID3D12Resource* destination, UINT64 destination_offset,
                                ID3D12Resource* source, UINT64 source_offset,
                                UINT64 byte_count) {
     if ((!g_anchor_ui && !g_center_hud_16x9 && !g_ui_diagnostics &&
-         !g_crosshair_diagnostics) ||
+         !g_crosshair_diagnostics && !g_full_canvas_test &&
+         !g_ui_emitter_transform_test) ||
         !destination || !source ||
         !byte_count || byte_count > max_shadow_copy_size)
         return;
@@ -1801,28 +3420,38 @@ static void STDMETHODCALLTYPE hooked_draw_instanced(
         : nullptr;
     const bool ui_pipeline = is_ui_pipeline(pipeline);
     const bool anchor_ui_pipeline = is_anchor_ui_pipeline(pipeline);
-    const CommonUISnapshot common = ui_pipeline
-        ? take_common_ui_snapshot()
+    const bool private_route_pipeline = g_full_canvas_test &&
+        is_exact_ui_pipeline(pipeline);
+    const std::uint32_t emitter_draw[5] = {
+        vertex_count, instance_count, first_vertex, first_instance, 0};
+    const CommonUISnapshot common = (ui_pipeline || g_full_canvas_test)
+        ? take_common_ui_snapshot(false, emitter_draw)
         : CommonUISnapshot{};
     if (ui_pipeline)
         log_ui_draw_stack(vertex_count, first_vertex, instance_count);
 
     float bounds[4] = {};
     const UIAnchor anchor = (((g_anchor_ui || g_center_hud_16x9) &&
-                              anchor_ui_pipeline) ||
+                              (anchor_ui_pipeline || private_route_pipeline)) ||
                              ((g_ui_diagnostics || g_crosshair_diagnostics) &&
                               ui_pipeline))
         ? classify_ui_draw(state, vertex_count, first_vertex, bounds)
         : UIAnchor::Unknown;
     if (ui_pipeline) {
-        log_ui_bounds(pipeline, vertex_count, first_vertex, anchor, bounds);
+        log_ui_bounds(pipeline, "draw", vertex_count, first_vertex, anchor,
+                      bounds);
         log_ui_correlation(pipeline, "draw", vertex_count, common);
         log_crosshair_ui_candidate(pipeline, "draw", vertex_count, anchor,
                                    bounds, common);
     }
+    log_passive_ui_transform(state, pipeline, "draw", vertex_count, common);
 
     D3D12_VIEWPORT safe = {};
-    if (make_ui_viewport(state, &safe, anchor, vertex_count, bounds)) {
+    const bool transform_text_or_ui =
+        make_ui_viewport(state, &safe, anchor, vertex_count, bounds);
+    log_live_text_draw(pipeline, "draw", vertex_count, anchor, bounds, state,
+                       transform_text_or_ui, &safe, common);
+    if (transform_text_or_ui) {
         const D3D12_VIEWPORT original = state->viewport;
         const D3D12_RECT original_scissor = state->scissor;
         D3D12_RECT safe_scissor = {};
@@ -1852,24 +3481,61 @@ static void STDMETHODCALLTYPE hooked_draw_indexed_instanced(
                 &state->pipeline_state, nullptr, nullptr))
         : nullptr;
     const bool ui_pipeline = is_ui_pipeline(pipeline);
-    const CommonUISnapshot common = ui_pipeline
-        ? take_common_ui_snapshot()
+    const bool anchor_ui_pipeline = is_anchor_ui_pipeline(pipeline);
+    const bool private_route_pipeline = g_full_canvas_test &&
+        is_exact_ui_pipeline(pipeline);
+    const std::uint32_t emitter_draw[5] = {
+        index_count, instance_count, first_index,
+        static_cast<std::uint32_t>(base_vertex), first_instance};
+    const CommonUISnapshot common = (ui_pipeline || g_full_canvas_test)
+        ? take_common_ui_snapshot(true, emitter_draw)
         : CommonUISnapshot{};
+    float bounds[4] = {};
+    const UIAnchor anchor = (((g_anchor_ui || g_center_hud_16x9) &&
+                              (anchor_ui_pipeline || private_route_pipeline)) ||
+                             ((g_ui_diagnostics || g_crosshair_diagnostics) &&
+                              ui_pipeline))
+        ? classify_ui_indexed_draw(state, index_count, first_index,
+                                   base_vertex, bounds)
+        : UIAnchor::Unknown;
     if (ui_pipeline) {
         log_ui_draw_stack(index_count, first_index, instance_count);
+        log_ui_bounds(pipeline, "indexed", index_count, first_index, anchor,
+                      bounds);
         log_ui_correlation(pipeline, "indexed", index_count, common);
-        log_crosshair_ui_candidate(pipeline, "indexed", index_count,
-                                   UIAnchor::Unknown, nullptr, common);
+        log_crosshair_ui_candidate(pipeline, "indexed", index_count, anchor,
+                                   bounds, common);
     }
+    log_passive_ui_transform(state, pipeline, "indexed", index_count, common);
     D3D12_VIEWPORT safe = {};
     const float legacy_bounds[4] = {0.0f, 0.0f, 1.0f, 1.0f};
-    if (g_constrain_ui && !g_anchor_ui && !g_center_hud_16x9 &&
-        make_ui_viewport(state, &safe, UIAnchor::Center, 6,
-                         legacy_bounds)) {
+    const UIAnchor effective_anchor =
+        g_constrain_ui && !g_anchor_ui && !g_center_hud_16x9
+            ? UIAnchor::Center : anchor;
+    const float* effective_bounds =
+        g_constrain_ui && !g_anchor_ui && !g_center_hud_16x9
+            ? legacy_bounds : bounds;
+    const UINT effective_count =
+        g_constrain_ui && !g_anchor_ui && !g_center_hud_16x9
+            ? 6 : index_count;
+    const bool transform_text_or_ui = make_ui_viewport(
+        state, &safe, effective_anchor, effective_count, effective_bounds);
+    log_live_text_draw(pipeline, "indexed", index_count, effective_anchor,
+                       effective_bounds, state, transform_text_or_ui, &safe,
+                       common);
+    if (transform_text_or_ui) {
         const D3D12_VIEWPORT original = state->viewport;
+        const D3D12_RECT original_scissor = state->scissor;
+        D3D12_RECT safe_scissor = {};
+        const bool adjust_scissor = make_ui_scissor(
+            state, safe, effective_anchor, &safe_scissor);
         g_original_rs_set_viewports(command_list, 1, &safe);
+        if (adjust_scissor)
+            g_original_rs_set_scissor_rects(command_list, 1, &safe_scissor);
         g_original_draw_indexed_instanced(command_list, index_count, instance_count,
                                           first_index, base_vertex, first_instance);
+        if (adjust_scissor)
+            g_original_rs_set_scissor_rects(command_list, 1, &original_scissor);
         g_original_rs_set_viewports(command_list, 1, &original);
         return;
     }
@@ -1903,6 +3569,15 @@ static void install_command_list_hooks(ID3D12GraphicsCommandList* command_list) 
         vtable[22], reinterpret_cast<void*>(&hooked_rs_set_scissor_rects),
         reinterpret_cast<void**>(&g_original_rs_set_scissor_rects),
         "D3D12 RSSetScissorRects");
+    bool render_targets_ok = true;
+    if (g_preview_rtv_gate_test) {
+        render_targets_ok = create_and_enable_hook(
+            vtable[46], reinterpret_cast<void*>(&hooked_om_set_render_targets),
+            reinterpret_cast<void**>(&g_original_om_set_render_targets),
+            "D3D12 OMSetRenderTargets");
+        if (!render_targets_ok)
+            log_line("D3D12: preview RTV provenance unavailable; using the conservative geometric fallback.");
+    }
     const bool pipeline_ok = create_and_enable_hook(
         vtable[25], reinterpret_cast<void*>(&hooked_set_pipeline_state),
         reinterpret_cast<void**>(&g_original_set_pipeline_state), "D3D12 SetPipelineState");
@@ -1917,6 +3592,10 @@ static void install_command_list_hooks(ID3D12GraphicsCommandList* command_list) 
         reinterpret_cast<void**>(&g_original_copy_buffer_region),
         "D3D12 CopyBufferRegion");
     state_ok &= create_and_enable_hook(
+        vtable[43], reinterpret_cast<void*>(&hooked_ia_set_index_buffer),
+        reinterpret_cast<void**>(&g_original_ia_set_index_buffer),
+        "D3D12 IASetIndexBuffer");
+    state_ok &= create_and_enable_hook(
         vtable[44], reinterpret_cast<void*>(&hooked_ia_set_vertex_buffers),
         reinterpret_cast<void**>(&g_original_ia_set_vertex_buffers),
         "D3D12 IASetVertexBuffers");
@@ -1930,11 +3609,86 @@ static void install_command_list_hooks(ID3D12GraphicsCommandList* command_list) 
             reinterpret_cast<void**>(&g_original_draw_indexed_instanced),
             "D3D12 DrawIndexedInstanced");
     }
-    const bool okay = viewport_ok && scissor_ok && pipeline_ok && state_ok && draws_ok;
+    const bool okay = viewport_ok && scissor_ok && pipeline_ok && state_ok &&
+        draws_ok;
     if (okay)
         log_line("D3D12: command-list hooks installed.");
     else
         InterlockedExchange(&g_d3d12_command_hooks_installed, -1);
+}
+
+static void STDMETHODCALLTYPE hooked_create_render_target_view(
+    ID3D12Device* device, ID3D12Resource* resource,
+    const D3D12_RENDER_TARGET_VIEW_DESC* desc,
+    D3D12_CPU_DESCRIPTOR_HANDLE destination) {
+    g_original_create_render_target_view(device, resource, desc, destination);
+    remember_rtv_descriptor(destination, resource);
+}
+
+static void STDMETHODCALLTYPE hooked_copy_descriptors_simple(
+    ID3D12Device* device, UINT count,
+    D3D12_CPU_DESCRIPTOR_HANDLE destination,
+    D3D12_CPU_DESCRIPTOR_HANDLE source, D3D12_DESCRIPTOR_HEAP_TYPE type) {
+    g_original_copy_descriptors_simple(
+        device, count, destination, source, type);
+    if (type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV || !count) return;
+    const UINT increment = device->GetDescriptorHandleIncrementSize(type);
+    if (!increment) return;
+    for (UINT index = 0; index < count; ++index) {
+        const D3D12_CPU_DESCRIPTOR_HANDLE source_handle{
+            source.ptr + static_cast<SIZE_T>(index) * increment};
+        const D3D12_CPU_DESCRIPTOR_HANDLE destination_handle{
+            destination.ptr + static_cast<SIZE_T>(index) * increment};
+        copy_rtv_descriptor_metadata(destination_handle, source_handle);
+    }
+}
+
+static void STDMETHODCALLTYPE hooked_copy_descriptors(
+    ID3D12Device* device, UINT destination_range_count,
+    const D3D12_CPU_DESCRIPTOR_HANDLE* destination_starts,
+    const UINT* destination_sizes, UINT source_range_count,
+    const D3D12_CPU_DESCRIPTOR_HANDLE* source_starts,
+    const UINT* source_sizes, D3D12_DESCRIPTOR_HEAP_TYPE type) {
+    g_original_copy_descriptors(
+        device, destination_range_count, destination_starts, destination_sizes,
+        source_range_count, source_starts, source_sizes, type);
+    if (type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV ||
+        !destination_range_count || !source_range_count ||
+        !destination_starts || !source_starts)
+        return;
+    const UINT increment = device->GetDescriptorHandleIncrementSize(type);
+    if (!increment) return;
+
+    UINT destination_range = 0;
+    UINT source_range = 0;
+    UINT destination_offset = 0;
+    UINT source_offset = 0;
+    while (destination_range < destination_range_count &&
+           source_range < source_range_count) {
+        const UINT destination_count = destination_sizes
+            ? destination_sizes[destination_range] : 1u;
+        const UINT source_count = source_sizes
+            ? source_sizes[source_range] : 1u;
+        if (destination_offset >= destination_count) {
+            ++destination_range;
+            destination_offset = 0;
+            continue;
+        }
+        if (source_offset >= source_count) {
+            ++source_range;
+            source_offset = 0;
+            continue;
+        }
+        const D3D12_CPU_DESCRIPTOR_HANDLE destination_handle{
+            destination_starts[destination_range].ptr +
+            static_cast<SIZE_T>(destination_offset) * increment};
+        const D3D12_CPU_DESCRIPTOR_HANDLE source_handle{
+            source_starts[source_range].ptr +
+            static_cast<SIZE_T>(source_offset) * increment};
+        copy_rtv_descriptor_metadata(destination_handle, source_handle);
+        ++destination_offset;
+        ++source_offset;
+    }
 }
 
 static HRESULT STDMETHODCALLTYPE hooked_create_graphics_pso(
@@ -1967,6 +3721,11 @@ static HRESULT STDMETHODCALLTYPE hooked_create_command_list(
             InterlockedExchange(&state->has_viewport, 0);
             InterlockedExchange(&state->has_scissor, 0);
             InterlockedExchange(&state->vertex_buffer_mask, 0);
+            InterlockedExchange(&state->has_index_buffer, 0);
+            InterlockedExchange(&state->active_viewport_route, 0);
+            InterlockedExchange(&state->preview_viewport_mask, 0);
+            InterlockedExchange(&state->preview_viewport_count, 0);
+            InterlockedExchange(&state->preview_rtv_state, 0);
         }
         install_command_list_hooks(graphics);
     }
@@ -2076,6 +3835,25 @@ static void install_d3d12_device_hooks(ID3D12Device* device) {
         vtable[27], reinterpret_cast<void*>(&hooked_create_committed_resource),
         reinterpret_cast<void**>(&g_original_create_committed_resource),
         "D3D12 CreateCommittedResource");
+    if (g_preview_rtv_gate_test) {
+        InterlockedExchange(&g_rtv_descriptor_increment,
+            static_cast<LONG>(device->GetDescriptorHandleIncrementSize(
+                D3D12_DESCRIPTOR_HEAP_TYPE_RTV)));
+        const bool create_rtv_ok = create_and_enable_hook(
+            vtable[20], reinterpret_cast<void*>(&hooked_create_render_target_view),
+            reinterpret_cast<void**>(&g_original_create_render_target_view),
+            "D3D12 CreateRenderTargetView");
+        const bool copy_descriptors_ok = create_and_enable_hook(
+            vtable[23], reinterpret_cast<void*>(&hooked_copy_descriptors),
+            reinterpret_cast<void**>(&g_original_copy_descriptors),
+            "D3D12 CopyDescriptors");
+        const bool copy_simple_ok = create_and_enable_hook(
+            vtable[24], reinterpret_cast<void*>(&hooked_copy_descriptors_simple),
+            reinterpret_cast<void**>(&g_original_copy_descriptors_simple),
+            "D3D12 CopyDescriptorsSimple");
+        if (!create_rtv_ok || !copy_descriptors_ok || !copy_simple_ok)
+            log_line("D3D12: RTV descriptor provenance is partial; preview fitting will use its validated geometric fallback when needed.");
+    }
     const bool okay = pso_ok && lists_ok && placed_ok && committed_ok;
     if (okay)
         log_line("D3D12: device hooks installed.");
@@ -2088,8 +3866,11 @@ static HRESULT WINAPI hooked_d3d12_create_device(IUnknown* adapter,
                                                   REFIID riid, void** device) {
     const HRESULT result = g_original_d3d12_create_device(adapter, minimum_level,
                                                            riid, device);
-    if (SUCCEEDED(result) && device && *device)
-        install_d3d12_device_hooks(reinterpret_cast<ID3D12Device*>(*device));
+    if (SUCCEEDED(result) && device && *device) {
+        auto* created = reinterpret_cast<ID3D12Device*>(*device);
+        install_d3d12_device_hooks(created);
+        initialize_ui_affine_upload_arena(created);
+    }
     return result;
 }
 
@@ -2143,6 +3924,12 @@ static DWORD WINAPI render_backend_hook_thread(void*) {
         "Ultrawide", "AnchorUIToSafeArea", 0, ini_path) != 0;
     g_center_hud_16x9 = GetPrivateProfileIntA(
         "Ultrawide", "CenterHUDIn16x9", 0, ini_path) != 0;
+    g_full_canvas_test = GetPrivateProfileIntA(
+        "Ultrawide", "FullCanvasTest", 0, ini_path) != 0;
+    g_ui_emitter_transform_test = GetPrivateProfileIntA(
+        "Ultrawide", "EmitterTransformTest", 0, ini_path) != 0;
+    g_preview_3d_uniform_fit_test = GetPrivateProfileIntA(
+        "Ultrawide", "Preview3DUniformFitTest", 0, ini_path) != 0;
     g_ui_diagnostics = GetPrivateProfileIntA(
         "Ultrawide", "UIDiagnostics", 0, ini_path) != 0;
 #endif
@@ -2150,6 +3937,8 @@ static DWORD WINAPI render_backend_hook_thread(void*) {
         "Ultrawide", "CrosshairDiagnostics", 0, ini_path) != 0;
 #ifdef MGS4_LAB_ONLY
     if (!g_constrain_ui && !g_anchor_ui && !g_center_hud_16x9 &&
+        !g_full_canvas_test && !g_ui_emitter_transform_test &&
+        !g_preview_3d_uniform_fit_test &&
         !g_ui_diagnostics && !g_crosshair_diagnostics)
         return 0;
 #endif
@@ -2634,8 +4423,12 @@ static bool install_ui_common_diagnostics(std::uintptr_t base) {
         "common UI emitter diagnostic");
     DWORD ignored = 0;
     VirtualProtect(target, 32, old_protection, &ignored);
-    if (okay)
-        log_line("Common UI emitter diagnostics installed without data mutation.");
+    if (okay) {
+        if (g_full_canvas_test)
+            log_line("Common UI emitter passive probe installed; game and backend data remain unmodified.");
+        else
+            log_line("Common UI emitter diagnostics installed without data mutation.");
+    }
     return okay;
 }
 
@@ -3030,6 +4823,12 @@ static DWORD WINAPI patch_thread(void*) {
                                         ini_path) != 0;
     g_center_hud_16x9 = GetPrivateProfileIntA(
         "Ultrawide", "CenterHUDIn16x9", 0, ini_path) != 0;
+    g_full_canvas_test = GetPrivateProfileIntA(
+        "Ultrawide", "FullCanvasTest", 0, ini_path) != 0;
+    g_ui_emitter_transform_test = GetPrivateProfileIntA(
+        "Ultrawide", "EmitterTransformTest", 0, ini_path) != 0;
+    g_preview_3d_uniform_fit_test = GetPrivateProfileIntA(
+        "Ultrawide", "Preview3DUniformFitTest", 0, ini_path) != 0;
     g_ui_diagnostics = GetPrivateProfileIntA("Ultrawide", "UIDiagnostics", 0,
                                               ini_path) != 0;
     g_cinematic_diagnostics = GetPrivateProfileIntA(
@@ -3069,6 +4868,7 @@ static DWORD WINAPI patch_thread(void*) {
     std::snprintf(settings_message, sizeof(settings_message),
                   "Configuration: %ux%u, aspect %.6f, FOVMultiplier %.3f, FPS %u, "
                   "UI safe area %s, anchored UI %s, centered 16:9 HUD %s, "
+                  "full-canvas test %s, emitter transform test %s, "
                   "UI diagnostics %s, "
                   "cinematic diagnostics %s, projection diagnostics %s, "
                   "crosshair diagnostics %s, camera ownership diagnostics %s, "
@@ -3076,7 +4876,10 @@ static DWORD WINAPI patch_thread(void*) {
                   width, height, g_target_aspect, g_fov_multiplier, fps,
                   g_constrain_ui ? "experimental" : "off",
                   g_anchor_ui ? "experimental" : "off",
-                  g_center_hud_16x9 ? "EXPERIMENTAL/ACTIVE" : "off",
+                  (g_center_hud_16x9 || g_ui_emitter_transform_test)
+                      ? "EXPERIMENTAL/ACTIVE" : "off",
+                  g_full_canvas_test ? "PRIVATE/ACTIVE" : "off",
+                  g_ui_emitter_transform_test ? "EXPERIMENTAL/ACTIVE" : "off",
                   g_ui_diagnostics ? "on" : "off",
                   g_cinematic_diagnostics ? "on" : "off",
                   g_projection_diagnostics ? "on" : "off",
@@ -3092,7 +4895,21 @@ static DWORD WINAPI patch_thread(void*) {
     }
     g_executable_base = base;
 #ifdef MGS4_LAB_ONLY
-    if (g_ui_diagnostics || g_crosshair_diagnostics)
+    if (g_full_canvas_test) {
+        if (game_sibling_path(g_ui_route_control_path,
+                              "mgs4_hud_canvas_test.ini")) {
+            HANDLE route_thread = CreateThread(
+                nullptr, 0, ui_route_control_thread, nullptr, 0, nullptr);
+            if (route_thread)
+                CloseHandle(route_thread);
+            else
+                log_line("ERROR: HUD route control thread could not start.");
+        } else {
+            log_line("ERROR: HUD route control path could not be resolved.");
+        }
+    }
+    if (g_ui_diagnostics || g_crosshair_diagnostics || g_full_canvas_test ||
+        g_ui_emitter_transform_test)
         install_ui_common_diagnostics(base);
     if (g_crosshair_diagnostics)
         install_player_sight_diagnostics(base);
@@ -3100,6 +4917,13 @@ static DWORD WINAPI patch_thread(void*) {
     log_line("Experimental centered-HUD build: " MGS4_LAB_VERSION);
 #endif
     log_line("Centered-HUD buffer mirrors: lifecycle-safe adaptive full-resource cache v2 active.");
+    log_line("Centered-HUD indexed UI reconstruction: complete 2D emitter path active.");
+    if (g_full_canvas_test)
+        log_line("Centered-HUD route isolation: private passive emitter/cache probe active; press F8 to capture.");
+    if (g_ui_emitter_transform_test)
+        log_line("Centered-HUD affine path: logical 2D UI is composed inside the centered 16:9 safe area; fullscreen quads are excluded.");
+    if (g_preview_3d_uniform_fit_test)
+        log_line("Centered-HUD preview path: recognized auxiliary 3D weapon/item previews are uniformly fitted into the centered safe area; projection is unchanged.");
     log_line("Centered-HUD companion: UI-only ASI active; resolution, FOV, FPS, input and launcher state remain owned by MGS4Ultra120.asi.");
     return 0;
 #else

@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(MGS4Ultra120 VERSION 0.3.4 LANGUAGES C CXX)
 
-set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.3")
-set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,3")
+set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.4")
+set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,4")
 
 include(CTest)
 
@@ -183,6 +183,38 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(hud_cache_policy_test PRIVATE
         "${CMAKE_SOURCE_DIR}/src/centered_hud")
     add_test(NAME hud_cache_policy COMMAND hud_cache_policy_test)
+
+    add_executable(indexed_draw_math_test tests/indexed_draw_math_test.cpp)
+    target_compile_features(indexed_draw_math_test PRIVATE cxx_std_17)
+    target_include_directories(indexed_draw_math_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME indexed_draw_math COMMAND indexed_draw_math_test)
+
+    add_executable(ui_route_policy_test tests/ui_route_policy_test.cpp)
+    target_compile_features(ui_route_policy_test PRIVATE cxx_std_17)
+    target_include_directories(ui_route_policy_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME ui_route_policy COMMAND ui_route_policy_test)
+
+    add_executable(menu_pass_viewport_test tests/menu_pass_viewport_test.cpp)
+    target_compile_features(menu_pass_viewport_test PRIVATE cxx_std_17)
+    target_include_directories(menu_pass_viewport_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME menu_pass_viewport COMMAND menu_pass_viewport_test)
+
+    add_executable(ui_emitter_transform_test
+        tests/ui_emitter_transform_test.cpp)
+    target_compile_features(ui_emitter_transform_test PRIVATE cxx_std_17)
+    target_include_directories(ui_emitter_transform_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME ui_emitter_transform COMMAND ui_emitter_transform_test)
+
+    add_executable(ui_emitter_cache_model_test
+        tests/ui_emitter_cache_model_test.cpp)
+    target_compile_features(ui_emitter_cache_model_test PRIVATE cxx_std_17)
+    target_include_directories(ui_emitter_cache_model_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME ui_emitter_cache_model COMMAND ui_emitter_cache_model_test)
 
     add_test(NAME winmm_proxy_smoke COMMAND winmm_proxy_smoke)
     add_executable(launcher_args_probe tests/launcher_args_probe.cpp)

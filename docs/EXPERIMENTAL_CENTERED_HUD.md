@@ -4,9 +4,12 @@ This optional DX12-only companion keeps accepted HUD draws inside a centered
 16:9 safe area on ultrawide output. It is included on Windows and Linux/Proton
 but disabled by default.
 
-`v0.3.4-alpha.3` fixes a runtime resource-tracking problem that could make the
-HUD briefly stretch and shrink after playing for a while. Do not combine the
-alpha.3 HUD ASI with files from an older package.
+`v0.3.4-alpha.4` replaces the earlier per-draw correction with one coherent UI
+batch transform. This keeps text, frames, panels and subtitles in the same
+centered coordinate system and removes the stretch/shrink pulse seen in older
+builds. The tested weapon and item 3D previews are fitted separately without
+changing their FOV or projection. Do not combine this HUD ASI with files from
+an older package.
 
 Use the **Experimental centered 16:9 HUD** switch in either configurator. For a
 manual installation, close the game and edit:
@@ -21,12 +24,19 @@ Set `Enabled=0` to return to the normal HUD. The companion ASI may stay in the
 `scripts` folder: while disabled, it exits before installing D3D12 hooks and
 does not alter FOV, resolution, input, FPS or launcher behavior.
 
-The current classifier deliberately leaves unknown draws, full-screen bounds,
-large single-quad effects and indexed UI untouched. Gameplay and the tested
-weapon window look correct, but less common save, pause, inventory, Codec,
-subtitle or prompt layouts may still need refinement. If text separates from a
-panel, a menu clips or a full-screen effect is reduced to a central strip,
-close the game and disable the option before reporting the scene and resolution.
+The complete 2D path rejects positively identified fullscreen effects. The 3D
+preview fit is deliberately limited to the visually validated weapon/item
+layout; a broader render-target rule remains private until Codec, scope,
+backpack and unusual item screens have been captured. Gameplay, load and weapon
+screens plus AK-102 and knife previews were validated at 3440x1440 on Windows.
+Less common save, pause, inventory, Codec or prompt layouts may still expose an
+omission. If a menu clips or a fullscreen effect becomes a central strip, close
+the game and disable the option before reporting the screen and resolution.
+
+The transform cache has a fixed memory budget. If it is ever exhausted, the
+companion records the event in `mgs4_centered_hud_16x9.log` and disables its HUD
+correction for the remainder of that game run rather than mixing corrected and
+uncorrected elements.
 
 This feature does not fix the separate high-internal-resolution crosshair
 boundary associated with supersampling widths around or above 4096 pixels.

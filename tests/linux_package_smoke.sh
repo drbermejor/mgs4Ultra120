@@ -13,7 +13,7 @@ FPS_ARCHIVE="${2:-}"
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi" ]]
-grep -qx 'v0.3.4-alpha.3' "$PACKAGE_DIR/VERSION"
+grep -qx 'v0.3.4-alpha.4' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -82,6 +82,7 @@ install_environment=(
   HOME="$TEST_HOME"
   STEAM_DIR="$STEAM_HOME"
   STEAM_LOCALCONFIG="$CONFIG"
+  MGS4_GAME_DIR="$GAME_DIR"
   MGS4_CONFIGURE_AFTER_INSTALL=0
   MGS4_PACKAGE_INSTALL_DIR="$LOCAL_PACKAGE"
   XDG_DATA_HOME="$XDG_DATA"
@@ -125,6 +126,11 @@ grep -q '^ExperimentalCinematicFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=inherit$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^SupersamplingEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^Enabled=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^CenterHUDIn16x9=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^FullCanvasTest=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^EmitterTransformTest=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^Preview3DUniformFitTest=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+! grep -q '^PreviewRTVGateTest=' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 
 # Managed updates preserve explicit gameplay and cinematic FOV choices.
 sed -i 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' "$GAME_DIR/mgs4_ultrawide.ini"

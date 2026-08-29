@@ -46,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.4-alpha.3") {
+if ($PackageVersion -ne "v0.3.4-alpha.4") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -335,10 +335,17 @@ try {
     }
     $HudIniText = Get-Content -Raw -LiteralPath `
         (Join-Path $GameDir "mgs4_centered_hud_16x9.ini")
-    foreach ($ExpectedLine in @("Enabled=0", "Width=3440", "Height=1440")) {
+    foreach ($ExpectedLine in @(
+        "Enabled=0", "Width=3440", "Height=1440",
+        "CenterHUDIn16x9=0", "FullCanvasTest=0",
+        "EmitterTransformTest=1", "Preview3DUniformFitTest=1"
+    )) {
         if ($HudIniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
             throw "Stable profile did not write centered-HUD setting: $ExpectedLine"
         }
+    }
+    if ($HudIniText -match '(?m)^PreviewRTVGateTest=') {
+        throw "Public package exposes the private preview RTV gate."
     }
     & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
         -GameDir $GameDir -Profile 16x9-supersampling

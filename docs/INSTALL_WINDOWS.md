@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.4-alpha.3 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.3).
+[v0.3.4-alpha.4 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.4).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).

@@ -5,7 +5,7 @@ param(
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
-$Mgs4Ultra120Version = "v0.3.4-alpha.3"
+$Mgs4Ultra120Version = "v0.3.4-alpha.4"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {

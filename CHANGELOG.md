@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.4-alpha.4 - complete centered HUD composition
+
+- Replaced the experimental centered HUD's late per-draw correction with one
+  complete common-emitter batch transform, covering both of the game's UI
+  submission paths without the earlier stretch/shrink flicker.
+- Kept positively identified fullscreen effects outside the HUD transform.
+- Added indexed text and scaled/animated 2D affine support so menu text,
+  subtitles, frames and panels remain in one coordinate system.
+- Added a separate uniform viewport/scissor fit for the tested weapon and item
+  3D previews without changing their camera, FOV or projection.
+- Made the preview scissor pairing single-use so later unrelated scissor calls
+  cannot reuse stale state.
+- Kept the immutable transform arena bounded and made exhaustion disable the
+  centered HUD coherently for the rest of that run instead of mixing layouts.
+- Validated 3440x1440 gameplay, load screens, the weapon menu, AK-102 and knife
+  previews on Windows. The option remains experimental, DX12-only and disabled
+  by default; Linux/Proton uses the same binary and still needs broader visual
+  coverage.
+
 ## v0.3.4-alpha.3 - centered HUD runtime stability
 
 - Fixed the experimental centered 16:9 HUD briefly stretching and shrinking

@@ -1,0 +1,11 @@
+[b]New release: MGS4 Ultra120 v0.3.4-alpha.4[/b]
+
+This update improves the optional centered 16:9 HUD on ultrawide displays. Menus, text, subtitles and panels now use one coherent centered layout, and the tested 3D weapon/item previews keep their correct proportions inside it.
+
+The centered HUD remains [b]experimental, DX12-only and disabled by default[/b]. Enable it in the configurator if you want to test it. If any menu or fullscreen transition looks wrong, disable only that option to return to the normal HUD; the rest of the patch remains active.
+
+Tested on Windows at 3440x1440 in gameplay, load screens and the weapon menu with AK-102 and knife previews. Windows and Linux/Proton packages are available.
+
+Please use the managed updater or remove old patch files before installing. Do not mix ASI or INI files from different releases.
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.4]Download v0.3.4-alpha.4[/url]

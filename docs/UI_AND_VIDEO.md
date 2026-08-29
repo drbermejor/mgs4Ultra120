@@ -1,16 +1,17 @@
 # UI and pre-rendered video
 
-The normal HUD remains the default. `v0.3.4-alpha.3` also includes a separate,
+The normal HUD remains the default. `v0.3.4-alpha.4` includes a separate,
 DX12-only `MGS4CenteredHUD16x9.asi` companion that can place conservatively
 accepted HUD draws in one centered 16:9 safe area. The companion is experimental
 and disabled by default.
 
-The earlier prototype transformed every draw using a shared D3D12 vertex
-shader, including full-screen fades and effects. The current classifier also
-requires the known input layout, finite non-full-screen vertex bounds, a
-conservative non-indexed draw and rejection of the large single-quad effect
-class. Unknown, indexed and full-screen draws remain untouched. The original
-viewport and scissor are restored after every accepted draw.
+The earlier prototype corrected individual backend draws. The game can upload
+the same UI through two emitter paths, so that late strategy could alternate
+between corrected and original coordinates. Alpha.4 instead copies each whole
+common-emitter record batch, redirects only its 2D affine transforms to bounded
+D3D12 upload memory, calls the original emitter and restores the game's pointer.
+This covers indexed text and scaled or animated 2D sub-canvases while rejecting
+positively identified fullscreen quads.
 
 An early build could briefly alternate between the centered and original HUD
 after running for a while, most visibly in the dynamic weapon/item panels. Its
@@ -21,11 +22,12 @@ real offsets after a resource is identified as UI. A repeated 3440x1440 Windows
 test remained stable beyond the previous failure interval. The same companion
 binary runs under Proton, but Linux still requires a repeat visual test.
 
-The game constructs logical UI records in a common path before its D3D11/D3D12
-backend split. That route is documented for future work, but records are queued
-and cannot yet be separated safely from full-screen effects at that stage. The
-current companion therefore remains a DX12-only per-draw implementation rather
-than applying an unsafe global UI transform.
+Weapon and item models are not 2D emitter records. Their auxiliary 3D viewport
+is uniformly scaled and moved into the same safe area, with the paired scissor
+changed once. This preserves model proportions and leaves the preview camera,
+FOV and projection untouched. The broader output-render-target classifier is
+still private; the public build uses the layout validated with the AK-102 and
+knife at 3440x1440.
 
 This improves gameplay HUD layout without claiming every menu is complete.
 Save, pause, inventory, Codec, subtitle and prompt layouts can still contain a

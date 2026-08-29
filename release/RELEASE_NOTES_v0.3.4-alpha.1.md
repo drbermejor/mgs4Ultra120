@@ -63,3 +63,12 @@ and use the retained
 The aiming-reticle limitation at supersampling internal widths around or above
 4096 pixels is separate and remains unresolved. Keep supersampling disabled for
 the safest configuration.
+
+## Centered HUD screenshots
+
+These ultrawide captures show the experimental HUD kept inside a centered 16:9
+safe area while the 3D scene continues across the full output.
+
+![Experimental centered 16:9 gameplay HUD](https://raw.githubusercontent.com/drbermejor/mgs4Ultra120/main/docs/images/v0.3.4-alpha.1-centered-16x9-hud-gameplay.jpg)
+
+![Experimental centered 16:9 pause menu](https://raw.githubusercontent.com/drbermejor/mgs4Ultra120/main/docs/images/v0.3.4-alpha.1-centered-16x9-hud-pause-menu.jpg)

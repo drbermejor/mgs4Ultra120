@@ -26,3 +26,13 @@ close the game and disable the option before reporting the scene and resolution.
 
 This feature does not fix the separate high-internal-resolution crosshair
 boundary associated with supersampling widths around or above 4096 pixels.
+
+## Screenshots
+
+The following ultrawide captures show the experimental 16:9 safe area in
+gameplay and in the tested pause-menu layout. Only the HUD is centered; the 3D
+scene continues to cover the full ultrawide output.
+
+![Centered gameplay HUD on ultrawide output](images/v0.3.4-alpha.1-centered-16x9-hud-gameplay.jpg)
+
+![Centered pause-menu HUD on ultrawide output](images/v0.3.4-alpha.1-centered-16x9-hud-pause-menu.jpg)

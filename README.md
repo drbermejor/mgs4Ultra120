@@ -85,6 +85,20 @@ Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
 
 ![Undistorted WeaponWindow at 3440x1440](docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png)
 
+### Experimental centered 16:9 HUD (`v0.3.4-alpha.1`)
+
+These ultrawide captures show the optional HUD experiment keeping gameplay
+widgets and the tested pause-menu layout inside a centered 16:9 safe area.
+The 3D image continues to use the full ultrawide output.
+
+**Centered gameplay HUD**
+
+![Experimental centered 16:9 gameplay HUD on ultrawide output](docs/images/v0.3.4-alpha.1-centered-16x9-hud-gameplay.jpg)
+
+**Centered pause-menu HUD**
+
+![Experimental centered 16:9 pause menu on ultrawide output](docs/images/v0.3.4-alpha.1-centered-16x9-hud-pause-menu.jpg)
+
 ## Windows downloads
 
 Use the

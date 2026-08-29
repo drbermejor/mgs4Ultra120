@@ -4,7 +4,7 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.4-alpha.2` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.3` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -102,7 +102,7 @@ The 3D image continues to use the full ultrawide output.
 ## Windows downloads
 
 Use the
-[latest v0.3.4-alpha.2 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.2)
+[latest v0.3.4-alpha.3 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.3)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -184,7 +184,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.4-alpha.2` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.3` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`

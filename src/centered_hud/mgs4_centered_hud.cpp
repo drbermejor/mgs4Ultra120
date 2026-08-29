@@ -16,6 +16,7 @@
 #include <iterator>
 
 #include "MinHook.h"
+#include "cache_victim_policy.h"
 #include "camera_route_policy.h"
 #include "fov_strategy.h"
 #include "hud_anchor_math.h"
@@ -703,6 +704,7 @@ static volatile LONG g_ui_pipeline_ids[128];
 static std::uint64_t g_ui_pipeline_ps_hashes[128];
 static SIZE_T g_ui_pipeline_ps_sizes[128];
 static volatile LONG g_ui_pipeline_exact_vs[128];
+static volatile LONG g_ui_pipeline_active[128];
 static volatile LONG g_ui_stack_count;
 static volatile LONG64 g_ui_stack_keys[256];
 static volatile LONG g_d3d12_resource_hooks_installed;
@@ -711,19 +713,27 @@ struct ResourceState {
     ID3D12Resource* resource;
     D3D12_GPU_VIRTUAL_ADDRESS gpu_address;
     UINT64 size;
+    LONG64 generation;
+    volatile LONG64 last_used;
     unsigned char* mapped;
     unsigned char* shadow;
     UINT64 shadow_capacity;
     UINT64 shadow_offset;
     UINT64 shadow_size;
+    bool shadow_full_resource;
     bool cpu_accessible;
+    volatile LONG ui_relevant;
 };
 
 static constexpr std::size_t resource_table_size = 4096;
 static constexpr UINT64 max_shadow_copy_size = 2ull * 1024ull * 1024ull;
+static constexpr UINT64 max_full_shadow_resource_size = 16ull * 1024ull * 1024ull;
 static constexpr UINT64 max_shadow_total_size = 64ull * 1024ull * 1024ull;
 static ResourceState g_resources[resource_table_size] = {};
 static UINT64 g_shadow_total_size;
+static volatile LONG64 g_resource_generation;
+static volatile LONG g_resource_table_full_logged;
+static volatile LONG g_shadow_budget_logged;
 static SRWLOCK g_resource_lock = SRWLOCK_INIT;
 
 static bool create_and_enable_hook(void*, void*, void**, const char*);
@@ -753,43 +763,197 @@ static std::size_t pointer_hash(const void* pointer, std::size_t table_size) {
     return static_cast<std::size_t>(((value >> 4) ^ (value >> 17)) % table_size);
 }
 
+static LONG64 next_resource_serial() {
+    return InterlockedIncrement64(&g_resource_generation);
+}
+
+static void discard_shadow_locked(ResourceState* state) {
+    if (!state || !state->shadow) return;
+    HeapFree(GetProcessHeap(), 0, state->shadow);
+    g_shadow_total_size = state->shadow_capacity <= g_shadow_total_size
+        ? g_shadow_total_size - state->shadow_capacity
+        : 0;
+    state->shadow = nullptr;
+    state->shadow_capacity = 0;
+    state->shadow_offset = 0;
+    state->shadow_size = 0;
+    state->shadow_full_resource = false;
+}
+
+static void initialize_resource_state_locked(ResourceState* state,
+                                             ID3D12Resource* resource) {
+    if (!state || !resource) return;
+    discard_shadow_locked(state);
+    *state = {};
+    state->resource = resource;
+    const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+    state->size = desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+        ? desc.Width : 0;
+    state->gpu_address = state->size ? resource->GetGPUVirtualAddress() : 0;
+    D3D12_HEAP_PROPERTIES heap = {};
+    D3D12_HEAP_FLAGS flags = D3D12_HEAP_FLAG_NONE;
+    state->cpu_accessible = SUCCEEDED(resource->GetHeapProperties(
+        &heap, &flags)) &&
+        (heap.Type == D3D12_HEAP_TYPE_UPLOAD ||
+         heap.Type == D3D12_HEAP_TYPE_READBACK ||
+         (heap.Type == D3D12_HEAP_TYPE_CUSTOM &&
+          heap.CPUPageProperty != D3D12_CPU_PAGE_PROPERTY_UNKNOWN &&
+          heap.CPUPageProperty != D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE));
+    state->generation = next_resource_serial();
+    InterlockedExchange64(&state->last_used, state->generation);
+}
+
 static ResourceState* resource_state_locked(ID3D12Resource* resource,
-                                             bool create) {
+                                             bool create,
+                                             bool newly_created = false) {
     if (!resource) return nullptr;
     std::size_t slot = pointer_hash(resource, resource_table_size);
+    ResourceState* oldest = nullptr;
+    LONG64 oldest_use = LLONG_MAX;
+    bool oldest_ui_relevant = false;
     for (std::size_t probe = 0; probe < resource_table_size; ++probe) {
         ResourceState& state = g_resources[(slot + probe) % resource_table_size];
-        if (state.resource == resource) return &state;
+        if (state.resource == resource) {
+            if (create) {
+                const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+                const UINT64 size = desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+                    ? desc.Width : 0;
+                const D3D12_GPU_VIRTUAL_ADDRESS address = size
+                    ? resource->GetGPUVirtualAddress() : 0;
+                // COM wrapper addresses can be reused after destruction. A
+                // changed buffer identity invalidates the previous CPU mirror.
+                if (newly_created || state.size != size ||
+                    state.gpu_address != address)
+                    initialize_resource_state_locked(&state, resource);
+            }
+            InterlockedExchange64(&state.last_used, next_resource_serial());
+            return &state;
+        }
         if (!state.resource && create) {
-            state.resource = resource;
-            const D3D12_RESOURCE_DESC desc = resource->GetDesc();
-            state.size = desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
-                ? desc.Width : 0;
-            state.gpu_address = state.size ? resource->GetGPUVirtualAddress() : 0;
-            D3D12_HEAP_PROPERTIES heap = {};
-            D3D12_HEAP_FLAGS flags = D3D12_HEAP_FLAG_NONE;
-            state.cpu_accessible = SUCCEEDED(resource->GetHeapProperties(
-                &heap, &flags)) &&
-                (heap.Type == D3D12_HEAP_TYPE_UPLOAD ||
-                 heap.Type == D3D12_HEAP_TYPE_READBACK ||
-                 (heap.Type == D3D12_HEAP_TYPE_CUSTOM &&
-                  heap.CPUPageProperty != D3D12_CPU_PAGE_PROPERTY_UNKNOWN &&
-                  heap.CPUPageProperty !=
-                      D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE));
-            state.mapped = nullptr;
-            state.shadow_offset = 0;
-            state.shadow_size = 0;
+            initialize_resource_state_locked(&state, resource);
             return &state;
         }
         if (!state.resource && !create) return nullptr;
+        const LONG64 last_use = InterlockedCompareExchange64(
+            &state.last_used, 0, 0);
+        const bool ui_relevant = InterlockedCompareExchange(
+            &state.ui_relevant, 0, 0) != 0;
+        if (mgs4_hud::prefer_cache_victim(
+                ui_relevant, last_use, oldest != nullptr,
+                oldest_ui_relevant, oldest_use)) {
+            oldest_use = last_use;
+            oldest_ui_relevant = ui_relevant;
+            oldest = &state;
+        }
     }
+    if (create && oldest) {
+        if (InterlockedCompareExchange(
+                &g_resource_table_full_logged, 1, 0) == 0) {
+            log_line("D3D12: resource mirror table reached capacity; recycling least-recently-used entries.");
+        }
+        initialize_resource_state_locked(oldest, resource);
+        return oldest;
+    }
+    return nullptr;
+}
+
+static bool ensure_shadow_capacity_locked(ResourceState* state,
+                                          UINT64 required,
+                                          bool full_resource) {
+    const UINT64 maximum = full_resource
+        ? max_full_shadow_resource_size : max_shadow_copy_size;
+    if (!state || !required || required > maximum) return false;
+    if (state->shadow && state->shadow_capacity >= required &&
+        (state->shadow_full_resource || !full_resource))
+        return true;
+
+    const auto projected_size = [state, required]() {
+        const UINT64 without_current =
+            state->shadow_capacity <= g_shadow_total_size
+                ? g_shadow_total_size - state->shadow_capacity
+                : 0;
+        return without_current + required;
+    };
+    UINT64 projected = projected_size();
+    while (projected > max_shadow_total_size) {
+        ResourceState* oldest = nullptr;
+        LONG64 oldest_use = LLONG_MAX;
+        bool oldest_ui_relevant = false;
+        for (ResourceState& candidate : g_resources) {
+            if (&candidate == state || !candidate.shadow) continue;
+            const LONG64 last_use = InterlockedCompareExchange64(
+                &candidate.last_used, 0, 0);
+            const bool ui_relevant = InterlockedCompareExchange(
+                &candidate.ui_relevant, 0, 0) != 0;
+            if (mgs4_hud::prefer_cache_victim(
+                    ui_relevant, last_use, oldest != nullptr,
+                    oldest_ui_relevant, oldest_use)) {
+                oldest_use = last_use;
+                oldest_ui_relevant = ui_relevant;
+                oldest = &candidate;
+            }
+        }
+        if (!oldest) break;
+        discard_shadow_locked(oldest);
+        projected = projected_size();
+        if (InterlockedCompareExchange(&g_shadow_budget_logged, 1, 0) == 0) {
+            log_line("D3D12: UI buffer mirror budget reached; recycling least-recently-used mirrors instead of dropping HUD classification.");
+        }
+    }
+    if (projected > max_shadow_total_size) return false;
+
+    unsigned char* replacement = static_cast<unsigned char*>(HeapAlloc(
+        GetProcessHeap(), full_resource ? HEAP_ZERO_MEMORY : 0,
+        static_cast<SIZE_T>(required)));
+    if (!replacement) return false;
+
+    // Promotion from a last-copy slice to a complete resource mirror must
+    // retain the bytes which made the buffer recognizable as UI. Future
+    // CopyBufferRegion calls then update their real destination offsets.
+    if (full_resource && state->shadow && state->shadow_size &&
+        mgs4_hud::shadow_range_fits(state->shadow_offset,
+                                    state->shadow_size, required)) {
+        std::memcpy(replacement + state->shadow_offset, state->shadow,
+                    static_cast<std::size_t>(state->shadow_size));
+    }
+    discard_shadow_locked(state);
+    state->shadow = replacement;
+    state->shadow_capacity = required;
+    state->shadow_offset = full_resource ? 0 : state->shadow_offset;
+    state->shadow_size = full_resource ? required : 0;
+    state->shadow_full_resource = full_resource;
+    g_shadow_total_size += required;
+    return true;
+}
+
+static const unsigned char* resource_bytes_locked(
+    const ResourceState* state, UINT64 begin, UINT64 bytes) {
+    if (!state || begin + bytes < begin || begin + bytes > state->size)
+        return nullptr;
+    if (state->shadow_full_resource && state->shadow &&
+        begin + bytes <= state->shadow_capacity)
+        return state->shadow + begin;
+    if (state->shadow && begin >= state->shadow_offset &&
+        begin + bytes <= state->shadow_offset + state->shadow_size) {
+        return state->shadow + (begin - state->shadow_offset);
+    }
+    if (state->mapped)
+        return state->mapped + begin;
     return nullptr;
 }
 
 static void remember_resource(ID3D12Resource* resource) {
     if (!resource) return;
+    // CopyBufferRegion only operates on buffers. Textures do not participate
+    // in UI vertex reconstruction and previously exhausted the fixed resource
+    // table within minutes on both native D3D12 and Proton.
+    if (resource->GetDesc().Dimension != D3D12_RESOURCE_DIMENSION_BUFFER)
+        return;
     AcquireSRWLockExclusive(&g_resource_lock);
-    resource_state_locked(resource, true);
+    // Creation hooks call this exactly once for the new COM object. Reset an
+    // older entry even when the runtime reuses the same wrapper, size and GPU
+    // virtual address.
+    resource_state_locked(resource, true, true);
     ReleaseSRWLockExclusive(&g_resource_lock);
 }
 
@@ -863,6 +1027,34 @@ static std::uint64_t shader_bytecode_hash(const D3D12_SHADER_BYTECODE& shader) {
     return hash;
 }
 
+static void set_ui_pipeline_metadata(
+    std::size_t index, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc,
+    bool active) {
+    InterlockedExchange(&g_ui_pipeline_active[index], 0);
+    InterlockedExchange(&g_ui_pipeline_exact_vs[index],
+                        active && desc && is_ui_shader(desc->VS) ? 1 : 0);
+    g_ui_pipeline_ps_hashes[index] = active && desc
+        ? shader_bytecode_hash(desc->PS) : 0;
+    g_ui_pipeline_ps_sizes[index] = active && desc
+        ? desc->PS.BytecodeLength : 0;
+    if (active) InterlockedExchange(&g_ui_pipeline_active[index], 1);
+}
+
+static void invalidate_reused_ui_pipeline(ID3D12PipelineState* pipeline) {
+    if (!pipeline) return;
+    const std::size_t slot = pointer_hash(pipeline, pipeline_table_size);
+    for (std::size_t probe = 0; probe < pipeline_table_size; ++probe) {
+        const std::size_t index = (slot + probe) % pipeline_table_size;
+        void* existing = InterlockedCompareExchangePointer(
+            &g_ui_pipelines[index], nullptr, nullptr);
+        if (existing == pipeline) {
+            set_ui_pipeline_metadata(index, nullptr, false);
+            return;
+        }
+        if (!existing) return;
+    }
+}
+
 static void remember_ui_pipeline(ID3D12PipelineState* pipeline,
                                  const D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc) {
     if (!pipeline) return;
@@ -870,18 +1062,21 @@ static void remember_ui_pipeline(ID3D12PipelineState* pipeline,
     for (std::size_t probe = 0; probe < pipeline_table_size; ++probe) {
         void* volatile* entry = &g_ui_pipelines[(slot + probe) % pipeline_table_size];
         void* existing = InterlockedCompareExchangePointer(entry, nullptr, nullptr);
-        if (existing == pipeline) return;
+        if (existing == pipeline) {
+            const std::size_t entry_index = (slot + probe) % pipeline_table_size;
+            if (InterlockedCompareExchange(
+                    &g_ui_pipeline_active[entry_index], 0, 0) == 0) {
+                InterlockedExchange(&g_ui_pipeline_ids[entry_index],
+                                    InterlockedIncrement(&g_ui_pipeline_count));
+            }
+            set_ui_pipeline_metadata(entry_index, desc, true);
+            return;
+        }
         if (!existing && InterlockedCompareExchangePointer(entry, pipeline, nullptr) == nullptr) {
             const LONG count = InterlockedIncrement(&g_ui_pipeline_count);
             const std::size_t entry_index = (slot + probe) % pipeline_table_size;
             InterlockedExchange(&g_ui_pipeline_ids[entry_index], count);
-            if (desc) {
-                InterlockedExchange(&g_ui_pipeline_exact_vs[entry_index],
-                                    is_ui_shader(desc->VS) ? 1 : 0);
-                g_ui_pipeline_ps_hashes[entry_index] =
-                    shader_bytecode_hash(desc->PS);
-                g_ui_pipeline_ps_sizes[entry_index] = desc->PS.BytecodeLength;
-            }
+            set_ui_pipeline_metadata(entry_index, desc, true);
             if ((g_ui_diagnostics || g_crosshair_diagnostics) && desc) {
                 char message[384] = {};
                 std::snprintf(message, sizeof(message),
@@ -922,7 +1117,10 @@ static LONG ui_pipeline_id(ID3D12PipelineState* pipeline) {
         void* existing = InterlockedCompareExchangePointer(
             &g_ui_pipelines[index], nullptr, nullptr);
         if (existing == pipeline)
-            return InterlockedCompareExchange(&g_ui_pipeline_ids[index], 0, 0);
+            return InterlockedCompareExchange(
+                       &g_ui_pipeline_active[index], 0, 0) != 0
+                ? InterlockedCompareExchange(&g_ui_pipeline_ids[index], 0, 0)
+                : 0;
         if (!existing) return 0;
     }
     return 0;
@@ -934,7 +1132,10 @@ static bool is_ui_pipeline(ID3D12PipelineState* pipeline) {
     for (std::size_t probe = 0; probe < pipeline_table_size; ++probe) {
         void* existing = InterlockedCompareExchangePointer(
             &g_ui_pipelines[(slot + probe) % pipeline_table_size], nullptr, nullptr);
-        if (existing == pipeline) return true;
+        if (existing == pipeline)
+            return InterlockedCompareExchange(
+                &g_ui_pipeline_active[(slot + probe) % pipeline_table_size],
+                0, 0) != 0;
         if (!existing) return false;
     }
     return false;
@@ -949,7 +1150,9 @@ static bool is_exact_ui_pipeline(ID3D12PipelineState* pipeline) {
             &g_ui_pipelines[index], nullptr, nullptr);
         if (existing == pipeline)
             return InterlockedCompareExchange(
-                &g_ui_pipeline_exact_vs[index], 0, 0) != 0;
+                       &g_ui_pipeline_active[index], 0, 0) != 0 &&
+                InterlockedCompareExchange(
+                    &g_ui_pipeline_exact_vs[index], 0, 0) != 0;
         if (!existing) return false;
     }
     return false;
@@ -963,6 +1166,9 @@ static bool is_anchor_ui_pipeline(ID3D12PipelineState* pipeline) {
         void* existing = InterlockedCompareExchangePointer(
             &g_ui_pipelines[index], nullptr, nullptr);
         if (existing == pipeline) {
+            if (InterlockedCompareExchange(
+                    &g_ui_pipeline_active[index], 0, 0) == 0)
+                return false;
             if (InterlockedCompareExchange(
                     &g_ui_pipeline_exact_vs[index], 0, 0) == 0)
                 return false;
@@ -1006,24 +1212,26 @@ static UIAnchor classify_ui_draw(CommandListState* state, UINT vertex_count,
     UIAnchor result = UIAnchor::Unknown;
     AcquireSRWLockShared(&g_resource_lock);
     ResourceState* resource = nullptr;
+    LONG64 resource_generation = 0;
     for (std::size_t index = 0; index < resource_table_size; ++index) {
         ResourceState& candidate = g_resources[index];
         if (candidate.resource && candidate.gpu_address && candidate.size &&
             view.BufferLocation >= candidate.gpu_address &&
-            view.BufferLocation < candidate.gpu_address + candidate.size) {
+            view.BufferLocation < candidate.gpu_address + candidate.size &&
+            candidate.generation > resource_generation) {
             resource = &candidate;
-            break;
+            resource_generation = candidate.generation;
         }
     }
-    if (resource && resource->shadow && resource->shadow_size) {
+    if (resource) {
+        InterlockedExchange(&resource->ui_relevant, 1);
+        InterlockedExchange64(&resource->last_used, next_resource_serial());
         const UINT64 begin = view.BufferLocation - resource->gpu_address +
             static_cast<UINT64>(first_vertex) * view.StrideInBytes;
         const UINT64 bytes = static_cast<UINT64>(vertex_count) * view.StrideInBytes;
-        if (begin >= resource->shadow_offset &&
-            begin + bytes >= begin &&
-            begin + bytes <= resource->shadow_offset + resource->shadow_size) {
-            const unsigned char* vertices = resource->shadow +
-                (begin - resource->shadow_offset);
+        const unsigned char* vertices = resource_bytes_locked(
+            resource, begin, bytes);
+        if (vertices) {
             std::int16_t minimum_x = INT16_MAX;
             std::int16_t minimum_y = INT16_MAX;
             std::int16_t maximum_x = INT16_MIN;
@@ -1058,6 +1266,7 @@ static UIAnchor classify_ui_draw(CommandListState* state, UINT vertex_count,
                 const D3D12_VERTEX_BUFFER_VIEW transform_view =
                     state->vertex_buffers[1];
                 ResourceState* transform_resource = nullptr;
+                LONG64 transform_generation = 0;
                 for (std::size_t index = 0; index < resource_table_size; ++index) {
                     ResourceState& candidate = g_resources[index];
                     if (candidate.resource && candidate.gpu_address &&
@@ -1066,26 +1275,26 @@ static UIAnchor classify_ui_draw(CommandListState* state, UINT vertex_count,
                         transform_view.BufferLocation + 96 >=
                             transform_view.BufferLocation &&
                         transform_view.BufferLocation + 96 <=
-                            candidate.gpu_address + candidate.size) {
+                            candidate.gpu_address + candidate.size &&
+                        candidate.generation > transform_generation) {
                         transform_resource = &candidate;
-                        break;
+                        transform_generation = candidate.generation;
                     }
                 }
-                if (transform_resource && transform_resource->shadow &&
-                    transform_resource->shadow_size) {
+                if (transform_resource) {
+                    InterlockedExchange(&transform_resource->ui_relevant, 1);
+                    InterlockedExchange64(&transform_resource->last_used,
+                                          next_resource_serial());
                     const UINT64 transform_begin =
                         transform_view.BufferLocation -
                         transform_resource->gpu_address;
-                    if (transform_begin >= transform_resource->shadow_offset &&
-                        transform_begin + 96 <=
-                            transform_resource->shadow_offset +
-                                transform_resource->shadow_size) {
+                    const unsigned char* transform_bytes =
+                        resource_bytes_locked(transform_resource,
+                                              transform_begin, 96);
+                    if (transform_bytes) {
                         float transform[24] = {};
-                        std::memcpy(transform,
-                            transform_resource->shadow +
-                                (transform_begin -
-                                 transform_resource->shadow_offset),
-                            sizeof(transform));
+                        std::memcpy(transform, transform_bytes,
+                                    sizeof(transform));
                         float screen_minimum_x = FLT_MAX;
                         float screen_minimum_y = FLT_MAX;
                         float screen_maximum_x = -FLT_MAX;
@@ -1541,27 +1750,29 @@ static void shadow_buffer_copy(ID3D12Resource* destination, UINT64 destination_o
         source_offset + byte_count <= source_state->size &&
         destination_offset + byte_count >= destination_offset &&
         destination_offset + byte_count <= destination_state->size) {
-        if (destination_state->shadow_capacity < byte_count) {
-            if (g_shadow_total_size - destination_state->shadow_capacity + byte_count <=
-                max_shadow_total_size) {
-                unsigned char* replacement = static_cast<unsigned char*>(
-                    HeapAlloc(GetProcessHeap(), 0, static_cast<SIZE_T>(byte_count)));
-                if (replacement) {
-                    if (destination_state->shadow)
-                        HeapFree(GetProcessHeap(), 0, destination_state->shadow);
-                    g_shadow_total_size = g_shadow_total_size -
-                        destination_state->shadow_capacity + byte_count;
-                    destination_state->shadow = replacement;
-                    destination_state->shadow_capacity = byte_count;
-                }
-            }
-        }
-        if (destination_state->shadow_capacity >= byte_count) {
-            std::memcpy(destination_state->shadow,
+        InterlockedExchange64(&source_state->last_used, next_resource_serial());
+        InterlockedExchange64(&destination_state->last_used,
+                              next_resource_serial());
+        const bool ui_resource = InterlockedCompareExchange(
+            &destination_state->ui_relevant, 0, 0) != 0;
+        const bool mirror_full_resource = mgs4_hud::use_full_resource_mirror(
+            ui_resource, destination_state->size,
+            max_full_shadow_resource_size);
+        const UINT64 required = mirror_full_resource
+            ? destination_state->size : byte_count;
+        if (ensure_shadow_capacity_locked(destination_state, required,
+                                          mirror_full_resource)) {
+            unsigned char* destination_bytes = destination_state->shadow +
+                mgs4_hud::shadow_write_offset(
+                    destination_state->shadow_full_resource,
+                    destination_offset);
+            std::memcpy(destination_bytes,
                         source_state->mapped + source_offset,
                         static_cast<std::size_t>(byte_count));
-            destination_state->shadow_offset = destination_offset;
-            destination_state->shadow_size = byte_count;
+            if (!destination_state->shadow_full_resource) {
+                destination_state->shadow_offset = destination_offset;
+                destination_state->shadow_size = byte_count;
+            }
         }
     }
     ReleaseSRWLockExclusive(&g_resource_lock);
@@ -1730,9 +1941,15 @@ static HRESULT STDMETHODCALLTYPE hooked_create_graphics_pso(
     ID3D12Device* device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc,
     REFIID riid, void** pipeline) {
     const HRESULT result = g_original_create_graphics_pso(device, desc, riid, pipeline);
-    if (SUCCEEDED(result) && pipeline && *pipeline && desc &&
-        (is_ui_shader(desc->VS) || is_ui_input_layout(desc->InputLayout)))
-        remember_ui_pipeline(reinterpret_cast<ID3D12PipelineState*>(*pipeline), desc);
+    if (SUCCEEDED(result) && pipeline && *pipeline) {
+        auto* created = reinterpret_cast<ID3D12PipelineState*>(*pipeline);
+        // A newly created PSO may reuse a released COM wrapper address. Clear
+        // an older UI identity even when the replacement is not a UI PSO.
+        invalidate_reused_ui_pipeline(created);
+        if (desc &&
+            (is_ui_shader(desc->VS) || is_ui_input_layout(desc->InputLayout)))
+            remember_ui_pipeline(created, desc);
+    }
     return result;
 }
 
@@ -1745,8 +1962,12 @@ static HRESULT STDMETHODCALLTYPE hooked_create_command_list(
     if (SUCCEEDED(result) && command_list && *command_list &&
         type == D3D12_COMMAND_LIST_TYPE_DIRECT) {
         auto* graphics = reinterpret_cast<ID3D12GraphicsCommandList*>(*command_list);
-        if (CommandListState* state = command_state(graphics, true))
+        if (CommandListState* state = command_state(graphics, true)) {
             InterlockedExchangePointer(&state->pipeline_state, initial_state);
+            InterlockedExchange(&state->has_viewport, 0);
+            InterlockedExchange(&state->has_scissor, 0);
+            InterlockedExchange(&state->vertex_buffer_mask, 0);
+        }
         install_command_list_hooks(graphics);
     }
     return result;
@@ -2878,6 +3099,7 @@ static DWORD WINAPI patch_thread(void*) {
 #ifdef MGS4_LAB_VERSION
     log_line("Experimental centered-HUD build: " MGS4_LAB_VERSION);
 #endif
+    log_line("Centered-HUD buffer mirrors: lifecycle-safe adaptive full-resource cache v2 active.");
     log_line("Centered-HUD companion: UI-only ASI active; resolution, FOV, FPS, input and launcher state remain owned by MGS4Ultra120.asi.");
     return 0;
 #else

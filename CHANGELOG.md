@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.4-alpha.3 - centered HUD runtime stability
+
+- Fixed the experimental centered 16:9 HUD briefly stretching and shrinking
+  back to the ultrawide layout after the game had been running for a while.
+- Restricted HUD reconstruction tracking to D3D12 buffers instead of filling
+  the fixed table with unrelated textures.
+- Preserved multiple dynamic weapon/item HUD updates by promoting confirmed UI
+  buffers to offset-correct full-resource mirrors.
+- Added bounded LRU recycling that protects active UI resources and handles
+  reused D3D12 resource and pipeline addresses safely.
+- Reset cached draw state when command lists are created or reused.
+- Added automated cache-policy and lifecycle stress coverage.
+- Validated repeated gameplay, weapon/item HUD and pause-menu use at 3440x1440
+  on Windows without reproducing the earlier pulse.
+- Kept the centered HUD experimental, DX12-only and disabled by default.
+
 ## v0.3.4-alpha.2 - Linux Steam-library detection
 
 - Added automatic Linux discovery of Steam libraries through

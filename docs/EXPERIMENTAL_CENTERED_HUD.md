@@ -4,6 +4,10 @@ This optional DX12-only companion keeps accepted HUD draws inside a centered
 16:9 safe area on ultrawide output. It is included on Windows and Linux/Proton
 but disabled by default.
 
+`v0.3.4-alpha.3` fixes a runtime resource-tracking problem that could make the
+HUD briefly stretch and shrink after playing for a while. Do not combine the
+alpha.3 HUD ASI with files from an older package.
+
 Use the **Experimental centered 16:9 HUD** switch in either configurator. For a
 manual installation, close the game and edit:
 

@@ -13,7 +13,7 @@ FPS_ARCHIVE="${2:-}"
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi" ]]
-grep -qx 'v0.3.4-alpha.2' "$PACKAGE_DIR/VERSION"
+grep -qx 'v0.3.4-alpha.3' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {

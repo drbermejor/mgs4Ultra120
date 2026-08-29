@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(MGS4Ultra120 VERSION 0.3.4 LANGUAGES C CXX)
 
-set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.2")
-set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,2")
+set(MGS4ULTRA120_RELEASE_VERSION "v0.3.4-alpha.3")
+set(MGS4ULTRA120_VERSION_NUMERIC "0,3,4,3")
 
 include(CTest)
 
@@ -177,6 +177,12 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(hud_anchor_math_test PRIVATE
         "${CMAKE_SOURCE_DIR}/src/centered_hud")
     add_test(NAME hud_anchor_math COMMAND hud_anchor_math_test)
+
+    add_executable(hud_cache_policy_test tests/hud_cache_policy_test.cpp)
+    target_compile_features(hud_cache_policy_test PRIVATE cxx_std_17)
+    target_include_directories(hud_cache_policy_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/centered_hud")
+    add_test(NAME hud_cache_policy COMMAND hud_cache_policy_test)
 
     add_test(NAME winmm_proxy_smoke COMMAND winmm_proxy_smoke)
     add_executable(launcher_args_probe tests/launcher_args_probe.cpp)

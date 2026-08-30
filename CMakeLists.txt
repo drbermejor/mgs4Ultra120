@@ -172,6 +172,13 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(supersampling_math_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
     add_test(NAME supersampling_math COMMAND supersampling_math_test)
 
+    add_executable(reticle_truncation_patch_test
+        tests/reticle_truncation_patch_test.cpp)
+    target_compile_features(reticle_truncation_patch_test PRIVATE cxx_std_17)
+    target_include_directories(reticle_truncation_patch_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src")
+    add_test(NAME reticle_truncation_patch COMMAND reticle_truncation_patch_test)
+
     add_executable(hud_anchor_math_test tests/hud_anchor_math_test.cpp)
     target_compile_features(hud_anchor_math_test PRIVATE cxx_std_17)
     target_include_directories(hud_anchor_math_test PRIVATE

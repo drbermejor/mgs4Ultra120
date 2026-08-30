@@ -97,8 +97,9 @@ or the application menu without returning to the extracted archive.
 The corrected FPS selector is active only when MGSFPSUnlock was installed.
 Targets are 30, 60 and experimental 120 FPS. Supersampling keeps `Width` and
 `Height` as the physical output and multiplies only the internal render size.
-At 3440x1440, scale `1.15` produces 3956x1656 and remains below the known
-4096-pixel reticle boundary.
+At 3440x1440, scale `1.15` produces 3956x1656. The old 4096-pixel reticle
+overflow is fixed, but performance and VRAM requirements still rise with the
+square of the selected scale.
 
 ## Fullscreen on KDE / Wayland
 

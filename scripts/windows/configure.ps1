@@ -505,13 +505,8 @@ function Update-SupersamplingPreview {
         0, [MidpointRounding]::AwayFromZero)
     $RenderHeight = [Math]::Round([decimal]$HeightBox.Value * $Scale,
         0, [MidpointRounding]::AwayFromZero)
-    if ($SupersamplingBox.Checked -and $RenderWidth -ge 4096) {
-        $RenderPreview.Text = "Internal: $RenderWidth x $RenderHeight`nCrosshair risk: keep width below 4096"
-        $RenderPreview.ForeColor = [Drawing.Color]::DarkRed
-    } else {
-        $RenderPreview.Text = "Internal: $RenderWidth x $RenderHeight"
-        $RenderPreview.ForeColor = [Drawing.Color]::DarkGoldenrod
-    }
+    $RenderPreview.Text = "Internal: $RenderWidth x $RenderHeight"
+    $RenderPreview.ForeColor = [Drawing.Color]::DarkGoldenrod
 }
 $SupersamplingBox.Add_CheckedChanged({ Update-SupersamplingPreview })
 $RenderScaleBox.Add_ValueChanged({ Update-SupersamplingPreview })
@@ -658,7 +653,7 @@ $SaveButton.Add_Click({
             [decimal]$RenderScaleBox.Value, 0,
             [MidpointRounding]::AwayFromZero)
         $Answer = [Windows.Forms.MessageBox]::Show(
-            "Experimental supersampling will render internally at $RenderWidth x $RenderHeight and present at $([int]$WidthBox.Value) x $([int]$HeightBox.Value). Known crosshair limitation: an internal width of exactly 4096 can flicker, and higher widths can make the reticle disappear depending on aiming depth. Keep the internal width below 4096; 3956 x 1656 is the validated stable setting for 3440 x 1440 output. It does not require AMD VSR, NVIDIA DSR or a desktop-resolution change. It can sharply reduce performance, exhaust VRAM, crash the game or graphics driver, and make the Steam overlay/HUD smaller because the complete frame is downsampled. No automatic limit is applied. Windowed presentation is recommended. Continue under your responsibility?",
+            "Experimental supersampling will render internally at $RenderWidth x $RenderHeight and present at $([int]$WidthBox.Value) x $([int]$HeightBox.Value). It does not require AMD VSR, NVIDIA DSR or a desktop-resolution change. It can sharply reduce performance, exhaust VRAM, crash the game or graphics driver, and make the Steam overlay/HUD smaller because the complete frame is downsampled. No automatic hardware limit is applied. Windowed presentation is recommended. Continue under your responsibility?",
             $Ui.SupersamplingTitle, "YesNo", "Warning")
         if ($Answer -ne "Yes") { return }
     }

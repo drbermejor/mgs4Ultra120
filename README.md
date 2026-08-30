@@ -66,13 +66,22 @@ unlock implementation.
   values above the tested `1.200` recommendation are allowed but untested and
   may expose geometry or animation transitions early, produce unusual framing
   or cause other scene-specific problems. Use them under your own responsibility.
-- Native 3440x1440 testing has correct proportions and a working aiming
-  crosshair. Experimental supersampling tests isolate a separate
-  internal-width boundary: the reticle is stable at 3956x1656, flickers at
-  exactly 4096 pixels wide and can disappear according to aiming depth above
-  it. The configurator warns users to keep internal width below 4096.
+- The aiming-reticle overflow at internal widths of 4096 pixels or more is
+  fixed at its four native X/Y coordinate conversions. Native Windows gameplay
+  validation confirmed the reticle working at 3440x1440 output with a
+  5160x2160 internal render. Supersampling remains experimental because of its
+  performance, VRAM and presentation costs, not because of that old width
+  boundary.
 
 ## Screenshots
+
+**Reticle fix at 5160x2160 internal rendering**
+
+The output remains 3440x1440 while experimental 1.50x supersampling renders
+internally at 5160x2160. The aiming reticle remains visible after removing the
+four signed 16-bit coordinate conversions.
+
+![Aiming reticle visible at 3440x1440 output and 5160x2160 internal rendering](docs/images/reticle-3440x1440-output-5160x2160-internal.jpg)
 
 Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
 `FOVMultiplier=1.200`.

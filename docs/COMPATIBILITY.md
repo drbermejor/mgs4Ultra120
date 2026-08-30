@@ -58,11 +58,12 @@ driver/display setup.
 - UI: original game behavior; the previous centered 16:9 prototype was removed.
 - Optional experimental supersampling at 3440x1440 output,
   1.50x/5160x2160 render resolution and windowed presentation passed the
-  internal/output-size check, but that first candidate also contained the now
-  withdrawn aspect-regressing camera hook. Follow-up aiming tests found
-  the reticle stable at 3956x1656, flickering at exactly 4096 pixels wide and
-  depth-conditionally absent at 4128x1728 and 5160x2160. Alpha.6 warns users to
-  keep internal width below 4096; supersampling remains disabled by default.
+  internal/output-size check. Follow-up aiming tests isolated the old reticle
+  failure to signed 16-bit X/Y coordinate conversions. The four conversions
+  now keep their full 32-bit values, and native Windows gameplay validation
+  confirmed the reticle working at 5160x2160 internal. Supersampling remains
+  experimental and disabled by default because GPU, VRAM and presentation
+  limits vary by system.
 - The single-owner native-input candidate was compared against the renderer-only and
   withdrawn post-return implementations. It eliminated their respective
   continuity and aspect issues without reconstructing camera state.

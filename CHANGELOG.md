@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Removed the aiming reticle's signed 16-bit truncation at X RVAs `0xe39816`
+  and `0xe3990c` and matching Y RVAs `0xe39830` and `0xe398f1`. The X
+  truncation is the cause of the 4096 px internal-width boundary
+  reported in v0.3.1-alpha.6. A centred reticle stores `width/2 * 16`, so the
+  value overflows int16 at exactly 2048 px of half-width; at 5120 wide it wraps
+  to -24576 and lands off the left edge. Keeping the full 32-bit value places
+  it at the canvas centre. All four sites are prevalidated before any bytes are
+  changed, and the full 32-bit correction has no axis-specific 16-bit ceiling.
+  Native Windows gameplay validation confirmed the reticle working at
+  3440x1440 output with a 1.50x/5160x2160 internal render.
+- Added public Windows/MSVC and Linux/MinGW-w64 CI with tests and downloadable
+  pull-request binaries so contributors can validate builds without a local
+  native toolchain.
+
 ## v0.3.4-alpha.4 - complete centered HUD composition
 
 - Replaced the experimental centered HUD's late per-draw correction with one

@@ -48,8 +48,9 @@ than the authored shot intended even though projection and culling are
 consistent. Wider values remain useful as development stress tests and are
 accepted by the runtime and configurators, but they are untested and remain
 the user's responsibility.
-The 3440x1440 aiming crosshair is confirmed working; the separately
-reported 5120x2160 case still requires reproduction at that exact resolution.
+The aiming crosshair is confirmed working at 3440x1440 native and at 3440x1440
+output with a 5160x2160 internal render after the 16-bit coordinate correction
+described below.
 The comparison uses the MGS4 entries published through the
 [official RPCS3 patch API](https://rpcs3.net/compatibility?patch&api=v1&v=1.2);
 PS3 addresses are research references and are not copied into the PC hook.
@@ -81,6 +82,43 @@ The module works with game-native device detection. It contains no XInput
 proxy, controller poller, virtual-device layer or periodic memory writer.
 
 ## UI
+
+The aiming reticle's X and Y are truncated to signed 16 bits on their way to
+the UI canvas. At RVAs `0xe39816` and `0xe3990c`, `movsx edx, cx` keeps only the
+low 16 bits of an X position already scaled to 1/16 px:
+
+```text
+0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
+0xe39816  movsx edx, cx           ; truncates to int16
+0xe3981d  lea eax,[rdx+rdx*4]
+0xe39820  shl eax, 8              ; x1280, the UI canvas width
+0xe39824  idiv [render width]
+```
+
+A centred reticle stores `width/2 * 16`, so the value crosses 32767 at exactly
+4096 px of internal width (`2048*16 = 32768`). This is the boundary recorded in
+v0.3.1-alpha.6 as stable at 3956x1656 and flickering at 4096. At 5120 wide,
+`2560*16 = 40960` wraps to -24576 and the reticle is placed at
+`-24576*1280/5120 = -6144` in 1/16 canvas units, off the left edge.
+
+Both X sites are replaced with `mov edx, ecx` plus a nop, which keeps the full
+32-bit value: `40960*1280/5120 = 10240`, the canvas centre. The matching Y
+truncations at RVAs `0xe39830` and `0xe398f1` are removed as well. At the screen
+centre, either axis reaches the signed limit at an internal extent of 4096
+pixels; Y therefore has more margin in the currently documented 1440p tests,
+but retaining it would leave the same latent defect on the other axis.
+
+All four original opcodes are validated before the first byte is changed. The
+patch is refused if they are encrypted, unknown or only partly modified, so it
+does not intentionally leave a half-applied coordinate conversion.
+
+The correction is resolution-independent and needs no 16-bit coordinate
+ceiling. It is applied unconditionally, and each site's bytes are verified
+after protected code initializes, so an unrecognized build leaves the
+instructions untouched.
+The resulting ASI was validated in native Windows gameplay at 3440x1440 output
+and 1.50x/5160x2160 internal rendering, where the previously absent reticle was
+visible again.
 
 The D3D12 safe-area prototype is compiled out of release builds. Its shader
 classifier also matched some full-screen effects and therefore could not

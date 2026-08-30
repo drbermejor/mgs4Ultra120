@@ -82,9 +82,9 @@ proxy, controller poller, virtual-device layer or periodic memory writer.
 
 ## UI
 
-The aiming reticle's X is truncated to signed 16 bits on its way to the UI
-canvas. At RVAs `0xe39816` and `0xe3990c`, `movsx edx, cx` keeps only the low
-16 bits of a position already scaled to 1/16 px:
+The aiming reticle's X and Y are truncated to signed 16 bits on their way to
+the UI canvas. At RVAs `0xe39816` and `0xe3990c`, `movsx edx, cx` keeps only the
+low 16 bits of an X position already scaled to 1/16 px:
 
 ```text
 0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
@@ -100,14 +100,19 @@ v0.3.1-alpha.6 as stable at 3956x1656 and flickering at 4096. At 5120 wide,
 `2560*16 = 40960` wraps to -24576 and the reticle is placed at
 `-24576*1280/5120 = -6144` in 1/16 canvas units, off the left edge.
 
-Both sites are replaced with `mov edx, ecx` plus a nop, which keeps the full
-32-bit value: `40960*1280/5120 = 10240`, the canvas centre. The replacement is
-one byte shorter than the original, so no surrounding instruction moves. Only
-the two X routes are patched; the Y routes truncate identically but cannot
-overflow, since `1440*16 = 23040` fits and reaching 32767 would need 2048 px of
-height.
+Both X sites are replaced with `mov edx, ecx` plus a nop, which keeps the full
+32-bit value: `40960*1280/5120 = 10240`, the canvas centre. The matching Y
+truncations at RVAs `0xe39830` and `0xe398f1` are removed as well. At the screen
+centre, either axis reaches the signed limit at an internal extent of 4096
+pixels; Y therefore has more margin in the currently documented 1440p tests,
+but retaining it would leave the same latent defect on the other axis.
 
-The correction is resolution-independent and needs no width ceiling. It is
+All four original opcodes are validated before the first byte is changed. The
+patch is refused if they are encrypted, unknown or only partly modified, so it
+does not intentionally leave a half-applied coordinate conversion.
+
+The correction is resolution-independent and needs no 16-bit coordinate
+ceiling. It is
 applied unconditionally, and each site's bytes are verified after protected
 code initializes, so an unrecognized build leaves the instructions untouched.
 

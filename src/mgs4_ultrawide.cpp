@@ -15,6 +15,7 @@
 #include "camera_route_policy.h"
 #include "projection_math.h"
 #include "supersampling_math.h"
+#include "reticle_truncation_patch.h"
 
 #ifndef MGS4ULTRA120_VERSION
 #define MGS4ULTRA120_VERSION "development"
@@ -795,9 +796,9 @@ static bool force_resolution_getters(std::uintptr_t base,
     return true;
 }
 
-// The aiming reticle's X reaches the UI canvas through a signed 16-bit
-// truncation.  `cvttss2si` produces the position in 1/16 px, and the following
-// `movsx edx, cx` keeps only the low 16 bits:
+// The aiming reticle reaches the UI canvas through signed 16-bit truncations.
+// `cvttss2si` produces each position in 1/16 px, and the following `movsx`
+// instructions keep only the low 16 bits.  For the first X route:
 //
 //     0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
 //     0xe39816  movsx edx, cx           ; truncates to int16
@@ -817,38 +818,67 @@ static bool force_resolution_getters(std::uintptr_t base,
 // shorter than `movsx edx, cx`, so the third byte becomes a nop and no
 // surrounding instruction moves.
 //
-// Only the two X routes are patched.  The Y routes truncate identically but
-// cannot overflow: 1440*16 = 23040 fits in int16, and reaching 32767 would need
-// 2048 px of height.
+// The second X route and both Y routes use the same lossy conversion.  At the
+// screen centre, either axis reaches the signed limit when its internal extent
+// reaches 4096 pixels.  Current guidance warns above 2x supersampling, so the Y
+// limit is less likely at 1440p, but removing all four truncations avoids a
+// latent axis-dependent ceiling.
 static bool fix_reticle_truncation(std::uintptr_t base) {
-    constexpr std::uintptr_t truncation_rvas[] = {0xe39816, 0xe3990c};
-    constexpr unsigned char expected[] = {0x0f, 0xbf, 0xd1};      // movsx edx, cx
-    constexpr unsigned char replacement[] = {0x8b, 0xd1, 0x90};   // mov edx, ecx ; nop
+    using mgs4_reticle::PatchSetState;
+    using mgs4_reticle::TruncationPatch;
+    const auto read_site = [base](const TruncationPatch& patch) {
+        return reinterpret_cast<const unsigned char*>(base + patch.rva);
+    };
 
-    for (const std::uintptr_t rva : truncation_rvas) {
-        auto* target = reinterpret_cast<unsigned char*>(base + rva);
-        for (unsigned attempt = 0; attempt < 200; ++attempt) {
-            if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
-            if (attempt == 199) {
-                log_line("WARNING: a reticle truncation site did not decrypt in time; the reticle keeps its original 4096 px limit.");
-                return false;
-            }
-            Sleep(25);
-        }
-        DWORD old_protection = 0;
-        if (!VirtualProtect(target, sizeof(replacement), PAGE_EXECUTE_READWRITE,
-                            &old_protection)) {
-            log_line("ERROR: could not write a reticle truncation site.");
-            return false;
-        }
-        std::memcpy(target, replacement, sizeof(replacement));
-        FlushInstructionCache(GetCurrentProcess(), target, sizeof(replacement));
-        DWORD ignored = 0;
-        VirtualProtect(target, sizeof(replacement),
-                       final_code_protection(old_protection), &ignored);
+    PatchSetState state = PatchSetState::Unavailable;
+    for (unsigned attempt = 0; attempt < 200; ++attempt) {
+        state = mgs4_reticle::classify_patch_set(read_site);
+        if (state == PatchSetState::Original ||
+            state == PatchSetState::Applied ||
+            state == PatchSetState::Mixed) break;
+        Sleep(25);
     }
-    log_line("Reticle 16-bit truncation removed; internal width is no longer limited to 4096 px.");
-    return true;
+    if (state == PatchSetState::Applied) {
+        log_line("Reticle 16-bit truncation was already removed on both axes.");
+        return true;
+    }
+    if (state == PatchSetState::Mixed) {
+        log_line("ERROR: reticle truncation sites are only partially patched; no additional bytes were written.");
+        return false;
+    }
+    if (state != PatchSetState::Original) {
+        log_line("WARNING: reticle truncation sites did not decrypt in time; no reticle bytes were changed.");
+        return false;
+    }
+
+    const TruncationPatch& first = mgs4_reticle::truncation_patches.front();
+    const TruncationPatch& last = mgs4_reticle::truncation_patches.back();
+    auto* patch_begin = reinterpret_cast<unsigned char*>(base + first.rva);
+    const std::size_t patch_span = last.rva + last.size - first.rva;
+    DWORD old_protection = 0;
+    if (!VirtualProtect(patch_begin, patch_span, PAGE_EXECUTE_READWRITE,
+                        &old_protection)) {
+        log_line("ERROR: could not write the reticle truncation sites.");
+        return false;
+    }
+    for (const TruncationPatch& patch : mgs4_reticle::truncation_patches) {
+        auto* target = reinterpret_cast<unsigned char*>(base + patch.rva);
+        std::memcpy(target, patch.replacement.data(), patch.size);
+    }
+    FlushInstructionCache(GetCurrentProcess(), patch_begin, patch_span);
+    const bool verified =
+        mgs4_reticle::classify_patch_set(read_site) == PatchSetState::Applied;
+    DWORD ignored = 0;
+    const bool protection_restored = VirtualProtect(
+        patch_begin, patch_span, final_code_protection(old_protection), &ignored) != 0;
+    if (!verified) {
+        log_line("ERROR: reticle truncation patch did not verify after writing.");
+        return false;
+    }
+    if (!protection_restored)
+        log_line("WARNING: reticle truncation patch could not restore the original page protection.");
+    log_line("Reticle 16-bit truncation removed on X and Y; the four patched routes keep full 32-bit coordinates.");
+    return protection_restored;
 }
 
 static bool initialize_minhook() {

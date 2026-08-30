@@ -2,13 +2,14 @@
 
 ## Unreleased
 
-- Removed the aiming reticle's signed 16-bit truncation at RVAs `0xe39816` and
-  `0xe3990c`, which is the cause of the 4096 px internal-width boundary
+- Removed the aiming reticle's signed 16-bit truncation at X RVAs `0xe39816`
+  and `0xe3990c` and matching Y RVAs `0xe39830` and `0xe398f1`. The X
+  truncation is the cause of the 4096 px internal-width boundary
   reported in v0.3.1-alpha.6. A centred reticle stores `width/2 * 16`, so the
   value overflows int16 at exactly 2048 px of half-width; at 5120 wide it wraps
   to -24576 and lands off the left edge. Keeping the full 32-bit value places
-  it at the canvas centre. Resolution-independent, so no width ceiling is
-  needed.
+  it at the canvas centre. All four sites are prevalidated before any bytes are
+  changed, and the full 32-bit correction has no axis-specific 16-bit ceiling.
 
 ## v0.3.4-alpha.4 - complete centered HUD composition
 

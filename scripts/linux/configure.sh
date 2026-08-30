@@ -277,7 +277,7 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --add-combo='Centered 16:9 HUD' --combo-values="$hud_values" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
-  --add-entry="Render scale (current: $render_scale; 1.15 keeps 3440 output below 4096 internal)" \
+  --add-entry="Render scale (current: $render_scale; GPU cost grows with its square)" \
   --add-combo="$fps_label" --combo-values="$fps_values" \
   --add-combo='Controller profile fix' --combo-values="$controller_values" \
   --add-combo='Steam launch path' --combo-values="$launcher_values" \
@@ -314,7 +314,7 @@ print(f"{round(w * scale)}x{round(h * scale)}")
 PY
 )"
   zenity --question --title='Experimental supersampling' \
-    --text="Internal render size will be ${internal}. Widths of 4096 or more can make the aiming reticle flicker or disappear. Continue?" || exit 0
+    --text="Internal render size will be ${internal}. Supersampling can sharply reduce performance, exhaust VRAM or crash the game or graphics driver. Continue under your responsibility?" || exit 0
 fi
 
 if [[ "$cinematic_fov_value" == 1 || "$hud_value" == 1 ]]; then

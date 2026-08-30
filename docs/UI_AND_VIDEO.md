@@ -37,10 +37,10 @@ before installing D3D12 hooks.
 
 A 5120x2160 user reported a missing aiming crosshair and apparently zoomed FOV.
 FOV 1.200 addresses the narrow framing through the validated native-camera
-projection path. Native Windows supersampling
-tests reproduced and isolated the separate reticle issue: it remains stable at
-3956x1656 internal, flickers at exactly 4096 pixels wide, and can disappear
-according to aiming depth at 4128x1728 and 5160x2160. The current release advises
-an internal width below 4096. The cause is bounded but not yet patched.
+projection path. Native Windows supersampling tests reproduced and isolated the
+separate reticle issue: signed 16-bit coordinate conversions overflowed at the
+screen centre when an internal axis reached 4096 pixels. The X and Y routes now
+retain their full 32-bit values; gameplay validation confirmed the reticle
+working at 3440x1440 output with a 5160x2160 internal render.
 
 Pre-rendered Bink 2 video is not cropped, stretched or replaced.

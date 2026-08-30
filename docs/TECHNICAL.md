@@ -48,8 +48,9 @@ than the authored shot intended even though projection and culling are
 consistent. Wider values remain useful as development stress tests and are
 accepted by the runtime and configurators, but they are untested and remain
 the user's responsibility.
-The 3440x1440 aiming crosshair is confirmed working; the separately
-reported 5120x2160 case still requires reproduction at that exact resolution.
+The aiming crosshair is confirmed working at 3440x1440 native and at 3440x1440
+output with a 5160x2160 internal render after the 16-bit coordinate correction
+described below.
 The comparison uses the MGS4 entries published through the
 [official RPCS3 patch API](https://rpcs3.net/compatibility?patch&api=v1&v=1.2);
 PS3 addresses are research references and are not copied into the PC hook.
@@ -112,9 +113,12 @@ patch is refused if they are encrypted, unknown or only partly modified, so it
 does not intentionally leave a half-applied coordinate conversion.
 
 The correction is resolution-independent and needs no 16-bit coordinate
-ceiling. It is
-applied unconditionally, and each site's bytes are verified after protected
-code initializes, so an unrecognized build leaves the instructions untouched.
+ceiling. It is applied unconditionally, and each site's bytes are verified
+after protected code initializes, so an unrecognized build leaves the
+instructions untouched.
+The resulting ASI was validated in native Windows gameplay at 3440x1440 output
+and 1.50x/5160x2160 internal rendering, where the previously absent reticle was
+visible again.
 
 The D3D12 safe-area prototype is compiled out of release builds. Its shader
 classifier also matched some full-screen effects and therefore could not

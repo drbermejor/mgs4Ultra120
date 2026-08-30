@@ -1230,9 +1230,6 @@ static DWORD WINAPI patch_thread(void*) {
         render_width > 16384 || render_height > 16384)) {
         log_line("WARNING: experimental supersampling exceeds the conservative 2x/16384-pixel guidance. No GPU/VRAM capacity limit is enforced; performance, stability and driver behavior are the user's responsibility.");
     }
-    if (enable_supersampling && render_width >= 4096) {
-        log_line("WARNING: internal render width is 4096 pixels or higher. Native Windows testing found crosshair flicker at exactly 4096 and depth-dependent disappearance above it. Keep internal width below 4096 for normal gameplay; no automatic limit is enforced.");
-    }
     if (enable_supersampling && render_scale == 1.0f)
         log_line("WARNING: supersampling is enabled at 1.0x, so internal and output resolution are identical.");
 

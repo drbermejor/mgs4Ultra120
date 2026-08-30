@@ -38,8 +38,8 @@ companion records the event in `mgs4_centered_hud_16x9.log` and disables its HUD
 correction for the remainder of that game run rather than mixing corrected and
 uncorrected elements.
 
-This feature does not fix the separate high-internal-resolution crosshair
-boundary associated with supersampling widths around or above 4096 pixels.
+The separate high-internal-resolution crosshair overflow is corrected by the
+core `MGS4Ultra120.asi`; it does not depend on this HUD experiment.
 
 ## Screenshots
 

@@ -10,6 +10,11 @@
   to -24576 and lands off the left edge. Keeping the full 32-bit value places
   it at the canvas centre. All four sites are prevalidated before any bytes are
   changed, and the full 32-bit correction has no axis-specific 16-bit ceiling.
+  Native Windows gameplay validation confirmed the reticle working at
+  3440x1440 output with a 1.50x/5160x2160 internal render.
+- Added public Windows/MSVC and Linux/MinGW-w64 CI with tests and downloadable
+  pull-request binaries so contributors can validate builds without a local
+  native toolchain.
 
 ## v0.3.4-alpha.4 - complete centered HUD composition
 

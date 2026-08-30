@@ -29,35 +29,30 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -A x64
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build --config Release --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Verify WinMM proxy
         shell: pwsh
         run: >-
           ./scripts/windows/verify-winmm-proxy.ps1
-          -ProxyDll build/bin/winmm.dll
-          -SmokeTestExe build/bin/winmm_proxy_smoke.exe
+          -ProxyDll build/bin/Release/winmm.dll
+          -SmokeTestExe build/bin/Release/winmm_proxy_smoke.exe
 
       - name: Upload testable Windows binaries
         uses: actions/upload-artifact@v7
         with:
           name: mgs4ultra120-windows-${{ github.sha }}
           path: |
-            build/bin/*.asi
-            build/bin/*.dll
-            build/bin/*.exe
+            build/bin/Release/*.asi
+            build/bin/Release/*.dll
+            build/bin/Release/*.exe
           if-no-files-found: error
           retention-days: 14
 

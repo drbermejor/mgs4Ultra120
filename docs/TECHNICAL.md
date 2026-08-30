@@ -82,6 +82,35 @@ proxy, controller poller, virtual-device layer or periodic memory writer.
 
 ## UI
 
+The aiming reticle's X is truncated to signed 16 bits on its way to the UI
+canvas. At RVAs `0xe39816` and `0xe3990c`, `movsx edx, cx` keeps only the low
+16 bits of a position already scaled to 1/16 px:
+
+```text
+0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
+0xe39816  movsx edx, cx           ; truncates to int16
+0xe3981d  lea eax,[rdx+rdx*4]
+0xe39820  shl eax, 8              ; x1280, the UI canvas width
+0xe39824  idiv [render width]
+```
+
+A centred reticle stores `width/2 * 16`, so the value crosses 32767 at exactly
+4096 px of internal width (`2048*16 = 32768`). This is the boundary recorded in
+v0.3.1-alpha.6 as stable at 3956x1656 and flickering at 4096. At 5120 wide,
+`2560*16 = 40960` wraps to -24576 and the reticle is placed at
+`-24576*1280/5120 = -6144` in 1/16 canvas units, off the left edge.
+
+Both sites are replaced with `mov edx, ecx` plus a nop, which keeps the full
+32-bit value: `40960*1280/5120 = 10240`, the canvas centre. The replacement is
+one byte shorter than the original, so no surrounding instruction moves. Only
+the two X routes are patched; the Y routes truncate identically but cannot
+overflow, since `1440*16 = 23040` fits and reaching 32767 would need 2048 px of
+height.
+
+The correction is resolution-independent and needs no width ceiling. It is
+applied unconditionally, and each site's bytes are verified after protected
+code initializes, so an unrecognized build leaves the instructions untouched.
+
 The D3D12 safe-area prototype is compiled out of release builds. Its shader
 classifier also matched some full-screen effects and therefore could not
 provide reliable HUD anchoring. The current binary installs no D3D11/D3D12 UI

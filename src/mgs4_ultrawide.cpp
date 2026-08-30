@@ -795,6 +795,62 @@ static bool force_resolution_getters(std::uintptr_t base,
     return true;
 }
 
+// The aiming reticle's X reaches the UI canvas through a signed 16-bit
+// truncation.  `cvttss2si` produces the position in 1/16 px, and the following
+// `movsx edx, cx` keeps only the low 16 bits:
+//
+//     0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
+//     0xe39816  movsx edx, cx           ; truncates to int16
+//     0xe3981d  lea eax,[rdx+rdx*4]
+//     0xe39820  shl eax, 8              ; x1280, the UI canvas width
+//     0xe39823  cdq
+//     0xe39824  idiv [render width]
+//
+// A centred reticle stores width/2 * 16, so the value crosses 32767 at exactly
+// 4096 px of internal width: 2048*16 = 32768.  That is the boundary recorded in
+// v0.3.1-alpha.6 as stable at 3956x1656 and flickering at 4096.  At 5120 wide,
+// 2560*16 = 40960 wraps to -24576, placing the reticle at
+// -24576*1280/5120 = -6144 in 1/16 canvas units, off the left edge.
+//
+// Replacing the truncation with a plain 32-bit move keeps the real value, so
+// 40960*1280/5120 = 10240 - the canvas centre.  `mov edx, ecx` is one byte
+// shorter than `movsx edx, cx`, so the third byte becomes a nop and no
+// surrounding instruction moves.
+//
+// Only the two X routes are patched.  The Y routes truncate identically but
+// cannot overflow: 1440*16 = 23040 fits in int16, and reaching 32767 would need
+// 2048 px of height.
+static bool fix_reticle_truncation(std::uintptr_t base) {
+    constexpr std::uintptr_t truncation_rvas[] = {0xe39816, 0xe3990c};
+    constexpr unsigned char expected[] = {0x0f, 0xbf, 0xd1};      // movsx edx, cx
+    constexpr unsigned char replacement[] = {0x8b, 0xd1, 0x90};   // mov edx, ecx ; nop
+
+    for (const std::uintptr_t rva : truncation_rvas) {
+        auto* target = reinterpret_cast<unsigned char*>(base + rva);
+        for (unsigned attempt = 0; attempt < 200; ++attempt) {
+            if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
+            if (attempt == 199) {
+                log_line("WARNING: a reticle truncation site did not decrypt in time; the reticle keeps its original 4096 px limit.");
+                return false;
+            }
+            Sleep(25);
+        }
+        DWORD old_protection = 0;
+        if (!VirtualProtect(target, sizeof(replacement), PAGE_EXECUTE_READWRITE,
+                            &old_protection)) {
+            log_line("ERROR: could not write a reticle truncation site.");
+            return false;
+        }
+        std::memcpy(target, replacement, sizeof(replacement));
+        FlushInstructionCache(GetCurrentProcess(), target, sizeof(replacement));
+        DWORD ignored = 0;
+        VirtualProtect(target, sizeof(replacement),
+                       final_code_protection(old_protection), &ignored);
+    }
+    log_line("Reticle 16-bit truncation removed; internal width is no longer limited to 4096 px.");
+    return true;
+}
+
 static bool initialize_minhook() {
     const LONG state = InterlockedCompareExchange(&g_minhook_state, 1, 0);
     if (state == 0) {
@@ -1183,6 +1239,7 @@ static DWORD WINAPI patch_thread(void*) {
     }
     if (controller_profile_fix)
         install_controller_profile_fix(base);
+    fix_reticle_truncation(base);
     apply_resolution_state();
     // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);

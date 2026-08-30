@@ -4,13 +4,19 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.4-alpha.4` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.5` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
 > **Recommended unified release.** Windows and Linux now share the validated
 > native-camera FOV implementation. Optional supersampling remains experimental
 > and disabled by default.
+
+> **Centered-HUD warning.** The optional centered 16:9 HUD is currently a
+> known-broken development preview. Menus, subtitles, maps, text and 3D
+> inventory previews can be misplaced, squashed, clipped or briefly flicker.
+> Keep it **disabled for normal play**. Disabling it restores the normal HUD
+> without affecting ultrawide, FOV, FPS, supersampling or the reticle fix.
 
 ## What the Windows release installs
 
@@ -48,9 +54,10 @@ unlock implementation.
 - Native FOV is still experimental. Disable it independently in the
   configurator if a new stability or scene-specific issue appears; Hor+ remains
   active with the original vertical FOV.
-- Real-time cinematic FOV and the centered 16:9 HUD are included as separate,
-  experimental options and are disabled by default. The cinematic multiplier
-  can inherit gameplay FOV or use an independent value.
+- Real-time cinematic FOV and the centered 16:9 HUD are included as separate
+  disabled options. The cinematic multiplier can inherit gameplay FOV or use
+  an independent value. The centered HUD is a known-broken development preview
+  and is not recommended for normal play.
 - Disabling `ExperimentalCinematicFOV` and the centered-HUD `Enabled` switch
   restores the reference rendering behavior without reinstalling. The HUD
   companion exits before installing D3D12 hooks while disabled.
@@ -111,7 +118,7 @@ The 3D image continues to use the full ultrawide output.
 ## Windows downloads
 
 Use the
-[latest v0.3.4-alpha.4 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.4)
+[latest v0.3.4-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.5)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -140,9 +147,10 @@ their physical output resolution. See
 [experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
 The real-time cinematic FOV and centered HUD are also disabled by default.
-Enable them only from the Windows/Linux configurator or their documented INI
-switches. If either causes a scene or menu problem, close the game and disable
-that option. For a complete known fallback, the previous
+The HUD option is known to break parts of menus, subtitles, maps, text and 3D
+inventory previews; leave it disabled unless you are deliberately testing it.
+If either experiment causes a problem, close the game and disable that option.
+For a complete known fallback, the previous
 [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
 release remains available.
 
@@ -182,8 +190,15 @@ See [Windows installation](docs/INSTALL_WINDOWS.md) and
 ## Windows defaults and known display issue
 
 The configurator selects the primary monitor's physical resolution, native-size
-windowed presentation, FOV 1.200, corrected 120 FPS, controller-profile fix and
-Unity-launcher bypass. Exclusive fullscreen is an advanced option.
+windowed presentation, FOV 1.200, corrected 120 FPS and Unity-launcher bypass.
+The controller-profile workaround is opt-in because it can interfere with
+keyboard/mouse and hybrid controller plus mouse/gyro input. Exclusive
+fullscreen is an advanced option.
+
+**Update notice:** alpha.5 resets the controller-profile workaround to its
+safe disabled default. If you previously needed it, reopen the configurator,
+enable **Controller profile fix**, and save. Manual users can instead set
+`ControllerProfileFixEnabled=1` under `[Input]` in `mgs4_ultrawide.ini`.
 
 On one mixed-refresh NVIDIA multi-monitor system, focus changes produced a red
 sweep/flicker and Windows display WATCHDOG reports. Testing was clean after
@@ -193,7 +208,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.4-alpha.4` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.5` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`

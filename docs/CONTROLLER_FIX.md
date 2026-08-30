@@ -19,9 +19,27 @@ It does **not**:
 - poll the controller or synthesize events;
 - require Steam Input to be enabled or disabled globally.
 
-This keeps system/controller setup outside the public patch. Use one native
-controller path and avoid duplicate virtual devices. Keyboard/mouse users
-should disable `ControllerProfileFixEnabled`.
+This keeps system/controller setup outside the public patch. The workaround is
+disabled by default in alpha.5. Enable it only if the game incorrectly switches
+away from an otherwise working controller. Keyboard/mouse and hybrid controller
+plus mouse/gyro users should keep `ControllerProfileFixEnabled=0` because
+locking the controller profile can interfere with mouse input.
+
+## Enabling it after an update
+
+Alpha.5 deliberately resets this workaround to disabled during managed setup
+and updates. Users who previously needed it must enable it again:
+
+- Windows or Linux GUI: enable **Controller profile fix** and save.
+- Manual configuration: set the following under `[Input]` in
+  `mgs4_ultrawide.ini`:
+
+  ```ini
+  ControllerProfileFixEnabled=1
+  ```
+
+Keep the value at `0` for keyboard/mouse or hybrid controller plus mouse/gyro
+input.
 
 Hot unplug/replug was exercised on the tested Linux/Proton setup: the game
 reported disconnect, released the preserved profile, detected reconnection and

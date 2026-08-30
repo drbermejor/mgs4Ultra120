@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.4-alpha.4 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.4).
+[v0.3.4-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.5).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
@@ -80,12 +80,19 @@ documentation/notices. Choose one installation route; do not perform both.
 ## Defaults and safe updates
 
 The recommended Windows profile uses the primary monitor's physical resolution,
-native-size windowed presentation, the tested FOV 1.200 recommendation, controller-profile correction,
-Unity-launcher bypass and —when selected—MGSFPSUnlock at 120.
+native-size windowed presentation, the tested FOV 1.200 recommendation,
+Unity-launcher bypass and —when selected—MGSFPSUnlock at 120. The controller-
+profile workaround is opt-in because it can interfere with keyboard/mouse and
+hybrid controller plus mouse/gyro input.
+Alpha.5 resets this workaround to disabled during managed updates. If you
+previously needed it, reopen the configurator, check **Controller profile
+fix**, and save. Manual users can set `ControllerProfileFixEnabled=1` under
+`[Input]` in `mgs4_ultrawide.ini`.
 Real-time cinematic FOV, centered 16:9 HUD and supersampling remain disabled by
-default. Enable them individually in the configurator. Closing the game and
-disabling the affected switch is sufficient to return to the reference
-behavior; `v0.3.3-alpha.1` remains available as the complete legacy fallback.
+default. The centered HUD is currently a known-broken development preview and
+should remain disabled for normal play. Closing the game and disabling an
+experimental switch is sufficient to return to the reference behavior;
+`v0.3.3-alpha.1` remains available as the complete legacy fallback.
 
 The manual ZIP does not install the launcher bypass. Manual users select the
 game language in the official Unity launcher; `Language=` affects only the

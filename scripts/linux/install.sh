@@ -138,7 +138,7 @@ preserved = (
     "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
     "ExperimentalCinematicFOV", "CinematicFOVMultiplier",
     "SupersamplingEnabled", "RenderScale", "Limit",
-    "ControllerProfileFixEnabled", "SkipUnityLauncher", "Region",
+    "SkipUnityLauncher", "Region",
     "SelfRegion", "Language", "ControllerType", "DisplayMode",
     "UsePrimaryPhysicalResolution",
 )
@@ -176,21 +176,12 @@ from pathlib import Path
 
 template_path, destination, main_path = map(Path, sys.argv[1:])
 text = template_path.read_text()
-enabled = "0"
-if destination.is_file():
-    existing = destination.read_text()
-    recognized = (re.search(r"(?m)^\[MGS4Ultra120HUD\]\s*$", existing) or
-                  (re.search(r"(?m)^\[Lab\]\s*$", existing) and
-                   re.search(r"(?m)^Mode=CenteredHUD16x9Preview1\s*$", existing)))
-    match = re.search(r"(?m)^Enabled=(0|1)\s*$", existing)
-    if recognized and match:
-        enabled = match.group(1)
 main = main_path.read_text()
 width = re.search(r"(?m)^Width=(\d+)\s*$", main)
 height = re.search(r"(?m)^Height=(\d+)\s*$", main)
 if not width or not height:
     raise SystemExit("Installed Width/Height are missing or invalid")
-for key, value in (("Enabled", enabled), ("Width", width.group(1)),
+for key, value in (("Enabled", "0"), ("Width", width.group(1)),
                    ("Height", height.group(1))):
     text = re.sub(rf"(?m)^{key}=.*$", f"{key}={value}", text, count=1)
 temporary = destination.with_suffix(".ini.tmp")
@@ -290,6 +281,7 @@ fi
 
 python3 "$SCRIPT_DIR/steam_options.py" install "$STATE_FILE"
 python3 "$GAME_DIR_RESOLVER" persist "$GAME_DIR"
+install -m0600 "$PACKAGE_DIR/VERSION" "$BACKUP_DIR/installed-version"
 DESKTOP_SHORTCUT="$(desktop_directory)/MGS4 Ultra120 Configurator.desktop"
 install_configurator_shortcut "$APPLICATION_SHORTCUT"
 install_configurator_shortcut "$DESKTOP_SHORTCUT"

@@ -208,6 +208,13 @@ def resolve(interactive: bool) -> Path:
             )
         return valid
 
+    # Running Easy Setup from the game folder is a useful zero-configuration
+    # fallback for custom Steam libraries and distributions with unusual Steam
+    # roots. It also avoids the old workaround of copying or editing scripts.
+    working_directory = normalize_game_dir(Path.cwd())
+    if working_directory is not None:
+        return working_directory
+
     state = config_file()
     try:
         stored = state.read_text(encoding="utf-8").strip()

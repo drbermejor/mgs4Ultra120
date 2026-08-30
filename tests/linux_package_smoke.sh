@@ -13,7 +13,7 @@ FPS_ARCHIVE="${2:-}"
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi" ]]
-grep -qx 'v0.3.4-alpha.4' "$PACKAGE_DIR/VERSION"
+grep -qx 'v0.3.4-alpha.5' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -82,7 +82,6 @@ install_environment=(
   HOME="$TEST_HOME"
   STEAM_DIR="$STEAM_HOME"
   STEAM_LOCALCONFIG="$CONFIG"
-  MGS4_GAME_DIR="$GAME_DIR"
   MGS4_CONFIGURE_AFTER_INSTALL=0
   MGS4_PACKAGE_INSTALL_DIR="$LOCAL_PACKAGE"
   XDG_DATA_HOME="$XDG_DATA"
@@ -94,7 +93,7 @@ if [[ -n "$FPS_ARCHIVE" ]]; then
 else
   install_environment+=(MGS4_INSTALL_FPS_UNLOCK=0)
 fi
-env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh"
+env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh" "$GAME_DIR"
 [[ -x "$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh" ]]
 [[ -f "$GAME_DIR/winmm.dll" ]]
 [[ -f "$GAME_DIR/mgs4_ultrawide.ini" ]]
@@ -115,7 +114,23 @@ grep -q 'WINEDLLOVERRIDES=\\"winmm=n,b\\" PROTON_LOG=1 %command%' "$CONFIG"
 [[ -x "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop" ]]
 grep -q "Exec=\"$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh\"" \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
+grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.5 Configurator$' \
+  "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
 grep -Fxq "$GAME_DIR" "$XDG_CONFIG/mgs4Ultra120/game-dir"
+grep -Fxq 'v0.3.4-alpha.5' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
+
+printf '%s\n' 'v0.3.4-alpha.1' \
+  >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
+if XDG_CONFIG_HOME="$XDG_CONFIG" \
+    "$LOCAL_PACKAGE/scripts/linux/configure.sh" stable \
+    >"$FIXTURE/stale-configurator.out" 2>&1; then
+  echo "A mismatched Linux configurator was not rejected." >&2
+  exit 1
+fi
+grep -q 'mismatched/stale\|configurator belongs to' \
+  "$FIXTURE/stale-configurator.out"
+printf '%s\n' 'v0.3.4-alpha.5' \
+  >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 XDG_CONFIG_HOME="$XDG_CONFIG" \
   "$LOCAL_PACKAGE/scripts/linux/configure.sh" stable
@@ -125,6 +140,7 @@ grep -q '^NativeCameraFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=inherit$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^SupersamplingEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^ControllerProfileFixEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^Enabled=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 grep -q '^CenterHUDIn16x9=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 grep -q '^FullCanvasTest=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
@@ -132,18 +148,21 @@ grep -q '^EmitterTransformTest=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 grep -q '^Preview3DUniformFitTest=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 ! grep -q '^PreviewRTVGateTest=' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 
-# Managed updates preserve explicit gameplay and cinematic FOV choices.
+# Managed updates preserve gameplay/cinematic FOV choices but reset the
+# known-broken centered-HUD preview to its safe disabled state.
 sed -i 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^ExperimentalCinematicFOV=.*/ExperimentalCinematicFOV=1/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^CinematicFOVMultiplier=.*/CinematicFOVMultiplier=1.100/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^FOVMultiplier=.*/FOVMultiplier=1.350/' "$GAME_DIR/mgs4_ultrawide.ini"
+sed -i 's/^ControllerProfileFixEnabled=.*/ControllerProfileFixEnabled=1/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^Enabled=.*/Enabled=1/' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
-env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh"
+env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh" "$GAME_DIR"
 grep -q '^NativeCameraFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=1.100$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.350$' "$GAME_DIR/mgs4_ultrawide.ini"
-grep -q '^Enabled=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^ControllerProfileFixEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^Enabled=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" XDG_CONFIG_HOME="$XDG_CONFIG" \
   XDG_DATA_HOME="$XDG_DATA" MGS4_DESKTOP_DIR="$DESKTOP_DIR" \

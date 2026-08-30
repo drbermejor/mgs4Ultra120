@@ -46,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.4-alpha.4") {
+if ($PackageVersion -ne "v0.3.4-alpha.5") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -326,7 +326,7 @@ try {
         "CinematicFOVMultiplier=inherit",
         "FOVModelVersion=2",
         "Limit=60",
-        "ControllerProfileFixEnabled=1",
+        "ControllerProfileFixEnabled=0",
         "Language=sp"
     )) {
         if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
@@ -355,7 +355,7 @@ try {
         "UltrawideEnabled=0", "Width=1920", "Height=1080",
         "FOVMultiplier=1.000", "NativeCameraFOV=0",
         "ExperimentalCinematicFOV=0", "SupersamplingEnabled=1",
-        "RenderScale=2.000", "ControllerProfileFixEnabled=1",
+        "RenderScale=2.000", "ControllerProfileFixEnabled=0",
         "DisplayMode=Windowed", "UsePrimaryPhysicalResolution=0"
     )) {
         if ($IniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
@@ -507,6 +507,9 @@ try {
     $Customized = [regex]::Replace($Customized,
         '(?m)^RenderScale=.*$', 'RenderScale=2.000')
     $Customized = [regex]::Replace($Customized,
+        '(?m)^ControllerProfileFixEnabled=.*$',
+        'ControllerProfileFixEnabled=1')
+    $Customized = [regex]::Replace($Customized,
         '(?m)^ExperimentalCinematicFOV=.*$', 'ExperimentalCinematicFOV=1')
     $Customized = [regex]::Replace($Customized,
         '(?m)^CinematicFOVMultiplier=.*$', 'CinematicFOVMultiplier=1.300')
@@ -532,10 +535,13 @@ try {
     if ($UpdatedIni -notmatch '(?m)^Limit=60\r?$') {
         throw "Update did not migrate the previous experimental 120 FPS value to 60."
     }
+    if ($UpdatedIni -notmatch '(?m)^ControllerProfileFixEnabled=0\r?$') {
+        throw "Update did not reset the controller-profile workaround to its safe opt-in default."
+    }
     $UpdatedHud = Get-Content -Raw -LiteralPath $HudIniPath
-    if ($UpdatedHud -notmatch '(?m)^Enabled=1\r?$' -or
+    if ($UpdatedHud -notmatch '(?m)^Enabled=0\r?$' -or
         $UpdatedHud -notmatch '(?m)^Width=5120\r?$') {
-        throw "Update did not preserve the HUD opt-in or synchronize its width."
+        throw "Update did not reset the broken HUD preview or synchronize its width."
     }
 
     & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir

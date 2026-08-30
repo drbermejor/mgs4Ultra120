@@ -119,6 +119,7 @@ for name in MGSFPSUnlock.ini; do
   fi
 done
 rmdir -- "$GAME_DIR/scripts" 2>/dev/null || true
+rm -f -- "$BACKUP_DIR/installed-version"
 if [[ "$launcher_conflict" == 0 && "$binary_conflict" == 0 ]]; then
   rmdir -- "$BACKUP_DIR" 2>/dev/null || true
 fi

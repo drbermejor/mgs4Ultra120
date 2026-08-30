@@ -1,0 +1,14 @@
+[b]MGS4 Ultra120 v0.3.4-alpha.5 - high-resolution reticle fix[/b]
+
+The aiming reticle now works above the old 4096-pixel internal-width boundary. It was validated at 3440x1440 output with 1.50x supersampling (5160x2160 internal). Thanks to GitHub contributor ngsalmon for finding and contributing the core fix.
+
+Linux setup now accepts custom game paths directly, for example:
+[code]./MGS4Ultra120-Linux-Setup.sh "/path/to/METAL GEAR SOLID 4/MGS4"[/code]
+It also detects the current game folder and protects against launching a stale configurator after an update.
+
+[b]Controller-fix users:[/b] this update resets the controller-profile workaround to disabled. If you previously needed it, reopen MGS4 Ultra120 Configurator, enable [i]Controller profile fix[/i], and save. Manual users can set [code]ControllerProfileFixEnabled=1[/code] under [code][Input][/code] in [code]mgs4_ultrawide.ini[/code]. Leave it disabled when using keyboard/mouse or a controller together with mouse/gyro aiming.
+
+[b]Important:[/b] the centered 16:9 HUD remains a known-broken development preview. Menus, subtitles, maps, text and 3D inventory previews may be misplaced, squashed, clipped or flicker. Keep it disabled for normal play; disabling it restores the normal HUD without affecting the other fixes.
+
+Windows and Linux downloads:
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.5]MGS4 Ultra120 v0.3.4-alpha.5[/url]

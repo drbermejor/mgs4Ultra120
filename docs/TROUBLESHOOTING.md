@@ -39,8 +39,21 @@ ASI plugin, and can be changed under **Skip the Unity launcher**.
 
 The main log should contain `Configuration:` and the enabled hook messages. If
 it is missing, confirm that `winmm.dll` and `mgs4_ultrawide.ini` are beside
-`mgs4.exe`, not beside the top-level Unity launcher. On alpha.4 also confirm
+`mgs4.exe`, not beside the top-level Unity launcher. On alpha.4 and later also confirm
 that `scripts\\MGS4Ultra120.asi` exists under the MGS4 executable folder.
+
+## Linux configurator shows an old alpha
+
+The title is the version of the configurator package being launched, not a
+runtime query of the ASI. Do not copy internal scripts into the game folder.
+Download and extract the newest Linux archive, exit Steam, and rerun its
+top-level `MGS4Ultra120-Linux-Setup.sh`. Alpha.5 replaces the managed shortcut,
+records the installed version and rejects a mismatched configurator. Custom
+libraries can be selected graphically or passed directly:
+
+```bash
+./MGS4Ultra120-Linux-Setup.sh "/path/to/METAL GEAR SOLID 4/MGS4"
+```
 
 Repeated `Configuration:` lines without the later hook messages can mean that
 `mgs4.exe` is being started and immediately sent back to the original launcher.

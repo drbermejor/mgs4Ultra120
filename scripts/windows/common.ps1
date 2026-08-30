@@ -1,4 +1,4 @@
-$Mgs4Ultra120Version = "v0.3.4-alpha.4"
+$Mgs4Ultra120Version = "v0.3.4-alpha.5"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
@@ -104,7 +104,7 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
         "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
         "ExperimentalCinematicFOV", "CinematicFOVMultiplier",
         "SupersamplingEnabled",
-        "RenderScale", "Limit", "ControllerProfileFixEnabled",
+        "RenderScale", "Limit",
         "SkipUnityLauncher", "Region", "SelfRegion", "Language", "ControllerType",
         "DisplayMode", "UsePrimaryPhysicalResolution"
     )) {
@@ -165,14 +165,13 @@ function Install-Mgs4Ultra120HudConfig([string]$Template, [string]$Destination,
         $Recognized = ($ExistingText -match '(?m)^\[MGS4Ultra120HUD\]\s*$') -or
             (($ExistingText -match '(?m)^\[Lab\]\s*$') -and
              ($ExistingText -match '(?m)^Mode=CenteredHUD16x9Preview1\s*$'))
-        if ($Recognized) {
-            $Match = [regex]::Match($ExistingText, '(?m)^Enabled=(0|1)\s*$')
-            if ($Match.Success) { $Enabled = $Match.Groups[1].Value }
-        } elseif (-not (Test-Path -LiteralPath $Backup)) {
+        if (-not $Recognized -and -not (Test-Path -LiteralPath $Backup)) {
             Copy-Item -LiteralPath $Destination -Destination $Backup
         }
     }
     foreach ($Entry in @{
+        # Alpha.5 deliberately resets this known-broken development preview.
+        # Testers may opt in again after reading the current warning.
         Enabled = $Enabled
         Width = [string]$Width
         Height = [string]$Height

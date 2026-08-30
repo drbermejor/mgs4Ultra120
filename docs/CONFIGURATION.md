@@ -39,7 +39,7 @@ CinematicFOVMultiplier=inherit
 Limit=60
 
 [Input]
-ControllerProfileFixEnabled=1
+ControllerProfileFixEnabled=0
 
 [Launcher]
 SkipUnityLauncher=1
@@ -81,8 +81,10 @@ UsePrimaryPhysicalResolution=1
   identified HUD draws in a centered 16:9 safe area. It is experimental,
   disabled by default and DX12-only. `Enabled=0` exits before installing D3D12
   hooks.
-- `ControllerProfileFixEnabled=1` preserves the native connected-controller
-  family when the port incorrectly attempts to switch to keyboard profile 0.
+- `ControllerProfileFixEnabled=1` opts into preserving the native connected-
+  controller family when the port incorrectly attempts to switch to keyboard
+  profile 0. It is disabled by default; keep it off for keyboard/mouse and
+  hybrid controller plus mouse/gyro input.
 - `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build
   and may crash. It is off by default.
 - `DisplayMode=Windowed` is recommended. `Fullscreen` is an advanced option.
@@ -115,7 +117,7 @@ Linux also applies and verifies the Wine compatibility byte locally. Do not enab
 ## Command-line profiles
 
 ```powershell
-# Recommended ultrawide/controller setup plus corrected 120 FPS
+# Recommended ultrawide setup plus corrected 120 FPS
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
   -GameDir "D:\...\MGS4" -Profile stable
 

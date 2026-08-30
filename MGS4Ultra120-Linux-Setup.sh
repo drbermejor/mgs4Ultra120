@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if (( $# > 1 )); then
+  echo "Usage: $0 [folder-containing-mgs4.exe]" >&2
+  exit 1
+fi
+if (( $# == 1 )); then
+  export MGS4_GAME_DIR="$1"
+fi
+
 PACKAGE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CANONICAL_DIR="${MGS4_PACKAGE_INSTALL_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mgs4Ultra120}"
 if [[ "$PACKAGE_DIR" != "$CANONICAL_DIR" && "${MGS4_PACKAGE_CANONICALIZED:-0}" != 1 ]]; then

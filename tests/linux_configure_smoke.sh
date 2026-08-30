@@ -27,7 +27,7 @@ grep -q '^Enabled=0$' "$FIXTURE/mgs4_centered_hud_16x9.ini"
 grep -q '^CinematicFOVMultiplier=inherit$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^FPSOverrideEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^Limit=60$' "$FIXTURE/mgs4_ultrawide.ini"
-grep -q '^ControllerProfileFixEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^ControllerProfileFixEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^TargetFrameRate = 120$' "$FIXTURE/scripts/MGSFPSUnlock.ini"
 
@@ -39,7 +39,7 @@ grep -q '^Height=1080$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^NativeCameraFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^SupersamplingEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^RenderScale=2.000$' "$FIXTURE/mgs4_ultrawide.ini"
-grep -q '^ControllerProfileFixEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
+grep -q '^ControllerProfileFixEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^Enabled=0$' "$FIXTURE/mgs4_centered_hud_16x9.ini"
 
 MGS4_GAME_DIR="$FIXTURE" \

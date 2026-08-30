@@ -8,7 +8,7 @@ This portable package is for a 1920x1080 16:9 display. It starts with:
 - centered-HUD experiment disabled;
 - 1920x1080 physical output;
 - 2.00x supersampling (3840x2160 internal render);
-- controller-profile correction enabled;
+- controller-profile correction disabled by default (opt in only if needed);
 - optional launcher bypass enabled;
 - optional corrected 30/60/120 FPS available through Easy Setup.
 
@@ -32,12 +32,16 @@ Important
 ---------
 
 Supersampling is experimental and can reduce performance or exhaust VRAM.
-The known crosshair problem begins around an internal width of 4096 pixels;
-this preset uses 3840 pixels and stays below that observed boundary.
+The previous aiming-reticle failure at internal widths of 4096 pixels or more
+is fixed in v0.3.4-alpha.5. This preset uses a 3840x2160 internal render.
 
-Do not increase the output resolution or render scale without checking the
-calculated internal width. Disable supersampling if the game, overlay or aiming
-reticle behaves incorrectly.
+Higher scales are no longer restricted by the old reticle boundary, but they
+increase GPU load and VRAM use quickly. Disable supersampling if the game,
+presentation path or overlays behave incorrectly.
+
+Leave the controller-profile correction disabled when using keyboard/mouse or
+a controller together with mouse/gyro aiming. Enable it only if the game is
+selecting the wrong native controller profile on your system.
 
 This is the normal open-source MGS4 Ultra120 package with a different default
 profile, not a separate patch or modified game executable.

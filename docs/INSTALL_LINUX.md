@@ -18,9 +18,10 @@ CinematicFOVMultiplier=1.100
 
 Pre-rendered videos are unaffected. Expanded framing can reveal characters,
 objects or animation transitions earlier than the original shot intended.
-The centered-HUD option is also disabled by default and requires DX12. If a
-menu or scene is wrong, close the game and disable only the affected option to
-return to the reference behavior.
+The centered-HUD option is disabled by default and requires DX12. It is
+currently a known-broken development preview: menus, subtitles, maps, text and
+3D inventory previews can be misplaced, squashed, clipped or flicker. Keep it
+disabled for normal play.
 
 Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
 the supported Steam executable. Other Proton versions may work but have not
@@ -36,6 +37,16 @@ passed the same release checks.
    ./MGS4Ultra120-Linux-Setup.sh
    ```
 
+   For a custom Steam library, either select the folder containing `mgs4.exe`
+   when prompted or pass it directly without editing any script:
+
+   ```bash
+   ./MGS4Ultra120-Linux-Setup.sh "/mnt/games/SteamLibrary/steamapps/common/METAL GEAR SOLID 4/MGS4"
+   ```
+
+   Running the top-level setup while the current directory itself contains
+   `mgs4.exe` is also supported.
+
 4. Setup searches the native and Flatpak Steam library records for app
    `2492670`. If it cannot identify one installation, select the folder that
    directly contains `mgs4.exe` in the graphical folder picker.
@@ -45,6 +56,13 @@ passed the same release checks.
    Choose output resolution, FOV, optional cinematic FOV, optional centered
    HUD, supersampling, FPS, launcher mode and fullscreen mode, then save.
 7. Start Steam and launch the game normally using DirectX 12.
+
+The controller-profile workaround is opt-in. Alpha.5 resets it to disabled
+during managed updates. If you previously needed it, reopen **MGS4 Ultra120
+Configurator**, select **Enabled** for **Controller profile fix**, and save.
+Manual users can set `ControllerProfileFixEnabled=1` under `[Input]` in
+`mgs4_ultrawide.ini`. Keep it disabled for keyboard/mouse or hybrid controller
+plus mouse/gyro input.
 
 Setup also creates **MGS4 Ultra120 Configurator** on the desktop and in the
 application menu. The installed tool lives in `~/.local/share/mgs4Ultra120`, so
@@ -79,9 +97,14 @@ The desktop configurator and uninstaller reuse it automatically. To override
 discovery for one command, pass the folder explicitly:
 
 ```bash
-MGS4_GAME_DIR="/path/to/METAL GEAR SOLID 4/MGS4" \
-  ./MGS4Ultra120-Linux-Setup.sh
+./MGS4Ultra120-Linux-Setup.sh "/path/to/METAL GEAR SOLID 4/MGS4"
 ```
+
+Do not copy individual internal scripts into the game directory. Managed setup
+replaces the desktop/application shortcut and includes the package version in
+its title. If it still shows an older alpha, rerun the newest top-level setup
+archive; an old title means an old configurator copy is being launched and
+does not prove which ASI was installed.
 
 ## Configure later
 

@@ -1,8 +1,14 @@
 # Experimental centered 16:9 HUD
 
-This optional DX12-only companion keeps accepted HUD draws inside a centered
-16:9 safe area on ultrawide output. It is included on Windows and Linux/Proton
-but disabled by default.
+This optional DX12-only companion attempts to keep accepted HUD draws inside a
+centered 16:9 safe area on ultrawide output. It is included on Windows and
+Linux/Proton but disabled by default.
+
+> **Known-broken development preview:** keep this option disabled for normal
+> play. Current testing found misplaced or overflowing menu text, incorrectly
+> scaled maps, displaced 3D weapon/item previews and intermittent layout
+> flicker. Subtitles, Codec, save/load and less common menus are not complete.
+> `Enabled=0` is the supported fallback.
 
 `v0.3.4-alpha.4` replaces the earlier per-draw correction with one coherent UI
 batch transform. This keeps text, frames, panels and subtitles in the same
@@ -29,9 +35,10 @@ preview fit is deliberately limited to the visually validated weapon/item
 layout; a broader render-target rule remains private until Codec, scope,
 backpack and unusual item screens have been captured. Gameplay, load and weapon
 screens plus AK-102 and knife previews were validated at 3440x1440 on Windows.
-Less common save, pause, inventory, Codec or prompt layouts may still expose an
-omission. If a menu clips or a fullscreen effect becomes a central strip, close
-the game and disable the option before reporting the screen and resolution.
+The wider validation campaign found significant failures beyond those initial
+screens, so the feature is not currently suitable for a normal playthrough. If
+you deliberately test it, close the game and disable the option before
+reporting the affected screen and resolution.
 
 The transform cache has a fixed memory budget. If it is ever exhausted, the
 companion records the event in `mgs4_centered_hud_16x9.log` and disables its HUD

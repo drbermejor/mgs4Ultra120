@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.4-alpha.5 - high-resolution reticle and safer setup
 
 - Removed the aiming reticle's signed 16-bit truncation at X RVAs `0xe39816`
   and `0xe3990c` and matching Y RVAs `0xe39830` and `0xe398f1`. The X
@@ -15,6 +15,17 @@
 - Added public Windows/MSVC and Linux/MinGW-w64 CI with tests and downloadable
   pull-request binaries so contributors can validate builds without a local
   native toolchain.
+- Added direct Linux game-folder arguments and current-directory detection for
+  custom Steam libraries. Managed installs now record their installed version
+  and reject a mismatched/stale configurator instead of silently presenting an
+  unrelated package version.
+- Changed the controller-profile workaround to opt-in. New installations,
+  recommended profiles and managed updates keep it disabled so keyboard/mouse
+  and controller-plus-mouse/gyro setups are not locked to controller-only
+  input. Users who specifically need the workaround can enable it again.
+- Relabelled the centered 16:9 HUD as a known-broken development preview. It
+  remains disabled by default, and managed updates reset a previous opt-in to
+  the safe disabled state; the normal HUD is the recommended configuration.
 
 ## v0.3.4-alpha.4 - complete centered HUD composition
 

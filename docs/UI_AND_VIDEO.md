@@ -1,9 +1,14 @@
 # UI and pre-rendered video
 
-The normal HUD remains the default. `v0.3.4-alpha.4` includes a separate,
+The normal HUD remains the default. `v0.3.4-alpha.5` includes a separate,
 DX12-only `MGS4CenteredHUD16x9.asi` companion that can place conservatively
 accepted HUD draws in one centered 16:9 safe area. The companion is experimental
 and disabled by default.
+
+The centered companion is currently a known-broken development preview, not a
+recommended gameplay feature. Extended testing found misplaced/overflowing
+text, squashed maps, displaced 3D inventory previews and intermittent layout
+flicker. Keep `Enabled=0` for normal play.
 
 The earlier prototype corrected individual backend draws. The game can upload
 the same UI through two emitter paths, so that late strategy could alternate
@@ -29,11 +34,10 @@ FOV and projection untouched. The broader output-render-target classifier is
 still private; the public build uses the layout validated with the AK-102 and
 knife at 3440x1440.
 
-This improves gameplay HUD layout without claiming every menu is complete.
-Save, pause, inventory, Codec, subtitle and prompt layouts can still contain a
-misclassified or intentionally unusual draw. Set `Enabled=0` in
-`mgs4_centered_hud_16x9.ini` if a problem appears; the companion then exits
-before installing D3D12 hooks.
+The current implementation is incomplete across save, pause, inventory, Codec,
+subtitle and prompt layouts. Set `Enabled=0` in
+`mgs4_centered_hud_16x9.ini`; the companion then exits before installing D3D12
+hooks and cannot affect the normal HUD.
 
 A 5120x2160 user reported a missing aiming crosshair and apparently zoomed FOV.
 FOV 1.200 addresses the narrow framing through the validated native-camera

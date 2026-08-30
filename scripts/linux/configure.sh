@@ -31,6 +31,12 @@ game_running() {
   pgrep -x 'mgs4.exe' >/dev/null || pgrep -f -- '^-region eu -lan ' >/dev/null
 }
 
+if [[ -f "$BACKUP_DIR/installed-version" ]]; then
+  INSTALLED_VERSION="$(tr -d '\r\n' <"$BACKUP_DIR/installed-version")"
+  [[ "$INSTALLED_VERSION" == "$VERSION" ]] || die \
+    "This configurator belongs to $VERSION, but the installed patch is $INSTALLED_VERSION. Launch the managed desktop/application shortcut or rerun the newest top-level Linux setup; do not copy individual scripts into the game folder."
+fi
+
 [[ -f "$INI" ]] || die "mgs4_ultrawide.ini not found in: $GAME_DIR"
 [[ -f "$HUD_INI" ]] || die "mgs4_centered_hud_16x9.ini not found in: $GAME_DIR; reinstall the current patch"
 [[ -f "$GAME_DIR/mgs4.exe" ]] || die "mgs4.exe not found in: $GAME_DIR"
@@ -215,11 +221,11 @@ fi
 case "$MODE" in
   detected)
     [[ -n "$detected_width" && -n "$detected_height" ]] || die "Could not detect the primary physical display mode."
-    apply_values "$detected_width" "$detected_height" 1.000 1 0 inherit 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"
+    apply_values "$detected_width" "$detected_height" 1.000 1 0 inherit 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"
     exit 0
     ;;
-  stable) apply_values 3440 1440 1.200 1 0 inherit 1 1 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
-  16x9-supersampling) apply_values 1920 1080 1.000 0 0 inherit 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" 1 2.000 0 "$current_fps_target"; exit 0 ;;
+  stable) apply_values 3440 1440 1.200 1 0 inherit 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
+  16x9-supersampling) apply_values 1920 1080 1.000 0 0 inherit 0 0 "$current_skip" "$current_language" "$current_allow_unsupported" 1 2.000 0 "$current_fps_target"; exit 0 ;;
   ultrawide-only) apply_values 3440 1440 1.200 1 0 inherit 1 0 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
   controller-fix-only) apply_values 3440 1440 1.000 0 0 inherit 0 1 "$current_skip" "$current_language" "$current_allow_unsupported" 0 "$current_render_scale" 0 "$current_fps_target"; exit 0 ;;
   status) show_status; exit $? ;;
@@ -248,8 +254,8 @@ if [[ "$cinematic_fov" == 1 ]]; then cinematic_fov_values='Enabled (experimental
 else cinematic_fov_values='Disabled|Enabled (experimental)'; fi
 if [[ "$current_hud" == 1 ]]; then hud_values='Enabled (experimental, DX12)|Disabled'
 else hud_values='Disabled|Enabled (experimental, DX12)'; fi
-if [[ "$controller_fix" == 1 ]]; then controller_values='Enabled (recommended)|Disabled'
-else controller_values='Disabled|Enabled (recommended)'; fi
+if [[ "$controller_fix" == 1 ]]; then controller_values='Enabled (disable for mouse/gyro input)|Disabled (recommended default)'
+else controller_values='Disabled (recommended default)|Enabled (disable for mouse/gyro input)'; fi
 if [[ "$supersampling" == 1 ]]; then supersampling_values='Enabled (experimental)|Disabled'
 else supersampling_values='Disabled|Enabled (experimental)'; fi
 fps_values="$fps_target"
@@ -274,7 +280,7 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --add-combo='Native FOV correction' --combo-values="$native_fov_values" \
   --add-combo='Real-time cinematic FOV' --combo-values="$cinematic_fov_values" \
   --add-entry="Cinematic FOV (current: $cinematic_multiplier; use inherit or a number)" \
-  --add-combo='Centered 16:9 HUD' --combo-values="$hud_values" \
+  --add-combo='KNOWN BROKEN: centered 16:9 HUD preview' --combo-values="$hud_values" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
   --add-entry="Render scale (current: $render_scale; GPU cost grows with its square)" \
@@ -319,7 +325,7 @@ fi
 
 if [[ "$cinematic_fov_value" == 1 || "$hud_value" == 1 ]]; then
   zenity --question --title='Experimental rendering options' \
-    --text='Cinematic FOV can reveal actors or animation transitions earlier than intended. The centered HUD is DX12-only and some menus or text may still be misplaced. If a problem appears, close the game and disable the affected option to return to the reference behavior. Continue?' || exit 0
+    --text='The centered HUD is a KNOWN-BROKEN development preview. Menus, subtitles, maps, text and 3D inventory previews can be misplaced, squashed, clipped or flicker. Keep it disabled for normal play. Cinematic FOV can reveal actors or animation transitions earlier than intended. Continue anyway?' || exit 0
 fi
 
 set_launcher_wrapper "$launcher_value"

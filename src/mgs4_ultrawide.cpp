@@ -38,7 +38,7 @@ static float g_cinematic_fov_multiplier = 1.20f;
 static float g_render_scale = 1.0f;
 static bool g_enable_ultrawide = true;
 static bool g_enable_resolution_override = true;
-static bool g_controller_profile_fix = true;
+static bool g_controller_profile_fix;
 static bool g_native_camera_fov_requested;
 static bool g_native_camera_fov_active;
 static bool g_experimental_cinematic_fov_requested;
@@ -1146,7 +1146,7 @@ static DWORD WINAPI patch_thread(void*) {
     const bool allow_unsupported = GetPrivateProfileIntA(
         "Patch", "AllowUnsupportedExecutable", 0, ini_path) != 0;
     const bool controller_profile_fix = GetPrivateProfileIntA(
-        "Input", "ControllerProfileFixEnabled", 1, ini_path) != 0;
+        "Input", "ControllerProfileFixEnabled", 0, ini_path) != 0;
     g_native_camera_fov_requested = GetPrivateProfileIntA(
         "Ultrawide", "NativeCameraFOV", 1, ini_path) != 0;
     g_experimental_cinematic_fov_requested = GetPrivateProfileIntA(

@@ -9,12 +9,13 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/linux/game_dir.py"
 
 
-def run(arguments, environment, expected=0):
+def run(arguments, environment, expected=0, cwd=None):
     process = subprocess.run(
         [sys.executable, str(SCRIPT), *arguments],
         text=True,
         capture_output=True,
         env=environment,
+        cwd=cwd,
         check=False,
     )
     if process.returncode != expected:
@@ -67,6 +68,13 @@ with tempfile.TemporaryDirectory(prefix="mgs4-game-dir-") as temporary:
     explicit = environment.copy()
     explicit["MGS4_GAME_DIR"] = str(game.parent)
     assert Path(run(["resolve"], explicit).stdout.strip()) == game.resolve()
+
+    cwd_environment = environment.copy()
+    cwd_environment["XDG_CONFIG_HOME"] = str(root / "cwd-config")
+    cwd_environment["STEAM_DIR"] = str(root / "missing-steam")
+    assert Path(
+        run(["resolve"], cwd_environment, cwd=game).stdout.strip()
+    ) == game.resolve()
 
     invalid = environment.copy()
     invalid["MGS4_GAME_DIR"] = str(root / "missing")

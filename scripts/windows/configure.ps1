@@ -5,7 +5,7 @@ param(
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
-$Mgs4Ultra120Version = "v0.3.4-alpha.4"
+$Mgs4Ultra120Version = "v0.3.4-alpha.5"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
@@ -232,11 +232,11 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         $CurrentDisplayMode
     }
     switch ($Profile) {
-        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.200 1 0 inherit 0 1.50 1 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
+        "stable" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.200 1 0 inherit 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 1 }
         "fps-only-120" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 inherit 0 1.50 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "ultrawide-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.200 1 0 inherit 0 1.50 1 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 inherit 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
-        "16x9-supersampling" { Set-PatchSettings 1920 1080 1.000 0 0 inherit 1 2.00 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 0 }
+        "16x9-supersampling" { Set-PatchSettings 1920 1080 1.000 0 0 inherit 1 2.00 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 0 }
     }
     $AppliedWidth = [int](Get-IniValue "Width")
     $AppliedHeight = [int](Get-IniValue "Height")
@@ -315,14 +315,14 @@ $Ui = @{
         CinematicFov = "Experimental cinematic FOV (requires native FOV)"
         CinematicInherit = "Use gameplay FOV for cinematics"
         CinematicValue = "Separate cinematic FOV"
-        CenteredHud = "Experimental centered 16:9 HUD (DX12 only)"
+        CenteredHud = "KNOWN BROKEN: centered 16:9 HUD development preview"
         Supersampling = "Experimental supersampling (off by default)"
         RenderScale = "Internal render scale"
         Presentation = "Windows presentation"
         DisplayItems = @("Windowed at native size (recommended)", "Exclusive fullscreen (advanced)")
         FrameRate = "Frame-rate limit"
         FpsItems = @("120 - corrected timing (recommended)", "60", "30")
-        Controller = "Fix controller profile switching (recommended)"
+        Controller = "Controller profile fix (opt-in; disable for mouse/gyro input)"
         Skip = "Skip Unity launcher while keeping the Steam launch path"
         Language = "Game language"
         Supported = "Executable: supported and verified"
@@ -343,7 +343,7 @@ $Ui = @{
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
-        ExperimentalMessage = "The cinematic-FOV and centered-HUD options are experimental. Expanded cinematics can reveal actors, geometry or animation transitions earlier than intended, and some menus or text may still be misplaced by the HUD transform. If you see a problem, close the game and disable the affected option to return to the reference behavior. Continue?"
+        ExperimentalMessage = "The centered HUD is currently a KNOWN-BROKEN development preview. Menus, subtitles, maps, text and 3D inventory previews can be misplaced, squashed, clipped or flicker. Keep it disabled for normal play. Cinematic FOV can reveal actors, geometry or animation transitions earlier than intended. If you see a problem, close the game and disable the affected option to return to the reference behavior. Continue anyway?"
 }
 
 $Form = [Windows.Forms.Form]@{
@@ -461,6 +461,7 @@ $CenteredHudBox = [Windows.Forms.CheckBox]@{
     Text = $Ui.CenteredHud
     Location = [Drawing.Point]::new(30, 315); Size = [Drawing.Size]::new(550, 27)
     Checked = (Get-HudIniValue "Enabled") -eq "1"
+    ForeColor = [Drawing.Color]::DarkRed
 }
 function Update-CinematicControls {
     $CinematicFovBox.Enabled = $NativeFovBox.Checked
@@ -607,7 +608,7 @@ $StableButton.Add_Click({
     $SupersamplingBox.Checked = $false; $RenderScaleBox.Value = 1.50
     $FpsBox.SelectedIndex = 0
     $UltrawideBox.Checked = $true
-    $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
+    $ControllerFixBox.Checked = $false; $SkipLauncherBox.Checked = $true
     # Language is a user preference, not a rendering default. Keep the current
     # selection when recommended settings are restored.
     $UnsupportedBox.Checked = $false
@@ -624,7 +625,7 @@ $Supersampling16x9Button.Add_Click({
     $SupersamplingBox.Checked = $true; $RenderScaleBox.Value = 2.00
     $FpsBox.SelectedIndex = 0
     $UltrawideBox.Checked = $false
-    $ControllerFixBox.Checked = $true; $SkipLauncherBox.Checked = $true
+    $ControllerFixBox.Checked = $false; $SkipLauncherBox.Checked = $true
     $UnsupportedBox.Checked = $false
 })
 $script:Mgs4Ultra120SettingsSaved = $false

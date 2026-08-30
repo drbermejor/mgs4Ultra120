@@ -1,0 +1,103 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-msvc:
+    name: Windows / MSVC
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Verify WinMM proxy
+        shell: pwsh
+        run: >-
+          ./scripts/windows/verify-winmm-proxy.ps1
+          -ProxyDll build/bin/winmm.dll
+          -SmokeTestExe build/bin/winmm_proxy_smoke.exe
+
+      - name: Upload testable Windows binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: mgs4ultra120-windows-${{ github.sha }}
+          path: |
+            build/bin/*.asi
+            build/bin/*.dll
+            build/bin/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-mingw:
+    name: Linux / MinGW-w64
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install MinGW-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes g++-mingw-w64-x86-64 ninja-build
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build-mingw -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake
+          -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-mingw
+
+      - name: Cross-platform tests
+        run: |
+          ctest --test-dir build-mingw --output-on-failure
+          bash tests/linux_configure_smoke.sh
+
+      - name: Upload testable Proton binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: mgs4ultra120-mingw-${{ github.sha }}
+          path: |
+            build-mingw/bin/*.asi
+            build-mingw/bin/*.dll
+            build-mingw/bin/*.exe
+          if-no-files-found: error
+          retention-days: 14

@@ -12,11 +12,11 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "CompanyName", "drbermejor\0"
-            VALUE "FileDescription", "MGS4 Ultra120 experimental centered HUD\0"
+            VALUE "FileDescription", "MGS4 Ultra120 Native Centered HUD\0"
             VALUE "FileVersion", "@MGS4ULTRA120_RELEASE_VERSION@\0"
-            VALUE "InternalName", "MGS4CenteredHUD16x9\0"
+            VALUE "InternalName", "MGS4NativeCenteredHUD\0"
             VALUE "LegalCopyright", "MIT License\0"
-            VALUE "OriginalFilename", "MGS4CenteredHUD16x9.asi\0"
+            VALUE "OriginalFilename", "MGS4NativeCenteredHUD.asi\0"
             VALUE "ProductName", "MGS4 Ultra120\0"
             VALUE "ProductVersion", "@MGS4ULTRA120_RELEASE_VERSION@\0"
         END

@@ -16,7 +16,7 @@ SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-946684800}"
 }
 BIN_DIR="${MGS4ULTRA120_BIN_DIR:-$REPO_DIR/build-mingw/bin}"
 ASI_PLUGIN="$BIN_DIR/MGS4Ultra120.asi"
-HUD_ASI_PLUGIN="$BIN_DIR/MGS4CenteredHUD16x9.asi"
+HUD_ASI_PLUGIN="$BIN_DIR/MGS4NativeCenteredHUD.asi"
 ASI_LOADER="${MGS4ULTRA120_ASI_LOADER:-$REPO_DIR/build-third-party/ultimate-asi-loader/winmm.dll}"
 WRAPPER="$BIN_DIR/launcher.exe"
 [[ -f "$WRAPPER" ]] || { echo "Build the direct-launch wrapper first: $WRAPPER" >&2; exit 1; }
@@ -38,15 +38,15 @@ make_tree() {
   if [[ "$platform" == windows ]]; then
     install -m0644 "$ASI_LOADER" "$root/bin/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/bin/MGS4Ultra120.asi"
-    install -m0644 "$HUD_ASI_PLUGIN" "$root/bin/MGS4CenteredHUD16x9.asi"
+    install -m0644 "$HUD_ASI_PLUGIN" "$root/bin/MGS4NativeCenteredHUD.asi"
     mkdir -p -- "$root/Manual-Install/scripts"
     install -m0644 "$ASI_LOADER" "$root/Manual-Install/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/Manual-Install/scripts/MGS4Ultra120.asi"
-    install -m0644 "$HUD_ASI_PLUGIN" "$root/Manual-Install/scripts/MGS4CenteredHUD16x9.asi"
+    install -m0644 "$HUD_ASI_PLUGIN" "$root/Manual-Install/scripts/MGS4NativeCenteredHUD.asi"
     install -m0644 "$REPO_DIR/config/windows/mgs4_ultrawide.ini" \
       "$root/Manual-Install/mgs4_ultrawide.ini"
-    install -m0644 "$REPO_DIR/config/mgs4_centered_hud_16x9.ini" \
-      "$root/Manual-Install/mgs4_centered_hud_16x9.ini"
+    install -m0644 "$REPO_DIR/config/mgs4_native_centered_hud.ini" \
+      "$root/Manual-Install/mgs4_native_centered_hud.ini"
     install -m0644 "$REPO_DIR/installer/windows/MANUAL_INSTALL.txt" \
       "$root/Manual-Install/README.txt"
     mkdir -p -- "$root/third_party/ultimate_asi_loader"
@@ -61,7 +61,7 @@ make_tree() {
     # redistribution rights.
     install -m0644 "$ASI_LOADER" "$root/bin/winmm.dll"
     install -m0644 "$ASI_PLUGIN" "$root/bin/MGS4Ultra120.asi"
-    install -m0644 "$HUD_ASI_PLUGIN" "$root/bin/MGS4CenteredHUD16x9.asi"
+    install -m0644 "$HUD_ASI_PLUGIN" "$root/bin/MGS4NativeCenteredHUD.asi"
     mkdir -p -- "$root/third_party/ultimate_asi_loader"
     install -m0644 "$REPO_DIR/third_party/ultimate_asi_loader/README.md" \
       "$root/third_party/ultimate_asi_loader/README.md"
@@ -74,8 +74,8 @@ make_tree() {
     config_source="$REPO_DIR/config/windows/mgs4_ultrawide.ini"
   fi
   install -m0644 "$config_source" "$root/config/mgs4_ultrawide.ini"
-  install -m0644 "$REPO_DIR/config/mgs4_centered_hud_16x9.ini" \
-    "$root/config/mgs4_centered_hud_16x9.ini"
+  install -m0644 "$REPO_DIR/config/mgs4_native_centered_hud.ini" \
+    "$root/config/mgs4_native_centered_hud.ini"
   if [[ "$platform" == linux ]]; then
     install -m0644 "$REPO_DIR/config/MGSFPSUnlock.ini" \
       "$root/config/MGSFPSUnlock.ini"
@@ -165,9 +165,7 @@ if [[ "$PLATFORM" == windows || "$PLATFORM" == all ]]; then
     "$supersampling_16x9_root/config/mgs4_ultrawide.ini"
   sed -i \
     -e 's/^Enabled=.*/Enabled=0/' \
-    -e 's/^Width=.*/Width=1920/' \
-    -e 's/^Height=.*/Height=1080/' \
-    "$supersampling_16x9_root/config/mgs4_centered_hud_16x9.ini"
+    "$supersampling_16x9_root/config/mgs4_native_centered_hud.ini"
   install -m0644 "$REPO_DIR/installer/windows/README_16X9_SUPERSAMPLING.txt" \
     "$supersampling_16x9_root/START-HERE-16X9-SUPERSAMPLING.txt"
 
@@ -187,7 +185,8 @@ if [[ "$PLATFORM" == linux || "$PLATFORM" == all ]]; then
   # Unix scripts with LF line endings. Git's global core.autocrlf setting must
   # never leak CRLF shebangs into the Linux tarball.
   sed -i 's/\r$//' "$linux_root/scripts/linux/"*.sh \
-    "$linux_root/scripts/linux/"*.py "$linux_root/"*.sh
+    "$linux_root/scripts/linux/"*.py "$linux_root/"*.sh \
+    "$linux_root/VERSION"
   find "$linux_root" -type d -exec chmod 0755 {} +
   find "$linux_root" -type f -exec chmod 0644 {} +
   chmod +x "$linux_root/scripts/linux/"*.sh "$linux_root/scripts/linux/"*.py \

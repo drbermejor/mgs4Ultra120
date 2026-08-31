@@ -16,7 +16,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure.ps1 `
 Easy Setup supplies the selected game directory automatically. The GUI saves
 MGS4Ultra120 settings to `MGS4\mgs4_ultrawide.ini` and the frame-rate target to
 `MGS4\scripts\MGSFPSUnlock.ini`. The independent centered-HUD switch is stored
-in `MGS4\mgs4_centered_hud_16x9.ini`.
+in `MGS4\mgs4_native_centered_hud.ini`.
 
 ## MGS4Ultra120 INI
 
@@ -77,10 +77,11 @@ UsePrimaryPhysicalResolution=1
   testers may enter a separate finite value of `0.500` or greater. Expanded
   cinematic framing can reveal characters, objects or animation transitions
   before the authored shot intended them to enter the frame.
-- `mgs4_centered_hud_16x9.ini` uses `Enabled=1` to place conservatively
-  identified HUD draws in a centered 16:9 safe area. It is experimental,
-  disabled by default and DX12-only. `Enabled=0` exits before installing D3D12
-  hooks.
+- `mgs4_native_centered_hud.ini` uses `Enabled=1` to correct the game's native
+  1280x720 layout and guarded surface producers into a centered 16:9 safe
+  area. It is graphics-API independent, experimental and disabled by default.
+  Map and Codec auxiliary content can remain horizontally compressed.
+  `Enabled=0` exits before installing hooks.
 - `ControllerProfileFixEnabled=1` opts into preserving the native connected-
   controller family when the port incorrectly attempts to switch to keyboard
   profile 0. It is disabled by default; keep it off for keyboard/mouse and

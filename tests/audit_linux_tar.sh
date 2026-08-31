@@ -19,6 +19,6 @@ fi
 
 "$(dirname -- "$0")/linux_package_smoke.sh" "$ROOT"
 file "$ROOT/bin/winmm.dll" "$ROOT/bin/MGS4Ultra120.asi" \
-  "$ROOT/bin/MGS4CenteredHUD16x9.asi" "$ROOT/bin/launcher.exe"
+  "$ROOT/bin/MGS4NativeCenteredHUD.asi" "$ROOT/bin/launcher.exe"
 
 echo "Extracted Linux audit retained at: $AUDIT_DIR"

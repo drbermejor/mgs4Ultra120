@@ -4,7 +4,7 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.4-alpha.5` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.6` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -12,11 +12,13 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > native-camera FOV implementation. Optional supersampling remains experimental
 > and disabled by default.
 
-> **Centered-HUD warning.** The optional centered 16:9 HUD is currently a
-> known-broken development preview. Menus, subtitles, maps, text and 3D
-> inventory previews can be misplaced, squashed, clipped or briefly flicker.
-> Keep it **disabled for normal play**. Disabling it restores the normal HUD
-> without affecting ultrawide, FOV, FPS, supersampling or the reticle fix.
+> **Native Centered HUD warning.** The old renderer-level HUD experiment has
+> been removed and replaced by an earlier native-layout correction. The main
+> HUD, menus, subtitles and guarded inventory previews now center much more
+> consistently, but map and Codec auxiliary content can still look
+> horizontally compressed. The option remains **experimental and disabled by
+> default**. Disabling it does not affect ultrawide, FOV, FPS, supersampling or
+> the reticle fix.
 
 ## What the Windows release installs
 
@@ -25,8 +27,8 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 | `winmm.dll` | Pinned Ultimate ASI Loader v9.7.4 |
 | `scripts/MGS4Ultra120.asi` | Ultrawide/Hor+, FOV and controller-profile fixes |
 | `mgs4_ultrawide.ini` | Shared MGS4Ultra120 settings |
-| `scripts/MGS4CenteredHUD16x9.asi` | Optional experimental centered 16:9 HUD (DX12) |
-| `mgs4_centered_hud_16x9.ini` | Independent HUD switch; disabled by default |
+| `scripts/MGS4NativeCenteredHUD.asi` | Optional experimental native 16:9 HUD correction |
+| `mgs4_native_centered_hud.ini` | Independent HUD switch; disabled by default |
 | `scripts/MGSFPSUnlock.asi` | Corrected high-frame-rate implementation by cipherxof |
 | `scripts/MGSFPSUnlock.ini` | Persistent FPS target; defaults to 120 |
 
@@ -54,18 +56,19 @@ unlock implementation.
 - Native FOV is still experimental. Disable it independently in the
   configurator if a new stability or scene-specific issue appears; Hor+ remains
   active with the original vertical FOV.
-- Real-time cinematic FOV and the centered 16:9 HUD are included as separate
+- Real-time cinematic FOV and Native Centered HUD are included as separate
   disabled options. The cinematic multiplier can inherit gameplay FOV or use
-  an independent value. The centered HUD is a known-broken development preview
-  and is not recommended for normal play.
-- Disabling `ExperimentalCinematicFOV` and the centered-HUD `Enabled` switch
-  restores the reference rendering behavior without reinstalling. The HUD
-  companion exits before installing D3D12 hooks while disabled.
+  an independent value. Native Centered HUD works on native layout data rather
+  than graphics-API draws; map and Codec auxiliary content remain known gaps.
+- Disabling `ExperimentalCinematicFOV` and the Native Centered HUD `Enabled`
+  switch restores the reference rendering behavior without reinstalling. The
+  HUD companion exits before installing any hooks while disabled.
 - Pre-rendered Bink video is unchanged.
 - FOV is applied once to the native camera-builder input. The game then creates
   its own projection, combined matrices and frustum planes from that corrected
   input; the final renderer hook changes aspect only. This avoids both the old
-  render/culling mismatch and the withdrawn alpha.6 double transformation.
+  render/culling mismatch and the withdrawn `v0.3.1-alpha.6` double
+  transformation.
 - Native Windows validation at 3440x1440 completed with native mode active, no
   fallback, natural object proportions, an undistorted WeaponWindow and clean
   problematic cinematics.
@@ -101,24 +104,32 @@ Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
 
 ![Undistorted WeaponWindow at 3440x1440](docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png)
 
-### Experimental centered 16:9 HUD (`v0.3.4-alpha.4`)
+### Experimental Native Centered HUD (`v0.3.4-alpha.6`)
 
-These ultrawide captures show the optional HUD experiment keeping gameplay
-widgets and the tested pause-menu layout inside a centered 16:9 safe area.
-The 3D image continues to use the full ultrawide output.
+The current native-layout path keeps gameplay widgets in a centered 16:9 safe
+area while the 3D scene continues to use the full ultrawide output.
 
 **Centered gameplay HUD**
 
-![Experimental centered 16:9 gameplay HUD on ultrawide output](docs/images/v0.3.4-alpha.1-centered-16x9-hud-gameplay.jpg)
+![Native Centered HUD during 3440x1440 gameplay](docs/images/v0.3.4-alpha.6-native-centered-hud-gameplay.jpg)
 
-**Centered pause-menu HUD**
+**Known map limitation**
 
-![Experimental centered 16:9 pause menu on ultrawide output](docs/images/v0.3.4-alpha.1-centered-16x9-hud-pause-menu.jpg)
+The menu frame is centered, but the map content inside it is still compressed.
+
+![Centered pause menu with compressed map content](docs/images/v0.3.4-alpha.6-native-centered-hud-map-limitation.jpg)
+
+**Known Codec limitation**
+
+The Codec frame and controls are centered, but its auxiliary scene/content is
+still compressed.
+
+![Centered Codec frame with compressed auxiliary content](docs/images/v0.3.4-alpha.6-native-centered-hud-codec-limitation.jpg)
 
 ## Windows downloads
 
 Use the
-[latest v0.3.4-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.5)
+[latest v0.3.4-alpha.6 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.6)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -133,7 +144,7 @@ and choose one package:
    all documentation in one archive.
 5. **16:9 supersampling ZIP** — portable setup preconfigured for 1920x1080
    output with a 3840x2160 internal render. Ultrawide, FOV changes and the
-   centered-HUD experiment start disabled; the controller fix and optional
+   Native Centered HUD start disabled; the controller fix and optional
    corrected FPS support remain available.
 
 The EXE is unsigned, so SmartScreen or a browser may show an
@@ -146,9 +157,10 @@ default and is intended only for users who explicitly want to render above
 their physical output resolution. See
 [experimental supersampling](docs/EXPERIMENTAL_SUPERSAMPLING.md).
 
-The real-time cinematic FOV and centered HUD are also disabled by default.
-The HUD option is known to break parts of menus, subtitles, maps, text and 3D
-inventory previews; leave it disabled unless you are deliberately testing it.
+The real-time cinematic FOV and Native Centered HUD are also disabled by
+default. Native HUD centering is substantially more complete than the removed
+renderer-level experiment, but map and Codec auxiliary content can remain
+horizontally compressed. Leave it disabled unless you accept those gaps.
 If either experiment causes a problem, close the game and disable that option.
 For a complete known fallback, the previous
 [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
@@ -163,9 +175,9 @@ that directly contains `mgs4.exe`:
 ```text
 MGS4\winmm.dll
 MGS4\mgs4_ultrawide.ini
-MGS4\mgs4_centered_hud_16x9.ini
+MGS4\mgs4_native_centered_hud.ini
 MGS4\scripts\MGS4Ultra120.asi
-MGS4\scripts\MGS4CenteredHUD16x9.asi
+MGS4\scripts\MGS4NativeCenteredHUD.asi
 ```
 
 For corrected 120 FPS, download
@@ -195,10 +207,11 @@ The controller-profile workaround is opt-in because it can interfere with
 keyboard/mouse and hybrid controller plus mouse/gyro input. Exclusive
 fullscreen is an advanced option.
 
-**Update notice:** alpha.5 resets the controller-profile workaround to its
-safe disabled default. If you previously needed it, reopen the configurator,
-enable **Controller profile fix**, and save. Manual users can instead set
-`ControllerProfileFixEnabled=1` under `[Input]` in `mgs4_ultrawide.ini`.
+**Controller notice:** new installations keep the controller-profile workaround
+disabled. Existing explicit choices are preserved during managed updates. If
+you need it, enable **Controller profile fix** in the configurator. Manual users
+can instead set `ControllerProfileFixEnabled=1` under `[Input]` in
+`mgs4_ultrawide.ini`.
 
 On one mixed-refresh NVIDIA multi-monitor system, focus changes produced a red
 sweep/flicker and Windows display WATCHDOG reports. Testing was clean after
@@ -208,7 +221,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.4-alpha.5` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.6` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`
@@ -252,7 +265,6 @@ Further reading:
 - [Controller profile fix](docs/CONTROLLER_FIX.md)
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
 - [UI and video status](docs/UI_AND_VIDEO.md)
-- [Experimental centered 16:9 HUD](docs/EXPERIMENTAL_CENTERED_HUD.md)
 - [Technical notes](docs/TECHNICAL.md)
 - [Development and reproducible builds](docs/DEVELOPMENT.md)
 

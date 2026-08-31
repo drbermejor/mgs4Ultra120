@@ -1,4 +1,4 @@
-$Mgs4Ultra120Version = "v0.3.4-alpha.5"
+$Mgs4Ultra120Version = "v0.3.4-alpha.6"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
@@ -10,9 +10,11 @@ $Mgs4Ultra120LegacyDllHashes = @(
     "9BB4022045C63EA94868C3AA4D9DA52D3E37CA56CFC0E859AFF122F6EB818BEB"
 )
 $Mgs4Ultra120LegacyHudAsiHashes = @(
-    # Private preview 1 was distributed only to the project owner for the
-    # visual validation that preceded the public alpha. Adopt it in place.
-    "3AF1B29CB51C6CC85F84A9549248E24FD26AF41228A1F9A21AD566ED004CFC71"
+    # Earlier project preview used during the validation preceding alpha.5.
+    "3AF1B29CB51C6CC85F84A9549248E24FD26AF41228A1F9A21AD566ED004CFC71",
+    # Public v0.3.4-alpha.5 HUD companion. This also covers manual installs
+    # that predate an installer ownership marker.
+    "D4649860C83F9052BCA3711853920DEF24CA96EBB0B997947CB614F39D89DAD5"
 )
 
 function Test-UltimateAsiLoader([string]$Path) {
@@ -104,7 +106,7 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
         "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
         "ExperimentalCinematicFOV", "CinematicFOVMultiplier",
         "SupersamplingEnabled",
-        "RenderScale", "Limit",
+        "RenderScale", "Limit", "ControllerProfileFixEnabled",
         "SkipUnityLauncher", "Region", "SelfRegion", "Language", "ControllerType",
         "DisplayMode", "UsePrimaryPhysicalResolution"
     )) {
@@ -156,29 +158,28 @@ function Merge-Mgs4Ultra120Config([string]$Template, [string]$Existing,
 }
 
 function Install-Mgs4Ultra120HudConfig([string]$Template, [string]$Destination,
-                                       [string]$Backup, [int]$Width,
-                                       [int]$Height) {
+                                       [string]$Backup) {
     $TemplateText = Get-Content -Raw -LiteralPath $Template
-    $Enabled = "0"
     if (Test-Path -LiteralPath $Destination -PathType Leaf) {
         $ExistingText = Get-Content -Raw -LiteralPath $Destination
-        $Recognized = ($ExistingText -match '(?m)^\[MGS4Ultra120HUD\]\s*$') -or
-            (($ExistingText -match '(?m)^\[Lab\]\s*$') -and
-             ($ExistingText -match '(?m)^Mode=CenteredHUD16x9Preview1\s*$'))
-        if (-not $Recognized -and -not (Test-Path -LiteralPath $Backup)) {
+        $Recognized = $ExistingText -match '(?m)^\[NativeHUD\]\s*$'
+        if ($Recognized) {
+            foreach ($Key in @(
+                "Enabled", "CenterSubtitles", "CenterMovies",
+                "CenterTVMovies", "CenterInventoryPreviews",
+                "ExpandVerifiedFullscreenBackgrounds"
+            )) {
+                $Match = [regex]::Match($ExistingText,
+                    "(?m)^$([regex]::Escape($Key))=(0|1)\s*$")
+                if ($Match.Success) {
+                    $TemplateText = [regex]::Replace($TemplateText,
+                        "(?m)^$([regex]::Escape($Key))=.*$",
+                        "$Key=$($Match.Groups[1].Value)", 1)
+                }
+            }
+        } elseif (-not (Test-Path -LiteralPath $Backup)) {
             Copy-Item -LiteralPath $Destination -Destination $Backup
         }
-    }
-    foreach ($Entry in @{
-        # Alpha.5 deliberately resets this known-broken development preview.
-        # Testers may opt in again after reading the current warning.
-        Enabled = $Enabled
-        Width = [string]$Width
-        Height = [string]$Height
-    }.GetEnumerator()) {
-        $TemplateText = [regex]::Replace($TemplateText,
-            "(?m)^$([regex]::Escape($Entry.Key))=.*$",
-            "$($Entry.Key)=$($Entry.Value)", 1)
     }
     $Temporary = "$Destination.tmp"
     [IO.File]::WriteAllText($Temporary, $TemplateText,
@@ -500,12 +501,48 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
     [IO.File]::WriteAllText($AsiHashMarker, $AsiSourceHash,
         [Text.Encoding]::ASCII)
 
-    $HudAsiDestination = Join-Path $ScriptsDir "MGS4CenteredHUD16x9.asi"
-    $HudAsiSource = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
-    $HudAsiBackup = Join-Path $BackupDir "MGS4CenteredHUD16x9.asi.preinstall"
-    $HudAsiHashMarker = Join-Path $BackupDir "hud-asi-installed.sha256"
+    # Alpha.6 replaces the retired renderer-level HUD companion. Remove it
+    # only when setup can prove ownership; never delete an unrelated or edited
+    # ASI merely because it has the old package filename.
+    $RetiredHudTarget = Join-Path $ScriptsDir "MGS4CenteredHUD16x9.asi"
+    $RetiredHudMarker = Join-Path $BackupDir "hud-asi-installed.sha256"
+    if (Test-Path -LiteralPath $RetiredHudTarget -PathType Leaf) {
+        $RetiredHash = (Get-FileHash -Algorithm SHA256 `
+            -LiteralPath $RetiredHudTarget).Hash
+        $RecordedRetiredHash = ""
+        if (Test-Path -LiteralPath $RetiredHudMarker -PathType Leaf) {
+            $RecordedRetiredHash = (Get-Content -Raw `
+                -LiteralPath $RetiredHudMarker).Trim()
+        }
+        if (($RecordedRetiredHash -match '^[0-9a-fA-F]{64}$' -and
+             $RetiredHash -eq $RecordedRetiredHash) -or
+            $RetiredHash -in $Mgs4Ultra120LegacyHudAsiHashes) {
+            Remove-Item -Force -LiteralPath $RetiredHudTarget
+            Remove-Item -Force -LiteralPath $RetiredHudMarker `
+                -ErrorAction SilentlyContinue
+        } else {
+            throw "The retired MGS4CenteredHUD16x9.asi was changed or was not installed by MGS4 Ultra120. Move it out of scripts before installing the Native Centered HUD release."
+        }
+    } else {
+        Remove-Item -Force -LiteralPath $RetiredHudMarker `
+            -ErrorAction SilentlyContinue
+    }
+    $RetiredHudIni = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
+    if (Test-Path -LiteralPath $RetiredHudIni -PathType Leaf) {
+        $RetiredIniText = Get-Content -Raw -LiteralPath $RetiredHudIni
+        if ($RetiredIniText -match '(?m)^\[MGS4Ultra120HUD\]\s*$' -or
+            $RetiredIniText -match '(?m)^Mode=CenteredHUD16x9') {
+            Remove-Item -Force -LiteralPath $RetiredHudIni
+        }
+    }
+
+    $HudAsiDestination = Join-Path $ScriptsDir "MGS4NativeCenteredHUD.asi"
+    $HudAsiSource = Join-Path $PackageDir "bin\MGS4NativeCenteredHUD.asi"
+    $HudAsiBackup = Join-Path $BackupDir "MGS4NativeCenteredHUD.asi.preinstall"
+    $HudAsiHashMarker = Join-Path $BackupDir `
+        "native-hud-asi-installed.sha256"
     if (-not (Test-Path -LiteralPath $HudAsiSource -PathType Leaf)) {
-        throw "The package is missing MGS4CenteredHUD16x9.asi."
+        throw "The package is missing MGS4NativeCenteredHUD.asi."
     }
     $HudAsiSourceHash = (Get-FileHash -Algorithm SHA256 `
         -LiteralPath $HudAsiSource).Hash
@@ -527,7 +564,7 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
         } elseif (-not $HudManaged) {
             $Timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
             Copy-Item -LiteralPath $HudAsiDestination -Destination `
-                (Join-Path $BackupDir "MGS4CenteredHUD16x9.asi.displaced.$Timestamp")
+                (Join-Path $BackupDir "MGS4NativeCenteredHUD.asi.displaced.$Timestamp")
         }
     }
     Copy-Item -Force -LiteralPath $HudAsiSource -Destination $HudAsiDestination
@@ -547,29 +584,14 @@ function Install-Mgs4Ultra120Patch([string]$GameDir, [string]$PackageDir) {
         Copy-Item -Force -LiteralPath $IniTemplate -Destination $IniDestination
     }
 
-    $HudIniDestination = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
-    $HudIniTemplate = Join-Path $PackageDir "config\mgs4_centered_hud_16x9.ini"
-    $HudIniBackup = Join-Path $BackupDir "mgs4_centered_hud_16x9.ini.preinstall"
+    $HudIniDestination = Join-Path $GameDir "mgs4_native_centered_hud.ini"
+    $HudIniTemplate = Join-Path $PackageDir "config\mgs4_native_centered_hud.ini"
+    $HudIniBackup = Join-Path $BackupDir "mgs4_native_centered_hud.ini.preinstall"
     if (-not (Test-Path -LiteralPath $HudIniTemplate -PathType Leaf)) {
         throw "The package is missing the centered-HUD configuration."
     }
-    $InstalledIniText = Get-Content -Raw -LiteralPath $IniDestination
-    $InstalledWidth = 1920
-    $InstalledHeight = 1080
-    $WidthMatch = [regex]::Match($InstalledIniText,
-        '(?m)^Width=(\d+)\s*$')
-    $HeightMatch = [regex]::Match($InstalledIniText,
-        '(?m)^Height=(\d+)\s*$')
-    if ($WidthMatch.Success -and $HeightMatch.Success) {
-        $CandidateWidth = [int]$WidthMatch.Groups[1].Value
-        $CandidateHeight = [int]$HeightMatch.Groups[1].Value
-        if ($CandidateWidth -gt 0 -and $CandidateHeight -gt 0) {
-            $InstalledWidth = $CandidateWidth
-            $InstalledHeight = $CandidateHeight
-        }
-    }
     Install-Mgs4Ultra120HudConfig $HudIniTemplate $HudIniDestination `
-        $HudIniBackup $InstalledWidth $InstalledHeight
+        $HudIniBackup
 
     Save-Mgs4Ultra120GameDir $GameDir
 }

@@ -20,7 +20,7 @@ It does **not**:
 - require Steam Input to be enabled or disabled globally.
 
 This keeps system/controller setup outside the public patch. The workaround is
-disabled by default in alpha.5. Enable it only if the game incorrectly switches
+disabled by default in alpha.6. Enable it only if the game incorrectly switches
 away from an otherwise working controller. Keyboard/mouse and hybrid controller
 plus mouse/gyro users should keep `ControllerProfileFixEnabled=0` because
 locking the controller profile can interfere with mouse input.

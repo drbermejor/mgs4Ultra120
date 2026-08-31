@@ -13,8 +13,8 @@ trap cleanup EXIT
 
 touch "$FIXTURE/mgs4.exe"
 cp "$REPO_DIR/config/mgs4_ultrawide.ini" "$FIXTURE/mgs4_ultrawide.ini"
-cp "$REPO_DIR/config/mgs4_centered_hud_16x9.ini" \
-  "$FIXTURE/mgs4_centered_hud_16x9.ini"
+cp "$REPO_DIR/config/mgs4_native_centered_hud.ini" \
+  "$FIXTURE/mgs4_native_centered_hud.ini"
 mkdir -p "$FIXTURE/scripts"
 cp "$REPO_DIR/config/MGSFPSUnlock.ini" "$FIXTURE/scripts/MGSFPSUnlock.ini"
 
@@ -23,7 +23,7 @@ grep -q '^UltrawideEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.200$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^SupersamplingEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
-grep -q '^Enabled=0$' "$FIXTURE/mgs4_centered_hud_16x9.ini"
+grep -q '^Enabled=0$' "$FIXTURE/mgs4_native_centered_hud.ini"
 grep -q '^CinematicFOVMultiplier=inherit$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^FPSOverrideEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^Limit=60$' "$FIXTURE/mgs4_ultrawide.ini"
@@ -40,7 +40,7 @@ grep -q '^NativeCameraFOV=0$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^SupersamplingEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^RenderScale=2.000$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^ControllerProfileFixEnabled=0$' "$FIXTURE/mgs4_ultrawide.ini"
-grep -q '^Enabled=0$' "$FIXTURE/mgs4_centered_hud_16x9.ini"
+grep -q '^Enabled=0$' "$FIXTURE/mgs4_native_centered_hud.ini"
 
 MGS4_GAME_DIR="$FIXTURE" \
   "$REPO_DIR/scripts/linux/configure.sh" controller-fix-only
@@ -51,6 +51,6 @@ rm -f "$FIXTURE/scripts/MGSFPSUnlock.ini"
 MGS4_GAME_DIR="$FIXTURE" "$REPO_DIR/scripts/linux/configure.sh" stable
 grep -q '^UltrawideEnabled=1$' "$FIXTURE/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.200$' "$FIXTURE/mgs4_ultrawide.ini"
-grep -q '^Enabled=0$' "$FIXTURE/mgs4_centered_hud_16x9.ini"
+grep -q '^Enabled=0$' "$FIXTURE/mgs4_native_centered_hud.ini"
 
 echo "Linux non-GUI configurator smoke test passed."

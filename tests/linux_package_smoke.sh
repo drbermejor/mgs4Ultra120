@@ -12,8 +12,8 @@ FPS_ARCHIVE="${2:-}"
 [[ -x "$PACKAGE_DIR/MGS4Ultra120-Linux-Uninstall.sh" ]]
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
-[[ -f "$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi" ]]
-grep -qx 'v0.3.4-alpha.5' "$PACKAGE_DIR/VERSION"
+[[ -f "$PACKAGE_DIR/bin/MGS4NativeCenteredHUD.asi" ]]
+grep -qx 'v0.3.4-alpha.6' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -93,13 +93,26 @@ if [[ -n "$FPS_ARCHIVE" ]]; then
 else
   install_environment+=(MGS4_INSTALL_FPS_UNLOCK=0)
 fi
+
+# Simulate an installer-owned alpha.5 HUD companion. The upgrade must retire
+# this exact managed file and its old config before installing the native path.
+mkdir -p "$GAME_DIR/scripts" "$GAME_DIR/.mgs4ultra120-backup"
+printf '%s\n' 'managed alpha.5 HUD fixture' \
+  >"$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi"
+sha256sum "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" | awk '{print $1}' \
+  >"$GAME_DIR/.mgs4ultra120-backup/MGS4CenteredHUD16x9.asi.installed.sha256"
+printf '%s\n' '[MGS4Ultra120HUD]' 'Mode=CenteredHUD16x9Preview1' 'Enabled=1' \
+  >"$GAME_DIR/mgs4_centered_hud_16x9.ini"
+
 env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh" "$GAME_DIR"
 [[ -x "$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh" ]]
 [[ -f "$GAME_DIR/winmm.dll" ]]
 [[ -f "$GAME_DIR/mgs4_ultrawide.ini" ]]
-[[ -f "$GAME_DIR/mgs4_centered_hud_16x9.ini" ]]
+[[ -f "$GAME_DIR/mgs4_native_centered_hud.ini" ]]
 [[ -f "$GAME_DIR/scripts/MGS4Ultra120.asi" ]]
-[[ -f "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" ]]
+[[ -f "$GAME_DIR/scripts/MGS4NativeCenteredHUD.asi" ]]
+[[ ! -e "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" ]]
+[[ ! -e "$GAME_DIR/mgs4_centered_hud_16x9.ini" ]]
 cmp -s "$PACKAGE_DIR/bin/launcher.exe" "$LAUNCHER_DIR/launcher.exe"
 if [[ -n "$FPS_ARCHIVE" ]]; then
   [[ -f "$GAME_DIR/scripts/MGSFPSUnlock.asi" ]]
@@ -114,10 +127,10 @@ grep -q 'WINEDLLOVERRIDES=\\"winmm=n,b\\" PROTON_LOG=1 %command%' "$CONFIG"
 [[ -x "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop" ]]
 grep -q "Exec=\"$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh\"" \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
-grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.5 Configurator$' \
+grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.6 Configurator$' \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
 grep -Fxq "$GAME_DIR" "$XDG_CONFIG/mgs4Ultra120/game-dir"
-grep -Fxq 'v0.3.4-alpha.5' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
+grep -Fxq 'v0.3.4-alpha.6' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 printf '%s\n' 'v0.3.4-alpha.1' \
   >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
@@ -129,7 +142,7 @@ if XDG_CONFIG_HOME="$XDG_CONFIG" \
 fi
 grep -q 'mismatched/stale\|configurator belongs to' \
   "$FIXTURE/stale-configurator.out"
-printf '%s\n' 'v0.3.4-alpha.5' \
+printf '%s\n' 'v0.3.4-alpha.6' \
   >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 XDG_CONFIG_HOME="$XDG_CONFIG" \
@@ -141,37 +154,36 @@ grep -q '^ExperimentalCinematicFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=inherit$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^SupersamplingEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ControllerProfileFixEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
-grep -q '^Enabled=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
-grep -q '^CenterHUDIn16x9=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
-grep -q '^FullCanvasTest=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
-grep -q '^EmitterTransformTest=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
-grep -q '^Preview3DUniformFitTest=1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
-! grep -q '^PreviewRTVGateTest=' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^Enabled=0$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CenterSubtitles=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CenterMovies=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CenterTVMovies=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CenterInventoryPreviews=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^ExpandVerifiedFullscreenBackgrounds=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 
-# Managed updates preserve gameplay/cinematic FOV choices but reset the
-# known-broken centered-HUD preview to its safe disabled state.
+# Managed updates preserve explicit rendering, input and native-HUD choices.
 sed -i 's/^NativeCameraFOV=.*/NativeCameraFOV=0/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^ExperimentalCinematicFOV=.*/ExperimentalCinematicFOV=1/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^CinematicFOVMultiplier=.*/CinematicFOVMultiplier=1.100/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^FOVMultiplier=.*/FOVMultiplier=1.350/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^ControllerProfileFixEnabled=.*/ControllerProfileFixEnabled=1/' "$GAME_DIR/mgs4_ultrawide.ini"
-sed -i 's/^Enabled=.*/Enabled=1/' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+sed -i 's/^Enabled=.*/Enabled=1/' "$GAME_DIR/mgs4_native_centered_hud.ini"
 env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh" "$GAME_DIR"
 grep -q '^NativeCameraFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^CinematicFOVMultiplier=1.100$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.350$' "$GAME_DIR/mgs4_ultrawide.ini"
-grep -q '^ControllerProfileFixEnabled=0$' "$GAME_DIR/mgs4_ultrawide.ini"
-grep -q '^Enabled=0$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"
+grep -q '^ControllerProfileFixEnabled=1$' "$GAME_DIR/mgs4_ultrawide.ini"
+grep -q '^Enabled=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" XDG_CONFIG_HOME="$XDG_CONFIG" \
   XDG_DATA_HOME="$XDG_DATA" MGS4_DESKTOP_DIR="$DESKTOP_DIR" \
   "$LOCAL_PACKAGE/scripts/linux/uninstall.sh"
 [[ ! -e "$GAME_DIR/winmm.dll" ]]
 [[ ! -e "$GAME_DIR/mgs4_ultrawide.ini" ]]
-[[ ! -e "$GAME_DIR/mgs4_centered_hud_16x9.ini" ]]
+[[ ! -e "$GAME_DIR/mgs4_native_centered_hud.ini" ]]
 [[ ! -e "$GAME_DIR/scripts/MGS4Ultra120.asi" ]]
-[[ ! -e "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" ]]
+[[ ! -e "$GAME_DIR/scripts/MGS4NativeCenteredHUD.asi" ]]
 [[ ! -e "$GAME_DIR/scripts/MGSFPSUnlock.ini" ]]
 [[ ! -e "$GAME_DIR/scripts/MGSFPSUnlock.asi" ]]
 grep -q 'original launcher fixture' "$LAUNCHER_DIR/launcher.exe"

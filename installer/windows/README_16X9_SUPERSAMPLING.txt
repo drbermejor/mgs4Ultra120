@@ -33,7 +33,7 @@ Important
 
 Supersampling is experimental and can reduce performance or exhaust VRAM.
 The previous aiming-reticle failure at internal widths of 4096 pixels or more
-is fixed in v0.3.4-alpha.5. This preset uses a 3840x2160 internal render.
+is fixed in v0.3.4-alpha.6. This preset uses a 3840x2160 internal render.
 
 Higher scales are no longer restricted by the old reticle boundary, but they
 increase GPU load and VRAM use quickly. Disable supersampling if the game,

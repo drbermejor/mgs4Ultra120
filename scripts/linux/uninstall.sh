@@ -101,9 +101,15 @@ fi
 
 restore_managed "$GAME_DIR/winmm.dll" winmm.dll
 restore_managed "$GAME_DIR/scripts/MGS4Ultra120.asi" MGS4Ultra120.asi
-restore_managed "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" MGS4CenteredHUD16x9.asi
+restore_managed "$GAME_DIR/scripts/MGS4NativeCenteredHUD.asi" MGS4NativeCenteredHUD.asi
 restore_managed "$GAME_DIR/scripts/MGSFPSUnlock.asi" MGSFPSUnlock.asi
-for name in mgs4_ultrawide.ini mgs4_centered_hud_16x9.ini; do
+if [[ -e "$BACKUP_DIR/MGS4CenteredHUD16x9.asi.preinstall" &&
+      ! -e "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" ]]; then
+  mkdir -p -- "$GAME_DIR/scripts"
+  mv -- "$BACKUP_DIR/MGS4CenteredHUD16x9.asi.preinstall" \
+    "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi"
+fi
+for name in mgs4_ultrawide.ini mgs4_native_centered_hud.ini; do
   if [[ -e "$BACKUP_DIR/$name.preinstall" ]]; then
     mv -- "$BACKUP_DIR/$name.preinstall" "$GAME_DIR/$name"
   else

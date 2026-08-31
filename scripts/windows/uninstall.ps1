@@ -95,11 +95,11 @@ if (Test-Path -LiteralPath $AsiTarget) {
     Remove-Item -Force -LiteralPath $AsiHashMarker -ErrorAction SilentlyContinue
 }
 $HudAsiConflict = $false
-$HudAsiTarget = Join-Path (Join-Path $GameDir "scripts") "MGS4CenteredHUD16x9.asi"
-$HudAsiBackup = Join-Path $BackupDir "MGS4CenteredHUD16x9.asi.preinstall"
-$HudAsiHashMarker = Join-Path $BackupDir "hud-asi-installed.sha256"
+$HudAsiTarget = Join-Path (Join-Path $GameDir "scripts") "MGS4NativeCenteredHUD.asi"
+$HudAsiBackup = Join-Path $BackupDir "MGS4NativeCenteredHUD.asi.preinstall"
+$HudAsiHashMarker = Join-Path $BackupDir "native-hud-asi-installed.sha256"
 if (Test-Path -LiteralPath $HudAsiTarget) {
-    $BundledHudAsi = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
+    $BundledHudAsi = Join-Path $PackageDir "bin\MGS4NativeCenteredHUD.asi"
     $ManagedHashes = [Collections.Generic.HashSet[string]]::new(
         [StringComparer]::OrdinalIgnoreCase)
     if (Test-Path -LiteralPath $BundledHudAsi) {
@@ -126,7 +126,7 @@ if (Test-Path -LiteralPath $HudAsiTarget) {
             -ErrorAction SilentlyContinue
     } else {
         $HudAsiConflict = $true
-        Write-Warning "MGS4CenteredHUD16x9.asi changed outside MGS4 Ultra120; preserving it and its backup."
+        Write-Warning "MGS4NativeCenteredHUD.asi changed outside MGS4 Ultra120; preserving it and its backup."
     }
 } elseif (Test-Path -LiteralPath $HudAsiBackup) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $HudAsiTarget) |
@@ -137,6 +137,20 @@ if (Test-Path -LiteralPath $HudAsiTarget) {
 } else {
     Remove-Item -Force -LiteralPath $HudAsiHashMarker `
         -ErrorAction SilentlyContinue
+}
+$RetiredHudBackup = Join-Path $BackupDir `
+    "MGS4CenteredHUD16x9.asi.preinstall"
+if (Test-Path -LiteralPath $RetiredHudBackup -PathType Leaf) {
+    $RetiredHudTarget = Join-Path (Join-Path $GameDir "scripts") `
+        "MGS4CenteredHUD16x9.asi"
+    New-Item -ItemType Directory -Force -Path `
+        (Split-Path -Parent $RetiredHudTarget) | Out-Null
+    if (-not (Test-Path -LiteralPath $RetiredHudTarget)) {
+        Move-Item -LiteralPath $RetiredHudBackup -Destination $RetiredHudTarget
+    } else {
+        Write-Warning "The retired HUD ASI backup was preserved because its original path is occupied."
+        $HudAsiConflict = $true
+    }
 }
 $MgsFpsUnlockConflict = Remove-MgsFpsUnlock $GameDir
 $ScriptsDir = Join-Path $GameDir "scripts"
@@ -203,8 +217,8 @@ if (Test-Path -LiteralPath $IniBackup) {
 } else {
     Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $IniTarget
 }
-$HudIniTarget = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
-$HudIniBackup = Join-Path $BackupDir "mgs4_centered_hud_16x9.ini.preinstall"
+$HudIniTarget = Join-Path $GameDir "mgs4_native_centered_hud.ini"
+$HudIniBackup = Join-Path $BackupDir "mgs4_native_centered_hud.ini.preinstall"
 if (Test-Path -LiteralPath $HudIniBackup) {
     Move-Item -Force -LiteralPath $HudIniBackup -Destination $HudIniTarget
 } else {
@@ -226,7 +240,7 @@ if ($AsiConflict) {
     throw "MGS4Ultra120.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
 }
 if ($HudAsiConflict) {
-    throw "MGS4CenteredHUD16x9.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
+    throw "MGS4NativeCenteredHUD.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."
 }
 if ($MgsFpsUnlockConflict) {
     throw "MGSFPSUnlock.asi changed outside MGS4 Ultra120. It and its backup were preserved; setup files must remain installed until this conflict is resolved."

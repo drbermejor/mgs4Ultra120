@@ -12,10 +12,10 @@ $RequiredFiles = @(
     "MGS4Ultra120-Setup.cmd",
     "bin\winmm.dll",
     "bin\MGS4Ultra120.asi",
-    "bin\MGS4CenteredHUD16x9.asi",
+    "bin\MGS4NativeCenteredHUD.asi",
     "bin\launcher.exe",
     "config\mgs4_ultrawide.ini",
-    "config\mgs4_centered_hud_16x9.ini",
+    "config\mgs4_native_centered_hud.ini",
     "scripts\windows\setup.ps1",
     "scripts\windows\common.ps1",
     "scripts\windows\install.ps1",
@@ -30,9 +30,9 @@ if (-not $Portable) {
     $RequiredFiles += @(
         "Manual-Install\winmm.dll",
         "Manual-Install\scripts\MGS4Ultra120.asi",
-        "Manual-Install\scripts\MGS4CenteredHUD16x9.asi",
+        "Manual-Install\scripts\MGS4NativeCenteredHUD.asi",
         "Manual-Install\mgs4_ultrawide.ini",
-        "Manual-Install\mgs4_centered_hud_16x9.ini",
+        "Manual-Install\mgs4_native_centered_hud.ini",
         "Manual-Install\README.txt"
     )
 }
@@ -46,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.4-alpha.5") {
+if ($PackageVersion -ne "v0.3.4-alpha.6") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -64,7 +64,7 @@ if ($LoaderInfo.FileDescription -ne "Ultimate ASI Loader" -or
 }
 foreach ($RelativePath in @(
     "bin\winmm.dll", "bin\MGS4Ultra120.asi",
-    "bin\MGS4CenteredHUD16x9.asi"
+    "bin\MGS4NativeCenteredHUD.asi"
 )) {
     $Bytes = [IO.File]::ReadAllBytes((Join-Path $PackageDir $RelativePath))
     if ($Bytes.Length -lt 256 -or $Bytes[0] -ne 0x4d -or $Bytes[1] -ne 0x5a) {
@@ -78,7 +78,7 @@ foreach ($RelativePath in @(
     }
 }
 $AsiVersionPath = Join-Path $PackageDir "bin\MGS4Ultra120.asi"
-$HudAsiVersionPath = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
+$HudAsiVersionPath = Join-Path $PackageDir "bin\MGS4NativeCenteredHUD.asi"
 $WrapperVersionPath = Join-Path $PackageDir "bin\launcher.exe"
 $AsiVersionInfo = (Get-Item -LiteralPath $AsiVersionPath).VersionInfo
 $HudAsiVersionInfo = (Get-Item -LiteralPath $HudAsiVersionPath).VersionInfo
@@ -90,18 +90,18 @@ foreach ($VersionInfo in @($AsiVersionInfo, $HudAsiVersionInfo,
         throw "Embedded binary version does not match VERSION."
     }
 }
-if ($HudAsiVersionInfo.OriginalFilename -ne "MGS4CenteredHUD16x9.asi" -or
+if ($HudAsiVersionInfo.OriginalFilename -ne "MGS4NativeCenteredHUD.asi" -or
     $HudAsiVersionInfo.FileDescription -ne
-        "MGS4 Ultra120 experimental centered HUD") {
+        "MGS4 Ultra120 Native Centered HUD") {
     throw "Centered-HUD binary identity metadata is incorrect."
 }
 if (-not $Portable) {
     foreach ($Pair in @(
         @("bin\winmm.dll", "Manual-Install\winmm.dll"),
         @("bin\MGS4Ultra120.asi", "Manual-Install\scripts\MGS4Ultra120.asi"),
-        @("bin\MGS4CenteredHUD16x9.asi", "Manual-Install\scripts\MGS4CenteredHUD16x9.asi"),
+        @("bin\MGS4NativeCenteredHUD.asi", "Manual-Install\scripts\MGS4NativeCenteredHUD.asi"),
         @("config\mgs4_ultrawide.ini", "Manual-Install\mgs4_ultrawide.ini"),
-        @("config\mgs4_centered_hud_16x9.ini", "Manual-Install\mgs4_centered_hud_16x9.ini")
+        @("config\mgs4_native_centered_hud.ini", "Manual-Install\mgs4_native_centered_hud.ini")
     )) {
         $SourceHash = (Get-FileHash -Algorithm SHA256 `
             -LiteralPath (Join-Path $PackageDir $Pair[0])).Hash
@@ -204,7 +204,32 @@ try {
         throw "Setup did not block a renamed old MGS4 Ultra120 ASI."
     }
 
+    # Simulate a managed alpha.5 HUD installation. Alpha.6 must retire only
+    # the old companion whose ownership marker matches, then install the native
+    # replacement without leaving two HUD implementations active.
+    $BackupDir = Join-Path $GameDir ".mgs4ultra120-backup"
+    New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
+    $RetiredHudAsi = Join-Path $GameDir "scripts\MGS4CenteredHUD16x9.asi"
+    [IO.File]::WriteAllText($RetiredHudAsi, "managed alpha.5 HUD fixture",
+        [Text.UTF8Encoding]::new($false))
+    $RetiredHudHash = (Get-FileHash -Algorithm SHA256 `
+        -LiteralPath $RetiredHudAsi).Hash
+    [IO.File]::WriteAllText(
+        (Join-Path $BackupDir "hud-asi-installed.sha256"),
+        $RetiredHudHash, [Text.Encoding]::ASCII)
+    [IO.File]::WriteAllText(
+        (Join-Path $GameDir "mgs4_centered_hud_16x9.ini"),
+        "[MGS4Ultra120HUD]`nMode=CenteredHUD16x9Preview1`nEnabled=1`n",
+        [Text.UTF8Encoding]::new($false))
+
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
+    if (Test-Path -LiteralPath $RetiredHudAsi) {
+        throw "Setup left the managed renderer-level HUD companion installed."
+    }
+    if (Test-Path -LiteralPath `
+        (Join-Path $GameDir "mgs4_centered_hud_16x9.ini")) {
+        throw "Setup left the managed renderer-level HUD config installed."
+    }
 
     # Simulate a user selecting Spanish before applying the stable profile.
     # Both the direct wrapper INI and the original Unity launcher state must
@@ -297,8 +322,8 @@ try {
         throw "The installed ASI hash marker is missing or incorrect."
     }
     $InstalledHudAsi = Join-Path (Join-Path $GameDir "scripts") `
-        "MGS4CenteredHUD16x9.asi"
-    $PackageHudAsi = Join-Path $PackageDir "bin\MGS4CenteredHUD16x9.asi"
+        "MGS4NativeCenteredHUD.asi"
+    $PackageHudAsi = Join-Path $PackageDir "bin\MGS4NativeCenteredHUD.asi"
     $PackageHudAsiHash = (Get-FileHash -Algorithm SHA256 `
         -LiteralPath $PackageHudAsi).Hash
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $InstalledHudAsi).Hash -ne
@@ -306,7 +331,7 @@ try {
         throw "Installed centered-HUD ASI does not match the bundled plugin."
     }
     $HudAsiMarker = Join-Path $GameDir `
-        ".mgs4ultra120-backup\hud-asi-installed.sha256"
+        ".mgs4ultra120-backup\native-hud-asi-installed.sha256"
     if ((Get-Content -Raw -LiteralPath $HudAsiMarker).Trim() -ne
         $PackageHudAsiHash) {
         throw "The installed centered-HUD ASI hash marker is incorrect."
@@ -334,18 +359,15 @@ try {
         }
     }
     $HudIniText = Get-Content -Raw -LiteralPath `
-        (Join-Path $GameDir "mgs4_centered_hud_16x9.ini")
+        (Join-Path $GameDir "mgs4_native_centered_hud.ini")
     foreach ($ExpectedLine in @(
-        "Enabled=0", "Width=3440", "Height=1440",
-        "CenterHUDIn16x9=0", "FullCanvasTest=0",
-        "EmitterTransformTest=1", "Preview3DUniformFitTest=1"
+        "Enabled=0", "CenterSubtitles=1", "CenterMovies=1",
+        "CenterTVMovies=1", "CenterInventoryPreviews=1",
+        "ExpandVerifiedFullscreenBackgrounds=1"
     )) {
         if ($HudIniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
             throw "Stable profile did not write centered-HUD setting: $ExpectedLine"
         }
-    }
-    if ($HudIniText -match '(?m)^PreviewRTVGateTest=') {
-        throw "Public package exposes the private preview RTV gate."
     }
     & (Join-Path $PackageDir "scripts\windows\configure.ps1") `
         -GameDir $GameDir -Profile 16x9-supersampling
@@ -363,8 +385,8 @@ try {
         }
     }
     $HudIniText = Get-Content -Raw -LiteralPath `
-        (Join-Path $GameDir "mgs4_centered_hud_16x9.ini")
-    foreach ($ExpectedLine in @("Enabled=0", "Width=1920", "Height=1080")) {
+        (Join-Path $GameDir "mgs4_native_centered_hud.ini")
+    foreach ($ExpectedLine in @("Enabled=0", "CenterSubtitles=1")) {
         if ($HudIniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
             throw "16:9 supersampling HUD profile did not write: $ExpectedLine"
         }
@@ -515,7 +537,7 @@ try {
         '(?m)^CinematicFOVMultiplier=.*$', 'CinematicFOVMultiplier=1.300')
     [IO.File]::WriteAllText($IniPath, $Customized,
         [Text.UTF8Encoding]::new($false))
-    $HudIniPath = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
+    $HudIniPath = Join-Path $GameDir "mgs4_native_centered_hud.ini"
     $CustomizedHud = [regex]::Replace(
         (Get-Content -Raw -LiteralPath $HudIniPath),
         '(?m)^Enabled=.*$', 'Enabled=1')
@@ -535,13 +557,15 @@ try {
     if ($UpdatedIni -notmatch '(?m)^Limit=60\r?$') {
         throw "Update did not migrate the previous experimental 120 FPS value to 60."
     }
-    if ($UpdatedIni -notmatch '(?m)^ControllerProfileFixEnabled=0\r?$') {
-        throw "Update did not reset the controller-profile workaround to its safe opt-in default."
+    if ($UpdatedIni -notmatch '(?m)^ControllerProfileFixEnabled=1\r?$') {
+        throw "Update did not preserve the explicit controller-profile workaround choice."
     }
     $UpdatedHud = Get-Content -Raw -LiteralPath $HudIniPath
-    if ($UpdatedHud -notmatch '(?m)^Enabled=0\r?$' -or
-        $UpdatedHud -notmatch '(?m)^Width=5120\r?$') {
-        throw "Update did not reset the broken HUD preview or synchronize its width."
+    if ($UpdatedHud -notmatch '(?m)^Enabled=1\r?$') {
+        throw "Update did not preserve the explicit Native Centered HUD choice."
+    }
+    if ($UpdatedHud -match '(?m)^(Width|Height)=') {
+        throw "Native Centered HUD config still contains obsolete output-size fields."
     }
 
     & (Join-Path $PackageDir "scripts\windows\uninstall.ps1") -GameDir $GameDir
@@ -557,11 +581,11 @@ try {
         throw "Uninstall did not restore the pre-existing ASI plugin."
     }
     if (Test-Path -LiteralPath (Join-Path (Join-Path $GameDir "scripts") `
-            "MGS4CenteredHUD16x9.asi")) {
+            "MGS4NativeCenteredHUD.asi")) {
         throw "Uninstall left the managed centered-HUD ASI behind."
     }
     if (Test-Path -LiteralPath (Join-Path $GameDir `
-            "mgs4_centered_hud_16x9.ini")) {
+            "mgs4_native_centered_hud.ini")) {
         throw "Uninstall left the managed centered-HUD INI behind."
     }
     if ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
@@ -606,7 +630,7 @@ try {
         throw "Clean install/uninstall left the managed ASI plugin behind."
     }
     if (Test-Path -LiteralPath `
-        (Join-Path (Join-Path $GameDir "scripts") "MGS4CenteredHUD16x9.asi")) {
+        (Join-Path (Join-Path $GameDir "scripts") "MGS4NativeCenteredHUD.asi")) {
         throw "Clean install/uninstall left the centered-HUD ASI behind."
     }
 

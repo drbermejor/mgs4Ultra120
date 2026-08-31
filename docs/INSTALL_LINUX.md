@@ -4,7 +4,7 @@ The Linux package uses the same Ultimate ASI Loader and separate-plugin layout
 as Windows. It provides ultrawide/Hor+, configurable FOV and resolution,
 experimental supersampling, the controller-profile correction, optional direct
 launch, optional corrected 30/60/120 FPS, optional real-time cinematic FOV and
-an optional centered 16:9 HUD for DirectX 12.
+an optional Native Centered HUD.
 
 The **experimental real-time cinematic FOV** control is disabled by default.
 When enabled, use `inherit` to reuse the gameplay FOV or enter a different
@@ -18,10 +18,10 @@ CinematicFOVMultiplier=1.100
 
 Pre-rendered videos are unaffected. Expanded framing can reveal characters,
 objects or animation transitions earlier than the original shot intended.
-The centered-HUD option is disabled by default and requires DX12. It is
-currently a known-broken development preview: menus, subtitles, maps, text and
-3D inventory previews can be misplaced, squashed, clipped or flicker. Keep it
-disabled for normal play.
+Native Centered HUD is disabled by default and works before D3D11/D3D12. The
+main HUD, menus, subtitles and guarded inventory previews are centered, but map
+and Codec auxiliary content can remain horizontally compressed. Proton visual
+validation is pending, so enable it only if you accept those limitations.
 
 Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
 the supported Steam executable. Other Proton versions may work but have not

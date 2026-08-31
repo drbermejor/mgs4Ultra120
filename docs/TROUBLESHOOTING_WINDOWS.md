@@ -13,12 +13,12 @@ files and their published hashes rather than copying an alpha.3 DLL over it.
 
 ## Configurator says `WindowSizeW` is missing
 
-Download the refreshed alpha.5 package. Some valid official `launcher_sv` variants omit
+Download the refreshed alpha.6 package. Some valid official `launcher_sv` variants omit
 `WindowSizeW`/`WindowSizeH` and use `ResolutionWindowW`/`ResolutionWindowH`
 instead. Older configurators treated every field as mandatory, aborted the
 save and then allowed Easy Setup to display a false completion message.
 
-The refreshed alpha.5 accepts either complete window-size pair, updates all available
+The refreshed alpha.6 accepts either complete window-size pair, updates all available
 official fields and saves the patch INI normally. It also handles save errors
 inside the GUI and only reports setup completion after a successful save.
 
@@ -26,7 +26,7 @@ inside the GUI and only reports setup completion after a successful save.
 
 The original alpha.3 fix still used `Join-Path` while reading
 `libraryfolders.vdf`, so PowerShell could abort before reaching a valid library.
-Redownload the refreshed alpha.5 package: discovery now treats an offline
+Redownload the refreshed alpha.6 package: discovery now treats an offline
 library as a missing path and continues. If the game itself is on a disconnected
 drive, reconnect it or use **Browse** to select the current MGS4 folder.
 

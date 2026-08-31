@@ -15,8 +15,8 @@ export MGS4_GAME_DIR="$GAME_DIR"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
 CORE_ASI_SOURCE="$PACKAGE_DIR/bin/MGS4Ultra120.asi"
-HUD_ASI_SOURCE="$PACKAGE_DIR/bin/MGS4CenteredHUD16x9.asi"
-HUD_INI_SOURCE="$PACKAGE_DIR/config/mgs4_centered_hud_16x9.ini"
+HUD_ASI_SOURCE="$PACKAGE_DIR/bin/MGS4NativeCenteredHUD.asi"
+HUD_INI_SOURCE="$PACKAGE_DIR/config/mgs4_native_centered_hud.ini"
 FPS_ASI_BUNDLED="$PACKAGE_DIR/optional/MGSFPSUnlock.asi"
 FPS_INI_SOURCE="$PACKAGE_DIR/config/MGSFPSUnlock.ini"
 FPS_PREPARER="$SCRIPT_DIR/prepare_fpsunlock.py"
@@ -138,6 +138,7 @@ preserved = (
     "Width", "Height", "FOVMultiplier", "NativeCameraFOV",
     "ExperimentalCinematicFOV", "CinematicFOVMultiplier",
     "SupersamplingEnabled", "RenderScale", "Limit",
+    "ControllerProfileFixEnabled",
     "SkipUnityLauncher", "Region",
     "SelfRegion", "Language", "ControllerType", "DisplayMode",
     "UsePrimaryPhysicalResolution",
@@ -168,22 +169,25 @@ PY
 }
 
 install_hud_config() {
-  local destination="$GAME_DIR/mgs4_centered_hud_16x9.ini"
-  python3 - "$HUD_INI_SOURCE" "$destination" "$GAME_DIR/mgs4_ultrawide.ini" <<'PY'
+  local destination="$GAME_DIR/mgs4_native_centered_hud.ini"
+  python3 - "$HUD_INI_SOURCE" "$destination" <<'PY'
 import re
 import sys
 from pathlib import Path
 
-template_path, destination, main_path = map(Path, sys.argv[1:])
+template_path, destination = map(Path, sys.argv[1:])
 text = template_path.read_text()
-main = main_path.read_text()
-width = re.search(r"(?m)^Width=(\d+)\s*$", main)
-height = re.search(r"(?m)^Height=(\d+)\s*$", main)
-if not width or not height:
-    raise SystemExit("Installed Width/Height are missing or invalid")
-for key, value in (("Enabled", "0"), ("Width", width.group(1)),
-                   ("Height", height.group(1))):
-    text = re.sub(rf"(?m)^{key}=.*$", f"{key}={value}", text, count=1)
+if destination.is_file():
+    existing = destination.read_text()
+    if re.search(r"(?m)^\[NativeHUD\]\s*$", existing):
+        for key in (
+            "Enabled", "CenterSubtitles", "CenterMovies", "CenterTVMovies",
+            "CenterInventoryPreviews", "ExpandVerifiedFullscreenBackgrounds",
+        ):
+            match = re.search(rf"(?m)^{re.escape(key)}=(0|1)\s*$", existing)
+            if match:
+                text = re.sub(rf"(?m)^{re.escape(key)}=.*$",
+                              f"{key}={match.group(1)}", text, count=1)
 temporary = destination.with_suffix(".ini.tmp")
 temporary.write_text(text)
 temporary.replace(destination)
@@ -198,7 +202,7 @@ PY
 [[ -f "$GAME_DIR/mgs4.exe" ]] || { echo "mgs4.exe not found in: $GAME_DIR" >&2; exit 1; }
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]] || { echo "Ultimate ASI Loader not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
 [[ -f "$CORE_ASI_SOURCE" ]] || { echo "MGS4Ultra120.asi not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
-[[ -f "$HUD_ASI_SOURCE" ]] || { echo "MGS4CenteredHUD16x9.asi not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
+[[ -f "$HUD_ASI_SOURCE" ]] || { echo "MGS4NativeCenteredHUD.asi not found in: $PACKAGE_DIR/bin" >&2; exit 1; }
 [[ -f "$HUD_INI_SOURCE" ]] || { echo "Centered-HUD configuration is missing." >&2; exit 1; }
 [[ -f "$PACKAGE_DIR/config/mgs4_ultrawide.ini" ]] || { echo "Patch configuration is missing." >&2; exit 1; }
 [[ -f "$WRAPPER_SOURCE" ]] || { echo "Direct-launch wrapper is missing." >&2; exit 1; }
@@ -227,9 +231,41 @@ if [[ "$INSTALL_FPS" == 1 ]]; then
 fi
 
 mkdir -p -- "$BACKUP_DIR" "$GAME_DIR/scripts"
+
+# Retire the previous renderer-level HUD companion only when its ownership
+# marker or exact public release hash proves that it belongs to this package.
+# Modified or reused files are never deleted automatically.
+retired_hud="$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi"
+retired_marker="$BACKUP_DIR/MGS4CenteredHUD16x9.asi.installed.sha256"
+retired_reuse="$BACKUP_DIR/MGS4CenteredHUD16x9.asi.reused.sha256"
+retired_public_alpha5_hash="d4649860c83f9052bca3711853920def24ca96ebb0b997947cb614f39d89dad5"
+if [[ -f "$retired_hud" ]]; then
+  [[ ! -f "$retired_reuse" ]] || {
+    echo "The retired HUD ASI is marked as reused; move it out of scripts before upgrading." >&2
+    exit 1
+  }
+  retired_hash="$(sha256sum "$retired_hud" | awk '{print $1}')"
+  recorded_retired_hash=""
+  if [[ -f "$retired_marker" ]]; then
+    recorded_retired_hash="$(tr -d '[:space:]' <"$retired_marker")"
+  fi
+  [[ "$retired_hash" == "$recorded_retired_hash" ||
+     "$retired_hash" == "$retired_public_alpha5_hash" ]] || {
+    echo "The retired HUD ASI was modified; move it out of scripts before upgrading." >&2
+    exit 1
+  }
+  rm -f -- "$retired_hud" "$retired_marker"
+fi
+retired_ini="$GAME_DIR/mgs4_centered_hud_16x9.ini"
+if [[ -f "$retired_ini" ]] &&
+   { grep -q '^\[MGS4Ultra120HUD\]$' "$retired_ini" ||
+     grep -q '^Mode=CenteredHUD16x9' "$retired_ini"; }; then
+  rm -f -- "$retired_ini"
+fi
+
 managed_preflight "$GAME_DIR/winmm.dll" winmm.dll "$PACKAGE_DIR/bin/winmm.dll"
 managed_preflight "$GAME_DIR/scripts/MGS4Ultra120.asi" MGS4Ultra120.asi "$CORE_ASI_SOURCE"
-managed_preflight "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" MGS4CenteredHUD16x9.asi "$HUD_ASI_SOURCE"
+managed_preflight "$GAME_DIR/scripts/MGS4NativeCenteredHUD.asi" MGS4NativeCenteredHUD.asi "$HUD_ASI_SOURCE"
 if [[ "$INSTALL_FPS" == 1 ]]; then
   managed_preflight "$GAME_DIR/scripts/MGSFPSUnlock.asi" MGSFPSUnlock.asi "$FPS_STAGE"
 fi
@@ -240,14 +276,14 @@ if [[ -e "$GAME_DIR/mgs4_ultrawide.ini" &&
       ! -e "$BACKUP_DIR/MGS4Ultra120.asi.reused.sha256" ]]; then
   cp -a -- "$GAME_DIR/mgs4_ultrawide.ini" "$BACKUP_DIR/mgs4_ultrawide.ini.preinstall"
 fi
-if [[ -e "$GAME_DIR/mgs4_centered_hud_16x9.ini" &&
-      ! -e "$BACKUP_DIR/mgs4_centered_hud_16x9.ini.preinstall" &&
-      ! -e "$BACKUP_DIR/MGS4CenteredHUD16x9.asi.installed.sha256" &&
-      ! -e "$BACKUP_DIR/MGS4CenteredHUD16x9.asi.reused.sha256" ]] &&
-   ! grep -q '^\[MGS4Ultra120HUD\]$' "$GAME_DIR/mgs4_centered_hud_16x9.ini" &&
-   ! grep -q '^Mode=CenteredHUD16x9Preview1$' "$GAME_DIR/mgs4_centered_hud_16x9.ini"; then
-  cp -a -- "$GAME_DIR/mgs4_centered_hud_16x9.ini" \
-    "$BACKUP_DIR/mgs4_centered_hud_16x9.ini.preinstall"
+if [[ -e "$GAME_DIR/mgs4_native_centered_hud.ini" &&
+      ! -e "$BACKUP_DIR/mgs4_native_centered_hud.ini.preinstall" &&
+      ! -e "$BACKUP_DIR/MGS4NativeCenteredHUD.asi.installed.sha256" &&
+      ! -e "$BACKUP_DIR/MGS4NativeCenteredHUD.asi.reused.sha256" ]] &&
+   ! grep -q '^\[MGS4Ultra120HUD\]$' "$GAME_DIR/mgs4_native_centered_hud.ini" &&
+   ! grep -q '^Mode=CenteredHUD16x9Preview1$' "$GAME_DIR/mgs4_native_centered_hud.ini"; then
+  cp -a -- "$GAME_DIR/mgs4_native_centered_hud.ini" \
+    "$BACKUP_DIR/mgs4_native_centered_hud.ini.preinstall"
 fi
 if [[ "$INSTALL_FPS" == 1 ]]; then
   if [[ -e "$GAME_DIR/scripts/MGSFPSUnlock.ini" &&
@@ -260,7 +296,7 @@ fi
 
 install_managed "$PACKAGE_DIR/bin/winmm.dll" "$GAME_DIR/winmm.dll" winmm.dll
 install_managed "$CORE_ASI_SOURCE" "$GAME_DIR/scripts/MGS4Ultra120.asi" MGS4Ultra120.asi
-install_managed "$HUD_ASI_SOURCE" "$GAME_DIR/scripts/MGS4CenteredHUD16x9.asi" MGS4CenteredHUD16x9.asi
+install_managed "$HUD_ASI_SOURCE" "$GAME_DIR/scripts/MGS4NativeCenteredHUD.asi" MGS4NativeCenteredHUD.asi
 install_patch_config
 install_hud_config
 if [[ "$INSTALL_FPS" == 1 ]]; then

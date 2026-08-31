@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.4-alpha.5 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.5).
+[v0.3.4-alpha.6 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.6).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
@@ -53,9 +53,9 @@ Core layout:
 ```text
 MGS4\winmm.dll
 MGS4\mgs4_ultrawide.ini
-MGS4\mgs4_centered_hud_16x9.ini
+MGS4\mgs4_native_centered_hud.ini
 MGS4\scripts\MGS4Ultra120.asi
-MGS4\scripts\MGS4CenteredHUD16x9.asi
+MGS4\scripts\MGS4NativeCenteredHUD.asi
 ```
 
 For corrected 120 FPS, download the official
@@ -84,15 +84,16 @@ native-size windowed presentation, the tested FOV 1.200 recommendation,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120. The controller-
 profile workaround is opt-in because it can interfere with keyboard/mouse and
 hybrid controller plus mouse/gyro input.
-Alpha.5 resets this workaround to disabled during managed updates. If you
-previously needed it, reopen the configurator, check **Controller profile
-fix**, and save. Manual users can set `ControllerProfileFixEnabled=1` under
-`[Input]` in `mgs4_ultrawide.ini`.
-Real-time cinematic FOV, centered 16:9 HUD and supersampling remain disabled by
-default. The centered HUD is currently a known-broken development preview and
-should remain disabled for normal play. Closing the game and disabling an
+Alpha.5 reset this workaround to disabled once; alpha.6 preserves an explicit
+existing choice. If you need it, reopen the configurator, check **Controller
+profile fix**, and save. Manual users can set `ControllerProfileFixEnabled=1`
+under `[Input]` in `mgs4_ultrawide.ini`.
+Real-time cinematic FOV, Native Centered HUD and supersampling remain disabled
+by default. Native Centered HUD corrects the main HUD and menus before D3D11 or
+D3D12, but map and Codec auxiliary content can remain compressed. Closing the
+game and disabling an
 experimental switch is sufficient to return to the reference behavior;
-`v0.3.3-alpha.1` remains available as the complete legacy fallback.
+`v0.3.3-alpha.1` remains available as an older fallback.
 
 The manual ZIP does not install the launcher bypass. Manual users select the
 game language in the official Unity launcher; `Language=` affects only the

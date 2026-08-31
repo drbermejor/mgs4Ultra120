@@ -11,7 +11,7 @@ GAME_DIR_RESOLVER="$SCRIPT_DIR/game_dir.py"
 GAME_DIR="$(python3 "$GAME_DIR_RESOLVER" resolve --interactive)"
 export MGS4_GAME_DIR="$GAME_DIR"
 INI="$GAME_DIR/mgs4_ultrawide.ini"
-HUD_INI="$GAME_DIR/mgs4_centered_hud_16x9.ini"
+HUD_INI="$GAME_DIR/mgs4_native_centered_hud.ini"
 FPS_INI="$GAME_DIR/scripts/MGSFPSUnlock.ini"
 BACKUP_DIR="$GAME_DIR/.mgs4ultra120-backup"
 STATE_FILE="$BACKUP_DIR/steam-options.json"
@@ -38,7 +38,7 @@ if [[ -f "$BACKUP_DIR/installed-version" ]]; then
 fi
 
 [[ -f "$INI" ]] || die "mgs4_ultrawide.ini not found in: $GAME_DIR"
-[[ -f "$HUD_INI" ]] || die "mgs4_centered_hud_16x9.ini not found in: $GAME_DIR; reinstall the current patch"
+[[ -f "$HUD_INI" ]] || die "mgs4_native_centered_hud.ini not found in: $GAME_DIR; reinstall the current patch"
 [[ -f "$GAME_DIR/mgs4.exe" ]] || die "mgs4.exe not found in: $GAME_DIR"
 game_running && die "Exit the game before changing settings."
 
@@ -116,8 +116,7 @@ temporary = path.with_suffix(".ini.tmp")
 temporary.write_text(text)
 temporary.replace(path)
 hud_text = hud_path.read_text()
-for key, value in (("Enabled", hud_enabled), ("Width", str(width_i)),
-                   ("Height", str(height_i))):
+for key, value in (("Enabled", hud_enabled),):
     pattern = re.compile(rf"(?m)^{re.escape(key)}=.*$")
     if not pattern.search(hud_text):
         raise SystemExit(f"Missing {key} in {hud_path}; reinstall the current patch")
@@ -252,8 +251,8 @@ if [[ "$native_fov" == 1 ]]; then native_fov_values='Enabled (experimental)|Disa
 else native_fov_values='Disabled (original vertical FOV)|Enabled (experimental)'; fi
 if [[ "$cinematic_fov" == 1 ]]; then cinematic_fov_values='Enabled (experimental)|Disabled'
 else cinematic_fov_values='Disabled|Enabled (experimental)'; fi
-if [[ "$current_hud" == 1 ]]; then hud_values='Enabled (experimental, DX12)|Disabled'
-else hud_values='Disabled|Enabled (experimental, DX12)'; fi
+if [[ "$current_hud" == 1 ]]; then hud_values='Enabled (experimental)|Disabled'
+else hud_values='Disabled|Enabled (experimental)'; fi
 if [[ "$controller_fix" == 1 ]]; then controller_values='Enabled (disable for mouse/gyro input)|Disabled (recommended default)'
 else controller_values='Disabled (recommended default)|Enabled (disable for mouse/gyro input)'; fi
 if [[ "$supersampling" == 1 ]]; then supersampling_values='Enabled (experimental)|Disabled'
@@ -280,7 +279,7 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --add-combo='Native FOV correction' --combo-values="$native_fov_values" \
   --add-combo='Real-time cinematic FOV' --combo-values="$cinematic_fov_values" \
   --add-entry="Cinematic FOV (current: $cinematic_multiplier; use inherit or a number)" \
-  --add-combo='KNOWN BROKEN: centered 16:9 HUD preview' --combo-values="$hud_values" \
+  --add-combo='Native Centered HUD (map/Codec may be compressed)' --combo-values="$hud_values" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
   --add-entry="Render scale (current: $render_scale; GPU cost grows with its square)" \
@@ -325,7 +324,7 @@ fi
 
 if [[ "$cinematic_fov_value" == 1 || "$hud_value" == 1 ]]; then
   zenity --question --title='Experimental rendering options' \
-    --text='The centered HUD is a KNOWN-BROKEN development preview. Menus, subtitles, maps, text and 3D inventory previews can be misplaced, squashed, clipped or flicker. Keep it disabled for normal play. Cinematic FOV can reveal actors or animation transitions earlier than intended. Continue anyway?' || exit 0
+    --text='Native Centered HUD is experimental and disabled by default. Main HUD, menus, subtitles and guarded inventory previews are centered natively, but map and Codec auxiliary content can remain horizontally compressed. Proton visual validation is pending. Cinematic FOV can reveal actors or animation transitions earlier than intended. Continue anyway?' || exit 0
 fi
 
 set_launcher_wrapper "$launcher_value"

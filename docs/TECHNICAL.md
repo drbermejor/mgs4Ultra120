@@ -120,11 +120,12 @@ The resulting ASI was validated in native Windows gameplay at 3440x1440 output
 and 1.50x/5160x2160 internal rendering, where the previously absent reticle was
 visible again.
 
-The D3D12 safe-area prototype is compiled out of release builds. Its shader
-classifier also matched some full-screen effects and therefore could not
-provide reliable HUD anchoring. The current binary installs no D3D11/D3D12 UI
-hooks. Future work requires classifying left, center and right layout elements
-before final draw submission.
+The retired D3D12 safe-area prototype and its draw classifiers have been
+removed. `MGS4NativeCenteredHUD.asi` instead hooks the native 1280x720 layout
+converter plus guarded surface, preview and modal producers before either
+graphics backend receives the UI. This produces a substantially more stable
+main HUD while keeping resolution/FOV ownership separate. Map and Codec
+auxiliary rendering remain open because they use a different native producer.
 
 ## Direct launcher
 
@@ -141,7 +142,7 @@ window/fullscreen flag. Presentation is stored separately as `WindowMode` in
 
 ## Loader architecture and proxy safeguards
 
-The current alpha.5 release uses the WinMM/ASI separation introduced and
+The current alpha.6 release uses the WinMM/ASI separation introduced and
 validated in alpha.4:
 
 ```text

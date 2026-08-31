@@ -5,14 +5,14 @@ param(
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
-$Mgs4Ultra120Version = "v0.3.4-alpha.5"
+$Mgs4Ultra120Version = "v0.3.4-alpha.6"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
     throw "The selected MGS4 folder is unavailable. Reconnect its drive or choose it again from Easy setup."
 }
 $Ini = Join-Path $GameDir "mgs4_ultrawide.ini"
-$HudIni = Join-Path $GameDir "mgs4_centered_hud_16x9.ini"
+$HudIni = Join-Path $GameDir "mgs4_native_centered_hud.ini"
 $Exe = Join-Path $GameDir "mgs4.exe"
 $PackageDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 . (Join-Path $PSScriptRoot "common.ps1")
@@ -59,7 +59,7 @@ function Get-IniValue([string]$Key) {
 
 function Get-HudIniValue([string]$Key) {
     if (-not (Test-Path -LiteralPath $HudIni -PathType Leaf)) {
-        throw "mgs4_centered_hud_16x9.ini is missing; reinstall the current patch."
+        throw "mgs4_native_centered_hud.ini is missing; reinstall the current patch."
     }
     $Match = [regex]::Match((Get-Content -Raw -LiteralPath $HudIni),
         "(?m)^$([regex]::Escape($Key))=(.*)$")
@@ -69,12 +69,10 @@ function Get-HudIniValue([string]$Key) {
     return $Match.Groups[1].Value.Trim()
 }
 
-function Set-HudSettings([int]$Enabled, [int]$Width, [int]$Height) {
+function Set-HudSettings([int]$Enabled) {
     if ($Enabled -notin @(0, 1)) { throw "Centered HUD state must be 0 or 1." }
     $Text = Get-Content -Raw -LiteralPath $HudIni
-    foreach ($Entry in ([ordered]@{
-        Enabled = $Enabled; Width = $Width; Height = $Height
-    }).GetEnumerator()) {
+    foreach ($Entry in ([ordered]@{ Enabled = $Enabled }).GetEnumerator()) {
         $Pattern = "(?m)^$([regex]::Escape($Entry.Key))=.*$"
         if (-not [regex]::IsMatch($Text, $Pattern)) {
             throw "Missing $($Entry.Key) in $HudIni"
@@ -238,9 +236,7 @@ if ($PSBoundParameters.ContainsKey("Profile")) {
         "controller-fix-only" { Set-PatchSettings $CurrentWidth $CurrentHeight 1.000 0 0 inherit 0 1.50 0 1 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode $CurrentAutoResolution }
         "16x9-supersampling" { Set-PatchSettings 1920 1080 1.000 0 0 inherit 1 2.00 0 0 $CurrentSkip $CurrentLanguage $CurrentAllowUnsupported $RequestedDisplayMode 0 }
     }
-    $AppliedWidth = [int](Get-IniValue "Width")
-    $AppliedHeight = [int](Get-IniValue "Height")
-    Set-HudSettings 0 $AppliedWidth $AppliedHeight
+    Set-HudSettings 0
     if ($Profile -eq "fps-only-120" -and
         -not (Test-MgsFpsUnlockInstalled $GameDir)) {
         Install-MgsFpsUnlock $GameDir
@@ -315,7 +311,7 @@ $Ui = @{
         CinematicFov = "Experimental cinematic FOV (requires native FOV)"
         CinematicInherit = "Use gameplay FOV for cinematics"
         CinematicValue = "Separate cinematic FOV"
-        CenteredHud = "KNOWN BROKEN: centered 16:9 HUD development preview"
+        CenteredHud = "Native Centered HUD (experimental; map/Codec may be compressed)"
         Supersampling = "Experimental supersampling (off by default)"
         RenderScale = "Internal render scale"
         Presentation = "Windows presentation"
@@ -343,7 +339,7 @@ $Ui = @{
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
-        ExperimentalMessage = "The centered HUD is currently a KNOWN-BROKEN development preview. Menus, subtitles, maps, text and 3D inventory previews can be misplaced, squashed, clipped or flicker. Keep it disabled for normal play. Cinematic FOV can reveal actors, geometry or animation transitions earlier than intended. If you see a problem, close the game and disable the affected option to return to the reference behavior. Continue anyway?"
+        ExperimentalMessage = "Native Centered HUD is experimental and disabled by default. The main HUD, menus, subtitles and guarded inventory previews are centered natively, but map and Codec auxiliary content can still be horizontally compressed. Native title artwork can remain pillarboxed, and Proton visual validation is pending. Cinematic FOV can reveal actors, geometry or animation transitions earlier than intended. Continue anyway?"
 }
 
 $Form = [Windows.Forms.Form]@{
@@ -575,7 +571,7 @@ $Warning = [Windows.Forms.Label]@{
         "NVIDIA MULTI-MONITOR WARNING: the 240/144 Hz test required G-SYNC/VRR off to prevent red sweeps and WATCHDOG events. The configurator never changes the driver."
     } else {
         $(if ($MgsFpsInstalled) {
-            "Native-size windowed and corrected 120 FPS are recommended. Cinematic FOV and centered HUD are experimental and disabled by recommended settings."
+            "Native-size windowed and corrected 120 FPS are recommended. Cinematic FOV and Native Centered HUD are experimental and disabled by recommended settings."
         } else {
             "Core mode uses the game's normal FPS settings. Reopen Easy Setup with the optional 120 FPS box checked to add MGSFPSUnlock."
         })
@@ -688,8 +684,7 @@ $SaveButton.Add_Click({
         ([int]$SkipLauncherBox.Checked) $LanguageCode `
         ([int]$UnsupportedBox.Checked) $DisplayMode `
         ([int]$AutoResolutionBox.Checked)
-    Set-HudSettings ([int]$CenteredHudBox.Checked) `
-        ([int]$WidthBox.Value) ([int]$HeightBox.Value)
+    Set-HudSettings ([int]$CenteredHudBox.Checked)
     Set-Mgs4Ultra120WindowsDisplaySettings $GameDir `
         ([int]$WidthBox.Value) ([int]$HeightBox.Value) $DisplayMode $LanguageCode
     Set-LauncherWrapper $SkipLauncherBox.Checked

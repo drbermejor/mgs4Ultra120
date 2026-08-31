@@ -1,0 +1,30 @@
+[b]MGS4 Ultra120 v0.3.4-alpha.6 - Native Centered HUD[/b]
+
+This update removes the old renderer-level HUD experiment and replaces it with a native-layout implementation. Ultrawide, FOV, corrected 120 FPS support, supersampling, the high-resolution reticle fix, controller option and launcher bypass remain unchanged.
+
+[b]Native Centered HUD is experimental and disabled by default.[/b]
+If you enabled the old HUD experiment, the new option will still start disabled after updating. Enable Native Centered HUD deliberately in the configurator only if you accept the limitations below.
+
+What works now:
+[list]
+[*]Gameplay HUD centered without stretching while the 3D world remains full-width ultrawide.
+[*]Main/pause menu frames, labels and controls centered.
+[*]Subtitles and observed weapon/item/camouflage previews corrected.
+[/list]
+
+Known limitations:
+[list]
+[*]Map content is still horizontally compressed.
+[*]Codec auxiliary scene/content is still horizontally compressed.
+[*]Original 16:9 title artwork may remain pillarboxed.
+[*]Proton visual validation of the new HUD path is still pending.
+[/list]
+
+If you do not accept those limitations, leave Native Centered HUD disabled. You can turn it off independently without affecting the rest of the patch.
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.6]Download MGS4 Ultra120 v0.3.4-alpha.6[/url]
+
+Windows: use windows-setup.exe for the simplest installation.
+Linux/Proton: extract the Linux tarball, close Steam completely, then run MGS4Ultra120-Linux-Setup.sh. Custom Steam libraries are detected or can be selected without editing scripts.
+
+The controller-profile fix remains opt-in. Enable it in the configurator only if the game incorrectly switches away from your controller; keep it disabled for keyboard/mouse or controller plus mouse/gyro aiming.

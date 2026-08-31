@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.3.4-alpha.6 - Native Centered HUD
+
+- Removed the obsolete renderer-level centered-HUD companion and its draw,
+  viewport, transform-cache and graphics-resource classifiers.
+- Added the independent `MGS4NativeCenteredHUD.asi` companion. It corrects the
+  game's native 1280x720 layout plus guarded subtitle, movie, inventory-preview
+  and modal-background producers before D3D11/D3D12.
+- Kept Native Centered HUD experimental and disabled by default. Native Windows
+  3440x1440 validation covers the main menu, gameplay HUD, pause/menu frames,
+  subtitles and observed inventory previews.
+- Documented the current visible gaps honestly: map and Codec auxiliary content
+  can remain horizontally compressed, original title artwork can remain
+  pillarboxed, and Proton visual validation is pending.
+- Added ownership-safe Windows and Linux migration from the retired HUD ASI.
+  Managed files are removed during upgrade; unknown or modified files stop the
+  install instead of being overwritten.
+- Replaced the old HUD screenshots with current gameplay, map-limitation and
+  Codec-limitation captures.
+- Preserved all alpha.5 ultrawide, native/cinematic FOV, supersampling, reticle,
+  controller, direct-launch, corrected-FPS and installer behavior.
+
 ## v0.3.4-alpha.5 - high-resolution reticle and safer setup
 
 - Removed the aiming reticle's signed 16-bit truncation at X RVAs `0xe39816`

@@ -1,50 +1,67 @@
-# UI and pre-rendered video
+# Native Centered HUD and video status
 
-The normal HUD remains the default. `v0.3.4-alpha.5` includes a separate,
-DX12-only `MGS4CenteredHUD16x9.asi` companion that can place conservatively
-accepted HUD draws in one centered 16:9 safe area. The companion is experimental
-and disabled by default.
+`v0.3.4-alpha.6` replaces the retired renderer-level HUD experiment with the
+optional `MGS4NativeCenteredHUD.asi` companion. It operates on the game's
+native 1280x720 layout converter and a small set of guarded native surface and
+preview producers before the UI reaches D3D11 or D3D12.
 
-The centered companion is currently a known-broken development preview, not a
-recommended gameplay feature. Extended testing found misplaced/overflowing
-text, squashed maps, displaced 3D inventory previews and intermittent layout
-flicker. Keep `Enabled=0` for normal play.
+The feature remains independent of resolution, FOV, FPS, supersampling,
+controller and launcher behavior. It is disabled by default:
 
-The earlier prototype corrected individual backend draws. The game can upload
-the same UI through two emitter paths, so that late strategy could alternate
-between corrected and original coordinates. Alpha.4 instead copies each whole
-common-emitter record batch, redirects only its 2D affine transforms to bounded
-D3D12 upload memory, calls the original emitter and restores the game's pointer.
-This covers indexed text and scaled or animated 2D sub-canvases while rejecting
-positively identified fullscreen quads.
+```ini
+[NativeHUD]
+Enabled=0
+```
 
-An early build could briefly alternate between the centered and original HUD
-after running for a while, most visibly in the dynamic weapon/item panels. Its
-D3D12 resource tracker admitted textures into a fixed table and retained only
-the latest copied slice of a dynamic UI buffer. The corrected tracker ignores
-textures, recycles stale buffer entries safely and preserves writes at their
-real offsets after a resource is identified as UI. A repeated 3440x1440 Windows
-test remained stable beyond the previous failure interval. The same companion
-binary runs under Proton, but Linux still requires a repeat visual test.
+## What currently works
 
-Weapon and item models are not 2D emitter records. Their auxiliary 3D viewport
-is uniformly scaled and moved into the same safe area, with the paired scissor
-changed once. This preserves model proportions and leaves the preview camera,
-FOV and projection untouched. The broader output-render-target classifier is
-still private; the public build uses the layout validated with the AK-102 and
-knife at 3440x1440.
+- Main gameplay HUD widgets are proportioned correctly inside a centered 16:9
+  safe canvas while the 3D world remains full-width ultrawide.
+- Main and pause-menu frames, labels and controls use the same native canvas.
+- Subtitles and guarded movie surfaces are remapped from physical pixels.
+- Observed weapon, item and camouflage preview routes are fitted uniformly so
+  their 3D content is not squeezed horizontally.
+- Exact verified modal backgrounds can remain output-covering while their
+  controls remain centered.
+- The implementation is graphics-API independent and reads the live render
+  dimensions, so it does not store a hard-coded 3440x1440 canvas.
 
-The current implementation is incomplete across save, pause, inventory, Codec,
-subtitle and prompt layouts. Set `Enabled=0` in
-`mgs4_centered_hud_16x9.ini`; the companion then exits before installing D3D12
-hooks and cannot affect the normal HUD.
+## Known limitations
 
-A 5120x2160 user reported a missing aiming crosshair and apparently zoomed FOV.
-FOV 1.200 addresses the narrow framing through the validated native-camera
-projection path. Native Windows supersampling tests reproduced and isolated the
-separate reticle issue: signed 16-bit coordinate conversions overflowed at the
-screen centre when an internal axis reached 4096 pixels. The X and Y routes now
-retain their full 32-bit values; gameplay validation confirmed the reticle
-working at 3440x1440 output with a 5160x2160 internal render.
+- The map inside the pause menu is still horizontally compressed.
+- Codec auxiliary scene/content is still horizontally compressed even though
+  its surrounding frame and controls are centered.
+- Original 16:9 title artwork may remain pillarboxed by design.
+- The current visuals were validated on native Windows at 3440x1440. Package
+  and configuration tests cover Linux, but visual validation under Proton is
+  still pending.
+- Coverage outside the verified native producers is not claimed. A complete
+  playthrough may expose additional scene-specific exceptions.
 
-Pre-rendered Bink 2 video is not cropped, stretched or replaced.
+These limitations are why the option remains experimental and disabled by
+default. If a screen looks wrong, close the game and set `Enabled=0`; the HUD
+companion then exits before installing hooks and the rest of MGS4 Ultra120 is
+unchanged.
+
+Do not combine this option with another HUD or layout modification. Installers
+remove the package's retired HUD companion when ownership can be proven by its
+marker or exact public release hash, and stop instead of deleting an unknown or
+modified ASI.
+
+## Independent switches
+
+The remaining keys in `mgs4_native_centered_hud.ini` allow targeted diagnostic
+fallbacks without changing the main patch:
+
+```ini
+CenterSubtitles=1
+CenterMovies=1
+CenterTVMovies=1
+CenterInventoryPreviews=1
+ExpandVerifiedFullscreenBackgrounds=1
+```
+
+They are read once at game startup. Restart the game after changing them.
+
+Pre-rendered Bink framing outside these guarded native surfaces is otherwise
+left unchanged by MGS4 Ultra120.

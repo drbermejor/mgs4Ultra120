@@ -1,6 +1,9 @@
 name: Package release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -20,6 +23,8 @@ jobs:
     name: Build and package release
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      RELEASE_VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -27,7 +32,7 @@ jobs:
       - name: Validate requested version
         shell: pwsh
         run: |
-          $requested = '${{ inputs.version }}'
+          $requested = $env:RELEASE_VERSION
           $repository = (Get-Content -Raw -LiteralPath VERSION).Trim()
           if ($requested -notmatch '^v\d+\.\d+\.\d+-alpha\.\d+$') {
             throw "Invalid release version: $requested"
@@ -59,13 +64,13 @@ jobs:
         env:
           MGS4ULTRA120_BIN_DIR: ${{ github.workspace }}/build/bin/Release
           MGS4ULTRA120_ASI_LOADER: ${{ github.workspace }}/build-third-party/ultimate-asi-loader/winmm.dll
-        run: ./scripts/package-release.sh '${{ inputs.version }}' all
+        run: ./scripts/package-release.sh "$RELEASE_VERSION" all
 
       - name: Build Windows installer
         shell: pwsh
         run: |
           choco install innosetup --no-progress --yes
-          $version = '${{ inputs.version }}'
+          $version = $env:RELEASE_VERSION
           $zip = Resolve-Path -LiteralPath "dist/MGS4Ultra120-$version-windows-complete.zip"
           $sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash
           ./installer/windows/Build-Installer.ps1 `
@@ -76,7 +81,7 @@ jobs:
       - name: Record checksums
         shell: pwsh
         run: |
-          $version = '${{ inputs.version }}'
+          $version = $env:RELEASE_VERSION
           Get-ChildItem -LiteralPath dist -File |
             Where-Object Name -Like "MGS4Ultra120-$version-*" |
             Sort-Object Name |
@@ -88,14 +93,14 @@ jobs:
       - name: Upload release candidates
         uses: actions/upload-artifact@v7
         with:
-          name: MGS4Ultra120-${{ inputs.version }}-release-candidate
+          name: MGS4Ultra120-${{ github.event_name == 'push' && github.ref_name || inputs.version }}-release-candidate
           path: |
-            dist/MGS4Ultra120-${{ inputs.version }}-windows-manual.zip
-            dist/MGS4Ultra120-${{ inputs.version }}-windows-portable.zip
-            dist/MGS4Ultra120-${{ inputs.version }}-windows-16x9-supersampling.zip
-            dist/MGS4Ultra120-${{ inputs.version }}-windows-complete.zip
-            dist/MGS4Ultra120-${{ inputs.version }}-windows-setup.exe
-            dist/MGS4Ultra120-${{ inputs.version }}-linux.tar.gz
-            dist/SHA256SUMS-${{ inputs.version }}.txt
+            dist/MGS4Ultra120-*-windows-manual.zip
+            dist/MGS4Ultra120-*-windows-portable.zip
+            dist/MGS4Ultra120-*-windows-16x9-supersampling.zip
+            dist/MGS4Ultra120-*-windows-complete.zip
+            dist/MGS4Ultra120-*-windows-setup.exe
+            dist/MGS4Ultra120-*-linux.tar.gz
+            dist/SHA256SUMS-*.txt
           if-no-files-found: error
           retention-days: 14

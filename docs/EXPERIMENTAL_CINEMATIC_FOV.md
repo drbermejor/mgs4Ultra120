@@ -1,6 +1,6 @@
 # Experimental cinematic FOV
 
-This option is included in `v0.3.4-alpha.6` for users who want expanded FOV in
+This option is included in `v0.3.4-alpha.7` for users who want expanded FOV in
 real-time, in-engine cutscenes. It is disabled by default. The previous
 [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
 release remains the complete legacy fallback.

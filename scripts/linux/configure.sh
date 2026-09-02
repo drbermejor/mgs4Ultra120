@@ -279,7 +279,7 @@ result="$(zenity --forms --title="MGS4 Ultra120 $VERSION configurator" \
   --add-combo='Native FOV correction' --combo-values="$native_fov_values" \
   --add-combo='Real-time cinematic FOV' --combo-values="$cinematic_fov_values" \
   --add-entry="Cinematic FOV (current: $cinematic_multiplier; use inherit or a number)" \
-  --add-combo='Native Centered HUD (map/Codec may be compressed)' --combo-values="$hud_values" \
+  --add-combo='Native Centered HUD (experimental guarded fixes)' --combo-values="$hud_values" \
   --add-combo='Ultrawide module' --combo-values="$ultrawide_values" \
   --add-combo='Supersampling' --combo-values="$supersampling_values" \
   --add-entry="Render scale (current: $render_scale; GPU cost grows with its square)" \
@@ -324,7 +324,7 @@ fi
 
 if [[ "$cinematic_fov_value" == 1 || "$hud_value" == 1 ]]; then
   zenity --question --title='Experimental rendering options' \
-    --text='Native Centered HUD is experimental and disabled by default. Main HUD, menus, subtitles and guarded inventory previews are centered natively, but map and Codec auxiliary content can remain horizontally compressed. Proton visual validation is pending. Cinematic FOV can reveal actors or animation transitions earlier than intended. Continue anyway?' || exit 0
+    --text='Native Centered HUD is experimental and disabled by default. The main HUD, menus, subtitles, pause map, observed live Codec feed, Mission Briefing and guarded inventory previews have native corrections. Coverage is limited to verified routes, so other content or transitions may expose exceptions. Proton visual validation is pending. Cinematic FOV can reveal actors or animation transitions earlier than intended. Continue anyway?' || exit 0
 fi
 
 set_launcher_wrapper "$launcher_value"

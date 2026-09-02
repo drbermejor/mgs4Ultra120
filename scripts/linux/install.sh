@@ -182,7 +182,9 @@ if destination.is_file():
     if re.search(r"(?m)^\[NativeHUD\]\s*$", existing):
         for key in (
             "Enabled", "CenterSubtitles", "CenterMovies", "CenterTVMovies",
-            "CenterInventoryPreviews", "ExpandVerifiedFullscreenBackgrounds",
+            "CenterInventoryPreviews", "CorrectPauseMapAspect",
+            "CorrectCodecRealtimeAspect", "CorrectMissionBriefingAspect",
+            "ExpandVerifiedFullscreenBackgrounds",
         ):
             match = re.search(rf"(?m)^{re.escape(key)}=(0|1)\s*$", existing)
             if match:

@@ -1,0 +1,17 @@
+[b]MGS4 Ultra120 v0.3.4-alpha.7 - expanded Native Centered HUD[/b]
+
+This update fixes three major gaps in the optional experimental 16:9 HUD/interface mode:
+
+[list]
+[*]The pause map and its live markers now keep the correct aspect.
+[*]The observed live in-engine Codec feed is no longer horizontally compressed.
+[*]Mission Briefing composition is now fitted into the centered 16:9 canvas.
+[/list]
+
+The 3D game world still renders across the full ultrawide screen. The existing ultrawide, FOV, 120 FPS, supersampling, high-resolution reticle, controller and launcher-bypass features are unchanged.
+
+[b]Native Centered HUD is still experimental and disabled by default.[/b] The new fixes use strict verified routes, but every act, language, Codec variant, briefing transition and Proton setup has not been tested. If you see a problem, close the game and disable Native Centered HUD in the configurator.
+
+Existing HUD opt-in choices are preserved during a guided update. The controller-profile fix remains opt-in; enable it only if needed, and leave it disabled for keyboard/mouse or controller plus mouse/gyro input.
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.7]Download MGS4 Ultra120 v0.3.4-alpha.7[/url]

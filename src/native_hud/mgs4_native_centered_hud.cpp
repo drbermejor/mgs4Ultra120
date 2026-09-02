@@ -20,6 +20,7 @@
 #include <limits>
 
 #include "native_hud_math.h"
+#include "native_hud_signatures.h"
 
 namespace {
 
@@ -35,6 +36,14 @@ constexpr std::uintptr_t kSemanticOwnerRectRva = 0x4da5b0;
 constexpr std::uintptr_t kNativeSolidNodeRva = 0x425520;
 constexpr std::uintptr_t kNativeNodeDispatcherRva = 0x4278b0;
 constexpr std::uintptr_t kNativeLayerTraversalRva = 0x428510;
+constexpr std::uintptr_t kMapCommandBuilderRva = 0x4e9d00;
+constexpr std::uint32_t kMapCommandBuilderInitReturnRva = 0x004e716f;
+constexpr std::uint32_t kMapCommandBuilderFrameReturnRva = 0x004e3dc1;
+constexpr std::uintptr_t kMapCommandBuilderDescriptorRva = 0x1c2d270;
+constexpr std::uintptr_t kAuxiliarySurfaceFactoryRva = 0x4dbd60;
+constexpr std::uintptr_t kMissionBriefingInitRva = 0x0e6cf20;
+constexpr std::uintptr_t kMissionBriefingChildSurfaceRva = 0x0e7ce20;
+constexpr std::uint32_t kMissionBriefingChildSurfaceCaller = 0x00e6d4a2;
 
 constexpr std::uint32_t kSubtitlePhysicalRectCaller = 0x00084b5c;
 constexpr std::uint32_t kMoviePhysicalRectCaller = 0x00096c80;
@@ -103,6 +112,23 @@ constexpr unsigned char kNativeLayerTraversalBytes[] = {
     0x20, 0x56, 0x57, 0x41, 0x57, 0x48, 0x83, 0xec, 0x20,
     0x0f, 0xb7, 0x7a, 0x10, 0x45, 0x33, 0xff, 0x48, 0x8b, 0xf2,
 };
+constexpr unsigned char kMapCommandBuilderBytes[] = {
+    0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41,
+    0x56, 0x41, 0x57, 0x48, 0x8d, 0x6c, 0x24, 0xe1, 0x48, 0x81,
+    0xec, 0x98, 0x00, 0x00, 0x00, 0x45, 0x33, 0xe4,
+};
+constexpr unsigned char kAuxiliarySurfaceFactoryBytes[] = {
+    0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c,
+    0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57,
+};
+constexpr unsigned char kMissionBriefingInitBytes[] = {
+    0x48, 0x89, 0x5c, 0x24, 0x10, 0x55, 0x56, 0x57,
+    0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0xac, 0x24,
+};
+constexpr unsigned char kMissionBriefingChildSurfaceBytes[] = {
+    0x48, 0x89, 0x5c, 0x24, 0x18, 0x57, 0x41, 0x54,
+    0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83,
+};
 
 using HudLayoutFn = std::uint8_t(__fastcall*)(std::uintptr_t, std::int32_t,
                                               std::int32_t, std::int32_t,
@@ -118,6 +144,13 @@ using NativeNodeDispatcherFn = std::uintptr_t(__fastcall*)(
     std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t);
 using NativeLayerTraversalFn = void(__fastcall*)(std::uintptr_t,
                                                   std::uintptr_t);
+using MapCommandBuilderFn = std::uint64_t(__fastcall*)(std::uintptr_t);
+using AuxiliarySurfaceFactoryFn = std::uintptr_t(__fastcall*)(
+    std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t);
+using MissionBriefingInitFn = std::uint64_t(__fastcall*)(
+    std::uintptr_t, std::uint32_t);
+using MissionBriefingChildSurfaceFn = std::uintptr_t(__fastcall*)(
+    std::int32_t, std::int32_t, std::int32_t, std::int32_t, std::int32_t);
 
 struct Configuration {
     bool center_subtitles{true};
@@ -125,6 +158,9 @@ struct Configuration {
     bool center_tv_movies{true};
     bool center_inventory_previews{true};
     bool expand_verified_fullscreen_backgrounds{true};
+    bool correct_pause_map_aspect{true};
+    bool correct_codec_realtime_aspect{true};
+    bool correct_mission_briefing_aspect{true};
 };
 
 struct NodeTraversalContext {
@@ -156,12 +192,27 @@ SemanticOwnerRectFn g_original_semantic_owner_rect;
 NativeSolidNodeFn g_original_native_solid_node;
 NativeNodeDispatcherFn g_original_native_node_dispatcher;
 NativeLayerTraversalFn g_original_native_layer_traversal;
+MapCommandBuilderFn g_original_map_command_builder;
+AuxiliarySurfaceFactoryFn g_original_auxiliary_surface_factory;
+MissionBriefingInitFn g_original_mission_briefing_init;
+MissionBriefingChildSurfaceFn g_original_mission_briefing_child_surface;
 std::uintptr_t g_base;
 wchar_t g_game_dir[MAX_PATH]{};
 wchar_t g_ini_path[MAX_PATH]{};
 wchar_t g_log_path[MAX_PATH]{};
 Configuration g_config{};
 volatile LONG g_log_lock;
+volatile LONG64 g_codec_aux_root_original_calls;
+volatile LONG64 g_mission_briefing_ui_root_safe_calls;
+volatile LONG64 g_pause_map_adjusted_calls;
+volatile LONG64 g_pause_map_rejected_calls;
+volatile LONG g_mission_briefing_hooks_active;
+volatile LONG64 g_codec_realtime_adjusted_calls;
+volatile LONG64 g_codec_realtime_rejected_calls;
+volatile LONG64 g_mission_briefing_owner_adjusted_calls;
+volatile LONG64 g_mission_briefing_owner_rejected_calls;
+volatile LONG64 g_mission_briefing_child_adjusted_calls;
+volatile LONG64 g_mission_briefing_child_rejected_calls;
 thread_local NodeTraversalContext g_node_traversal_context{};
 thread_local DispatcherContext g_dispatcher_context{};
 
@@ -255,6 +306,12 @@ void load_configuration() {
         config_flag(L"CenterInventoryPreviews", true);
     g_config.expand_verified_fullscreen_backgrounds =
         config_flag(L"ExpandVerifiedFullscreenBackgrounds", true);
+    g_config.correct_pause_map_aspect =
+        config_flag(L"CorrectPauseMapAspect", true);
+    g_config.correct_codec_realtime_aspect =
+        config_flag(L"CorrectCodecRealtimeAspect", true);
+    g_config.correct_mission_briefing_aspect =
+        config_flag(L"CorrectMissionBriefingAspect", true);
 }
 
 Canvas current_canvas() {
@@ -355,6 +412,34 @@ std::uint8_t __fastcall hooked_layout(std::uintptr_t object, std::int32_t x,
     const Canvas canvas = current_canvas();
     if (!canvas.active())
         return g_original_layout(object, x, y, width, height);
+    const std::uint32_t caller =
+        to_caller_rva(
+            reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
+    const std::uint32_t resource =
+        *reinterpret_cast<const std::uint32_t*>(object + 0x1c);
+    const std::uint32_t bytes =
+        *reinterpret_cast<const std::uint32_t*>(object + 0x34);
+    if (mgs4::native_hud::is_codec_auxiliary_root_layout(
+            caller, resource, bytes, x, y, width, height)) {
+        const LONG64 count =
+            InterlockedIncrement64(&g_codec_aux_root_original_calls);
+        if (count == 1)
+            log_line("Codec auxiliary root kept on original mapping.");
+        return g_original_layout(object, x, y, width, height);
+    }
+    if (g_config.correct_mission_briefing_aspect &&
+        InterlockedCompareExchange(&g_mission_briefing_hooks_active, 0, 0) ==
+            1 &&
+        mgs4::native_hud::is_mission_briefing_ui_root_layout(
+            caller, resource, bytes, x, y, width, height)) {
+        const LONG64 count = InterlockedIncrement64(
+            &g_mission_briefing_ui_root_safe_calls);
+        if (count == 1) {
+            log_line("Mission Briefing UI root clipped to the centered safe "
+                     "canvas.");
+        }
+        return write_centered_layout(object, x, y, width, height, canvas);
+    }
     if (!mgs4::native_hud::layout_arithmetic_is_safe(x, y, width, height,
                                                       canvas))
         return g_original_layout(object, x, y, width, height);
@@ -398,6 +483,218 @@ std::uint8_t* __fastcall hooked_physical_rect(
     return g_original_physical_rect(
         destination, static_cast<std::uint16_t>(mapped_x), y,
         static_cast<std::uint16_t>(mapped_width), height);
+}
+
+std::uintptr_t __fastcall hooked_auxiliary_surface_factory(
+    std::uint32_t type, std::uint32_t resource, std::uint32_t width,
+    std::uint32_t height) {
+    const std::uint32_t caller =
+        to_caller_rva(
+            reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
+    const Canvas canvas = current_canvas();
+    if (!g_config.correct_codec_realtime_aspect || !canvas.active() ||
+        !mgs4::native_hud::is_codec_realtime_surface(caller, type,
+                                                      resource)) {
+        return g_original_auxiliary_surface_factory(type, resource, width,
+                                                    height);
+    }
+
+    if (width == 0 || height == 0 ||
+        width > static_cast<std::uint32_t>(
+                    std::numeric_limits<std::int32_t>::max())) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_codec_realtime_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Codec realtime surface had invalid dimensions; "
+                     "it was left unchanged.");
+        }
+        return g_original_auxiliary_surface_factory(type, resource, width,
+                                                    height);
+    }
+
+    const std::int32_t mapped = mgs4::native_hud::auxiliary_safe_width(
+        static_cast<std::int32_t>(width), canvas);
+    if (mapped <= 0 || mapped >= static_cast<std::int32_t>(width)) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_codec_realtime_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Codec realtime surface safe width was invalid; "
+                     "it was left unchanged.");
+        }
+        return g_original_auxiliary_surface_factory(type, resource, width,
+                                                    height);
+    }
+
+    const LONG64 adjusted =
+        InterlockedIncrement64(&g_codec_realtime_adjusted_calls);
+    if (adjusted == 1) {
+        log_line("Codec realtime surface width corrected: %u x %u -> %d x %u.",
+                 width, height, mapped, height);
+    }
+    return g_original_auxiliary_surface_factory(
+        type, resource, static_cast<std::uint32_t>(mapped), height);
+}
+
+struct MissionBriefingRectFields {
+    std::int32_t left{};
+    std::int32_t top{};
+    std::int32_t right{};
+    std::int32_t bottom{};
+    std::int32_t width{};
+    std::int32_t height{};
+};
+
+MissionBriefingRectFields read_mission_briefing_rect(
+    std::uintptr_t owner, std::uintptr_t offset) {
+    return {
+        read_unaligned<std::int32_t>(owner + offset + 0x00),
+        read_unaligned<std::int32_t>(owner + offset + 0x04),
+        read_unaligned<std::int32_t>(owner + offset + 0x08),
+        read_unaligned<std::int32_t>(owner + offset + 0x0c),
+        read_unaligned<std::int32_t>(owner + offset + 0x10),
+        read_unaligned<std::int32_t>(owner + offset + 0x14),
+    };
+}
+
+bool mission_briefing_rect_is_consistent(
+    const MissionBriefingRectFields& rect, const Canvas& canvas) {
+    if (!canvas.active() || rect.left < 0 || rect.top < 0 ||
+        rect.right > canvas.output_width ||
+        rect.bottom > canvas.output_height || rect.width <= 0 ||
+        rect.height <= 0 || rect.right <= rect.left ||
+        rect.bottom <= rect.top)
+        return false;
+    return static_cast<std::int64_t>(rect.left) + rect.width == rect.right &&
+           static_cast<std::int64_t>(rect.top) + rect.height == rect.bottom;
+}
+
+MissionBriefingRectFields map_mission_briefing_rect(
+    const MissionBriefingRectFields& rect, const Canvas& canvas) {
+    MissionBriefingRectFields mapped = rect;
+    mapped.left = mgs4::native_hud::physical_x(rect.left, canvas);
+    mapped.right = mgs4::native_hud::physical_x(rect.right, canvas);
+    mapped.width = mapped.right - mapped.left;
+    return mapped;
+}
+
+void write_mission_briefing_horizontal_fields(
+    std::uintptr_t owner, std::uintptr_t offset,
+    const MissionBriefingRectFields& rect) {
+    write_unaligned(owner + offset + 0x00, rect.left);
+    write_unaligned(owner + offset + 0x08, rect.right);
+    write_unaligned(owner + offset + 0x10, rect.width);
+}
+
+std::uint64_t __fastcall hooked_mission_briefing_init(
+    std::uintptr_t owner, std::uint32_t flags) {
+    const std::uint64_t result =
+        g_original_mission_briefing_init(owner, flags);
+    if (!g_config.correct_mission_briefing_aspect || !owner ||
+        static_cast<std::uint32_t>(result) == 0xffffffffu)
+        return result;
+
+    const Canvas canvas = current_canvas();
+    if (!canvas.active()) return result;
+    const auto first = read_mission_briefing_rect(owner, 0x128);
+    const auto second = read_mission_briefing_rect(owner, 0x140);
+    if (!mission_briefing_rect_is_consistent(first, canvas) ||
+        !mission_briefing_rect_is_consistent(second, canvas)) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_mission_briefing_owner_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Mission Briefing owner rectangles failed "
+                     "validation; both were left unchanged.");
+        }
+        return result;
+    }
+
+    const auto mapped_first = map_mission_briefing_rect(first, canvas);
+    const auto mapped_second = map_mission_briefing_rect(second, canvas);
+    if (mapped_first.width <= 0 || mapped_second.width <= 0) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_mission_briefing_owner_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Mission Briefing safe rectangles were invalid; "
+                     "both were left unchanged.");
+        }
+        return result;
+    }
+
+    write_mission_briefing_horizontal_fields(owner, 0x128, mapped_first);
+    write_mission_briefing_horizontal_fields(owner, 0x140, mapped_second);
+    const LONG64 adjusted = InterlockedIncrement64(
+        &g_mission_briefing_owner_adjusted_calls);
+    if (adjusted == 1) {
+        log_line("Mission Briefing owner rectangles corrected inside the "
+                 "centered safe canvas.");
+    }
+    return result;
+}
+
+std::uintptr_t __fastcall hooked_mission_briefing_child_surface(
+    std::int32_t x, std::int32_t y, std::int32_t width,
+    std::int32_t height, std::int32_t index) {
+    const std::uint32_t caller =
+        to_caller_rva(
+            reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
+    const Canvas canvas = current_canvas();
+    if (!g_config.correct_mission_briefing_aspect || !canvas.active() ||
+        caller != kMissionBriefingChildSurfaceCaller) {
+        return g_original_mission_briefing_child_surface(
+            x, y, width, height, index);
+    }
+
+    const std::int64_t right = static_cast<std::int64_t>(x) + width;
+    const std::int64_t bottom = static_cast<std::int64_t>(y) + height;
+    if (right < std::numeric_limits<std::int32_t>::min() ||
+        right > std::numeric_limits<std::int32_t>::max() ||
+        bottom < std::numeric_limits<std::int32_t>::min() ||
+        bottom > std::numeric_limits<std::int32_t>::max()) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_mission_briefing_child_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Mission Briefing child surface overflowed its "
+                     "native coordinate domain; it was left unchanged.");
+        }
+        return g_original_mission_briefing_child_surface(
+            x, y, width, height, index);
+    }
+    const MissionBriefingRectFields source{
+        x, y, static_cast<std::int32_t>(right),
+        static_cast<std::int32_t>(bottom), width, height};
+    if (!mission_briefing_rect_is_consistent(source, canvas) ||
+        index < 0 || index >= 4) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_mission_briefing_child_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Mission Briefing child surface failed its "
+                     "exact caller/geometry guards; it was left unchanged.");
+        }
+        return g_original_mission_briefing_child_surface(
+            x, y, width, height, index);
+    }
+
+    const auto mapped = map_mission_briefing_rect(source, canvas);
+    if (mapped.width <= 0) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_mission_briefing_child_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: Mission Briefing child safe width was invalid; "
+                     "it was left unchanged.");
+        }
+        return g_original_mission_briefing_child_surface(
+            x, y, width, height, index);
+    }
+
+    const LONG64 adjusted = InterlockedIncrement64(
+        &g_mission_briefing_child_adjusted_calls);
+    if (adjusted == 1) {
+        log_line("Mission Briefing child surfaces corrected: (%d,%d %dx%d) "
+                 "-> (%d,%d %dx%d).",
+                 x, y, width, height, mapped.left, y, mapped.width, height);
+    }
+    return g_original_mission_briefing_child_surface(
+        mapped.left, y, mapped.width, height, index);
 }
 
 bool is_inventory_preview_caller(std::uint32_t caller) {
@@ -451,6 +748,178 @@ bool parent_uses_expanded_logical_root(std::uintptr_t parent,
     return second == std::array<std::int32_t, 8>{
         0, 0, canvas.output_width, canvas.output_height,
         logical.left, logical.top, logical.right, logical.bottom};
+}
+
+bool map_command_stream_matches(std::uintptr_t self,
+                                std::array<std::int16_t, 16>& source_x) {
+    if (!self) return false;
+    const auto opcode = [self](std::uintptr_t offset, std::uint8_t expected) {
+        return read_unaligned<std::uint8_t>(self + offset) == expected;
+    };
+    if (!opcode(0x210, 0x0c) || !opcode(0x220, 0x12) ||
+        !opcode(0x230, 0x13) || !opcode(0x240, 0x1f) ||
+        !opcode(0x250, 0x08) || !opcode(0x320, 0x1f) ||
+        !opcode(0x330, 0x12) || !opcode(0x340, 0x13) ||
+        !opcode(0x350, 0x1f) || !opcode(0x360, 0x08) ||
+        !opcode(0x430, 0x1f) || !opcode(0x440, 0x0c) ||
+        !opcode(0x450, 0x22)) {
+        return false;
+    }
+    if (read_unaligned<std::uint64_t>(self + 0x238) != 0 ||
+        read_unaligned<std::uintptr_t>(self + 0x248) != self + 0x570 ||
+        read_unaligned<std::uint32_t>(self + 0x258) != 8 ||
+        read_unaligned<std::uint64_t>(self + 0x328) != 0 ||
+        read_unaligned<std::uint64_t>(self + 0x348) != 0 ||
+        read_unaligned<std::uintptr_t>(self + 0x358) != self + 0x460 ||
+        read_unaligned<std::uint32_t>(self + 0x368) != 8 ||
+        read_unaligned<std::uint64_t>(self + 0x438) != 0) {
+        return false;
+    }
+
+    const auto joined_pointer = [self](std::uintptr_t high_offset,
+                                       std::uintptr_t low_offset) {
+        return (static_cast<std::uint64_t>(
+                    read_unaligned<std::uint32_t>(self + high_offset))
+                << 32) |
+            read_unaligned<std::uint32_t>(self + low_offset);
+    };
+    if (joined_pointer(0x228, 0x22c) !=
+            read_unaligned<std::uint64_t>(self + 0x600) ||
+        joined_pointer(0x338, 0x33c) !=
+            read_unaligned<std::uint64_t>(self + 0x4f0) ||
+        read_unaligned<std::uint16_t>(self + 0x57c) != 4 ||
+        read_unaligned<std::uint16_t>(self + 0x57e) != 1 ||
+        read_unaligned<std::uint32_t>(self + 0x580) != 0x3f800000 ||
+        read_unaligned<std::uint16_t>(self + 0x46c) != 4 ||
+        read_unaligned<std::uint16_t>(self + 0x46e) != 1 ||
+        read_unaligned<std::uint32_t>(self + 0x470) != 0 ||
+        read_unaligned<std::uint64_t>(self + 0x658) == 0 ||
+        read_unaligned<std::uint64_t>(self + 0x658) !=
+            read_unaligned<std::uint64_t>(self + 0x548)) {
+        return false;
+    }
+
+    constexpr std::array<std::uintptr_t, 8> kFirstVertices{
+        0x260, 0x278, 0x290, 0x2a8, 0x2c0, 0x2d8, 0x2f0, 0x308};
+    constexpr std::array<std::uintptr_t, 8> kSecondVertices{
+        0x370, 0x388, 0x3a0, 0x3b8, 0x3d0, 0x3e8, 0x400, 0x418};
+    for (std::size_t batch = 0; batch < 2; ++batch) {
+        const auto& vertices = batch == 0 ? kFirstVertices : kSecondVertices;
+        for (std::size_t index = 0; index < vertices.size(); ++index) {
+            const std::uintptr_t vertex = self + vertices[index];
+            const std::int16_t x = read_unaligned<std::int16_t>(vertex + 0x10);
+            const std::int16_t y = read_unaligned<std::int16_t>(vertex + 0x12);
+            const std::int16_t v = read_unaligned<std::int16_t>(vertex + 0x0e);
+            const std::uint32_t colour =
+                read_unaligned<std::uint32_t>(vertex + 0x08);
+            source_x[batch * 8 + index] = x;
+            const bool outer = index < 2 || index >= 6;
+            if (colour != (outer ? 0xffffff00u : 0xffffffffu) ||
+                (y != 0 && y != 720 * 16) ||
+                (v != 0 && v != 0x2000)) {
+                return false;
+            }
+            if ((index & 1u) != 0) {
+                const std::uintptr_t previous = self + vertices[index - 1];
+                if (x != read_unaligned<std::int16_t>(previous + 0x10) ||
+                    y == read_unaligned<std::int16_t>(previous + 0x12) ||
+                    v == read_unaligned<std::int16_t>(previous + 0x0e)) {
+                    return false;
+                }
+            }
+        }
+    }
+    for (std::size_t index = 0; index < 8; ++index) {
+        if (source_x[index] != source_x[8 + index]) return false;
+    }
+    return source_x[0] == 462 * 16 && source_x[1] == 462 * 16 &&
+           source_x[6] == 1212 * 16 && source_x[7] == 1212 * 16 &&
+           source_x[2] == source_x[3] && source_x[4] == source_x[5] &&
+           source_x[0] <= source_x[2] && source_x[2] <= source_x[4] &&
+           source_x[4] <= source_x[6];
+}
+
+std::uint64_t __fastcall hooked_map_command_builder(std::uintptr_t self) {
+    const std::uint32_t caller =
+        to_caller_rva(
+            reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
+    const std::uint64_t result = g_original_map_command_builder(self);
+    if (!g_config.correct_pause_map_aspect) return result;
+
+    const Canvas canvas = current_canvas();
+    const std::uintptr_t parent =
+        self ? read_unaligned<std::uintptr_t>(self + 0xf8) : 0;
+    std::array<std::int16_t, 16> source_x{};
+    if (result != 1 || !canvas.active() ||
+        (caller != kMapCommandBuilderInitReturnRva &&
+         caller != kMapCommandBuilderFrameReturnRva) ||
+        !self || !parent ||
+        read_unaligned<std::uintptr_t>(self + 0x50) !=
+            g_base + kMapCommandBuilderDescriptorRva ||
+        read_unaligned<std::uint32_t>(parent + 0x1c) !=
+            mgs4::native_hud::kPauseMapLargeRootResource ||
+        read_unaligned<std::uint32_t>(parent + 0x34) !=
+            mgs4::native_hud::kPauseMapLargeRootAllocationBytes ||
+        read_unaligned<std::uintptr_t>(parent + 0x158) !=
+            g_base + mgs4::native_hud::kPauseMapCallbackRva ||
+        !parent_uses_expanded_logical_root(parent, canvas) ||
+        !map_command_stream_matches(self, source_x)) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_pause_map_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: pause-map stream did not match every native "
+                     "guard; it was left unchanged.");
+        }
+        return result;
+    }
+
+    constexpr std::int32_t kMapCentreFixed16 = 837 * 16;
+    std::array<std::int16_t, 16> mapped_x{};
+    for (std::size_t index = 0; index < source_x.size(); ++index) {
+        const std::int64_t mapped = mgs4::native_hud::expand_fixed16_x_around(
+            source_x[index], kMapCentreFixed16, canvas);
+        if (mapped < std::numeric_limits<std::int16_t>::min() ||
+            mapped > std::numeric_limits<std::int16_t>::max()) {
+            const LONG64 rejected =
+                InterlockedIncrement64(&g_pause_map_rejected_calls);
+            if (rejected == 1) {
+                log_line("WARNING: pause-map correction exceeded its native "
+                         "coordinate range; it was left unchanged.");
+            }
+            return result;
+        }
+        mapped_x[index] = static_cast<std::int16_t>(mapped);
+    }
+
+    const Canvas final_canvas = current_canvas();
+    std::array<std::int16_t, 16> final_source_x{};
+    if (final_canvas.output_width != canvas.output_width ||
+        final_canvas.output_height != canvas.output_height ||
+        final_canvas.safe_width != canvas.safe_width ||
+        final_canvas.safe_left != canvas.safe_left ||
+        !g_config.correct_pause_map_aspect ||
+        !parent_uses_expanded_logical_root(parent, canvas) ||
+        !map_command_stream_matches(self, final_source_x) ||
+        final_source_x != source_x) {
+        const LONG64 rejected =
+            InterlockedIncrement64(&g_pause_map_rejected_calls);
+        if (rejected == 1) {
+            log_line("WARNING: pause-map state changed during validation; "
+                     "the frame was left unchanged.");
+        }
+        return result;
+    }
+
+    constexpr std::array<std::uintptr_t, 16> kXOffsets{
+        0x270, 0x288, 0x2a0, 0x2b8, 0x2d0, 0x2e8, 0x300, 0x318,
+        0x380, 0x398, 0x3b0, 0x3c8, 0x3e0, 0x3f8, 0x410, 0x428};
+    for (std::size_t index = 0; index < kXOffsets.size(); ++index)
+        write_unaligned(self + kXOffsets[index], mapped_x[index]);
+    const LONG64 adjusted =
+        InterlockedIncrement64(&g_pause_map_adjusted_calls);
+    if (adjusted == 1)
+        log_line("Pause-map native stream correction applied.");
+    return result;
 }
 
 bool is_verified_fullscreen_solid(std::uint32_t resource,
@@ -753,9 +1222,44 @@ bool install_modal_hook_trio() {
     return create_and_enable_group(hooks, std::size(hooks));
 }
 
+bool install_pause_map_hook() {
+    const HookSpec hook{
+        kMapCommandBuilderRva,
+        reinterpret_cast<void*>(&hooked_map_command_builder),
+        reinterpret_cast<void**>(&g_original_map_command_builder)};
+    return create_and_enable_group(&hook, 1);
+}
+
+bool install_auxiliary_surface_hook() {
+    const HookSpec hook{
+        kAuxiliarySurfaceFactoryRva,
+        reinterpret_cast<void*>(&hooked_auxiliary_surface_factory),
+        reinterpret_cast<void**>(&g_original_auxiliary_surface_factory)};
+    return create_and_enable_group(&hook, 1);
+}
+
+bool install_mission_briefing_hooks() {
+    // The post-constructor owner fields and the four child surfaces form one
+    // compositor. Never publish only half of this correction.
+    const HookSpec hooks[] = {
+        {kMissionBriefingChildSurfaceRva,
+         reinterpret_cast<void*>(&hooked_mission_briefing_child_surface),
+         reinterpret_cast<void**>(&g_original_mission_briefing_child_surface)},
+        {kMissionBriefingInitRva,
+         reinterpret_cast<void*>(&hooked_mission_briefing_init),
+         reinterpret_cast<void**>(&g_original_mission_briefing_init)},
+    };
+    return create_and_enable_group(hooks, std::size(hooks));
+}
+
 DWORD WINAPI install_late_hooks(void*) {
     int preview_state = 0;  // 0 waiting, 1 installed, -1 failed
     int modal_state = 0;
+    int map_state = g_config.correct_pause_map_aspect ? 0 : 1;
+    int auxiliary_surface_state =
+        g_config.correct_codec_realtime_aspect ? 0 : 1;
+    int mission_briefing_state =
+        g_config.correct_mission_briefing_aspect ? 0 : 1;
     for (unsigned attempt = 0; attempt < 24000; ++attempt) {
         if (preview_state == 0 &&
             bytes_match(kSemanticOwnerRectRva, kSemanticOwnerRectBytes,
@@ -783,7 +1287,48 @@ DWORD WINAPI install_late_hooks(void*) {
                            "back; modal tints may be clipped.");
         }
 
-        if (preview_state != 0 && modal_state != 0) break;
+        if (map_state == 0 &&
+            bytes_match(kMapCommandBuilderRva, kMapCommandBuilderBytes,
+                        sizeof(kMapCommandBuilderBytes))) {
+            map_state = install_pause_map_hook() ? 1 : -1;
+            log_line(map_state == 1
+                         ? "Pause-map native stream hook active."
+                         : "WARNING: pause-map hook failed; the map keeps "
+                           "the baseline centered-HUD aspect.");
+        }
+
+        if (auxiliary_surface_state == 0 &&
+            bytes_match(kAuxiliarySurfaceFactoryRva,
+                        kAuxiliarySurfaceFactoryBytes,
+                        sizeof(kAuxiliarySurfaceFactoryBytes))) {
+            auxiliary_surface_state =
+                install_auxiliary_surface_hook() ? 1 : -1;
+            log_line(auxiliary_surface_state == 1
+                         ? "Codec realtime-surface hook active."
+                         : "WARNING: Codec realtime-surface hook failed; the "
+                           "embedded live feed remains unmodified.");
+        }
+
+        if (mission_briefing_state == 0 &&
+            bytes_match(kMissionBriefingInitRva,
+                        kMissionBriefingInitBytes,
+                        sizeof(kMissionBriefingInitBytes)) &&
+            bytes_match(kMissionBriefingChildSurfaceRva,
+                        kMissionBriefingChildSurfaceBytes,
+                        sizeof(kMissionBriefingChildSurfaceBytes))) {
+            mission_briefing_state =
+                install_mission_briefing_hooks() ? 1 : -1;
+            if (mission_briefing_state == 1)
+                InterlockedExchange(&g_mission_briefing_hooks_active, 1);
+            log_line(mission_briefing_state == 1
+                         ? "Atomic Mission Briefing compositor hooks active."
+                         : "WARNING: Mission Briefing compositor hooks failed "
+                           "and were rolled back.");
+        }
+
+        if (preview_state != 0 && modal_state != 0 && map_state != 0 &&
+            auxiliary_surface_state != 0 && mission_briefing_state != 0)
+            break;
         Sleep(25);
     }
     if (preview_state == 0) {
@@ -793,6 +1338,18 @@ DWORD WINAPI install_late_hooks(void*) {
     if (modal_state == 0) {
         log_line("WARNING: modal routines never became available; modal "
                  "tints may be clipped.");
+    }
+    if (map_state == 0) {
+        log_line("WARNING: pause-map builder never became available; the "
+                 "map keeps the baseline centered-HUD aspect.");
+    }
+    if (auxiliary_surface_state == 0) {
+        log_line("WARNING: Codec realtime-surface factory never became "
+                 "available; the embedded live feed remains unmodified.");
+    }
+    if (mission_briefing_state == 0) {
+        log_line("WARNING: Mission Briefing compositor routines never became "
+                 "available; that screen remains unmodified.");
     }
     return 0;
 }
@@ -839,7 +1396,7 @@ DWORD WINAPI initialize(void*) {
         CloseHandle(thread);
     } else {
         log_line("WARNING: late-hook worker could not start; core HUD remains "
-                 "active without preview/modal corrections.");
+                 "active without preview, modal, or pause-map corrections.");
     }
     log_line("Core logical-range HUD hooks active.");
     return 0;

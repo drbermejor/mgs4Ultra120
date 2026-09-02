@@ -80,7 +80,9 @@ UsePrimaryPhysicalResolution=1
 - `mgs4_native_centered_hud.ini` uses `Enabled=1` to correct the game's native
   1280x720 layout and guarded surface producers into a centered 16:9 safe
   area. It is graphics-API independent, experimental and disabled by default.
-  Map and Codec auxiliary content can remain horizontally compressed.
+  The verified pause map, live Codec feed and Mission Briefing compositors are
+  corrected by default when this module is enabled. Coverage remains limited
+  to exact observed routes, so untested content can still expose exceptions.
   `Enabled=0` exits before installing hooks.
 - `ControllerProfileFixEnabled=1` opts into preserving the native connected-
   controller family when the port incorrectly attempts to switch to keyboard

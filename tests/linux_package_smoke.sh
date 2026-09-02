@@ -13,7 +13,7 @@ FPS_ARCHIVE="${2:-}"
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4NativeCenteredHUD.asi" ]]
-grep -qx 'v0.3.4-alpha.6' "$PACKAGE_DIR/VERSION"
+grep -qx 'v0.3.4-alpha.7' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -127,10 +127,10 @@ grep -q 'WINEDLLOVERRIDES=\\"winmm=n,b\\" PROTON_LOG=1 %command%' "$CONFIG"
 [[ -x "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop" ]]
 grep -q "Exec=\"$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh\"" \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
-grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.6 Configurator$' \
+grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.7 Configurator$' \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
 grep -Fxq "$GAME_DIR" "$XDG_CONFIG/mgs4Ultra120/game-dir"
-grep -Fxq 'v0.3.4-alpha.6' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
+grep -Fxq 'v0.3.4-alpha.7' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 printf '%s\n' 'v0.3.4-alpha.1' \
   >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
@@ -142,7 +142,7 @@ if XDG_CONFIG_HOME="$XDG_CONFIG" \
 fi
 grep -q 'mismatched/stale\|configurator belongs to' \
   "$FIXTURE/stale-configurator.out"
-printf '%s\n' 'v0.3.4-alpha.6' \
+printf '%s\n' 'v0.3.4-alpha.7' \
   >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 XDG_CONFIG_HOME="$XDG_CONFIG" \
@@ -159,6 +159,9 @@ grep -q '^CenterSubtitles=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 grep -q '^CenterMovies=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 grep -q '^CenterTVMovies=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 grep -q '^CenterInventoryPreviews=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CorrectPauseMapAspect=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CorrectCodecRealtimeAspect=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CorrectMissionBriefingAspect=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 grep -q '^ExpandVerifiedFullscreenBackgrounds=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 
 # Managed updates preserve explicit rendering, input and native-HUD choices.
@@ -168,6 +171,9 @@ sed -i 's/^CinematicFOVMultiplier=.*/CinematicFOVMultiplier=1.100/' "$GAME_DIR/m
 sed -i 's/^FOVMultiplier=.*/FOVMultiplier=1.350/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^ControllerProfileFixEnabled=.*/ControllerProfileFixEnabled=1/' "$GAME_DIR/mgs4_ultrawide.ini"
 sed -i 's/^Enabled=.*/Enabled=1/' "$GAME_DIR/mgs4_native_centered_hud.ini"
+sed -i 's/^CorrectPauseMapAspect=.*/CorrectPauseMapAspect=0/' "$GAME_DIR/mgs4_native_centered_hud.ini"
+sed -i '/^CorrectCodecRealtimeAspect=/d;/^CorrectMissionBriefingAspect=/d' \
+  "$GAME_DIR/mgs4_native_centered_hud.ini"
 env "${install_environment[@]}" "$PACKAGE_DIR/MGS4Ultra120-Linux-Setup.sh" "$GAME_DIR"
 grep -q '^NativeCameraFOV=0$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ExperimentalCinematicFOV=1$' "$GAME_DIR/mgs4_ultrawide.ini"
@@ -175,6 +181,9 @@ grep -q '^CinematicFOVMultiplier=1.100$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^FOVMultiplier=1.350$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^ControllerProfileFixEnabled=1$' "$GAME_DIR/mgs4_ultrawide.ini"
 grep -q '^Enabled=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CorrectPauseMapAspect=0$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CorrectCodecRealtimeAspect=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
+grep -q '^CorrectMissionBriefingAspect=1$' "$GAME_DIR/mgs4_native_centered_hud.ini"
 
 STEAM_LOCALCONFIG="$CONFIG" XDG_CONFIG_HOME="$XDG_CONFIG" \
   XDG_DATA_HOME="$XDG_DATA" MGS4_DESKTOP_DIR="$DESKTOP_DIR" \

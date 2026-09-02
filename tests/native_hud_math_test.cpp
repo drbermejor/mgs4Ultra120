@@ -1,10 +1,112 @@
 #include "native_hud_math.h"
+#include "native_hud_signatures.h"
 
 #include <cassert>
 #include <limits>
 
 int main() {
     using namespace mgs4::native_hud;
+
+    static_assert(is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller + 1, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource + 1,
+        kCodecAuxRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes + 1, 0, 0, 1280, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes, 1, 0, 1280, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes, 0, 1, 1280, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes, 0, 0, 1279, 720));
+    static_assert(!is_codec_auxiliary_root_layout(
+        kCodecAuxRootLayoutCaller, kCodecAuxRootResource,
+        kCodecAuxRootAllocationBytes, 0, 0, 1280, 719));
+    static_assert(is_codec_realtime_surface(
+        kCodecRealtimeSurfaceCaller, kCodecRealtimeSurfaceType,
+        kCodecRealtimeSurfaceResource));
+    static_assert(!is_codec_realtime_surface(
+        kCodecRealtimeSurfaceCaller + 1, kCodecRealtimeSurfaceType,
+        kCodecRealtimeSurfaceResource));
+    static_assert(!is_codec_realtime_surface(
+        kCodecRealtimeSurfaceCaller, kCodecRealtimeSurfaceType + 1,
+        kCodecRealtimeSurfaceResource));
+    static_assert(!is_codec_realtime_surface(
+        kCodecRealtimeSurfaceCaller, kCodecRealtimeSurfaceType,
+        kCodecRealtimeSurfaceResource + 1));
+    static_assert(is_mission_briefing_ui_root_layout(
+        kMissionBriefingUiRootLayoutCaller,
+        kMissionBriefingUiRootResource,
+        kMissionBriefingUiRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(!is_mission_briefing_ui_root_layout(
+        kMissionBriefingUiRootLayoutCaller,
+        kMissionBriefingUiRootResource + 1,
+        kMissionBriefingUiRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(!is_mission_briefing_ui_root_layout(
+        kMissionBriefingUiRootLayoutCaller + 1,
+        kMissionBriefingUiRootResource,
+        kMissionBriefingUiRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(!is_mission_briefing_ui_root_layout(
+        kMissionBriefingUiRootLayoutCaller,
+        kMissionBriefingUiRootResource,
+        kMissionBriefingUiRootAllocationBytes + 1, 0, 0, 1280, 720));
+    static_assert(!is_mission_briefing_ui_root_layout(
+        kMissionBriefingUiRootLayoutCaller,
+        kMissionBriefingUiRootResource,
+        kMissionBriefingUiRootAllocationBytes, 0, 0, 1279, 720));
+
+    constexpr std::uintptr_t test_base = 0x140000000ull;
+    static_assert(is_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720));
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720,
+        test_base + kPauseMapCallbackRva,
+        test_base, 0, 0) == PauseMapLargeRootRole::Callback);
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720, 0,
+        test_base, kPauseMapSmallRootResource,
+        kPauseMapSmallRootAllocationBytes) ==
+        PauseMapLargeRootRole::Callback);
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720, 0,
+        test_base, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes) ==
+        PauseMapLargeRootRole::Sibling);
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720, 0,
+        test_base, 0, 0) == PauseMapLargeRootRole::Unknown);
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720,
+        test_base + kPauseMapCallbackRva + 1,
+        test_base, kPauseMapSmallRootResource,
+        kPauseMapSmallRootAllocationBytes) ==
+        PauseMapLargeRootRole::Unknown);
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller + 1, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720,
+        test_base + kPauseMapCallbackRva,
+        test_base, 0, 0) == PauseMapLargeRootRole::Unknown);
+    static_assert(classify_pause_map_large_root_layout(
+        kPauseMapRootLayoutCaller, kPauseMapLargeRootResource,
+        kPauseMapLargeRootAllocationBytes, 0, 0, 1280, 720,
+        kPauseMapCallbackRva, 0, kPauseMapSmallRootResource,
+        kPauseMapSmallRootAllocationBytes) ==
+        PauseMapLargeRootRole::Unknown);
 
     constexpr Canvas uw = make_canvas(3440, 1440);
     static_assert(uw.active());
@@ -26,6 +128,7 @@ int main() {
     static_assert(physical_x(3440, uw) == 3000);
     static_assert(physical_width(3440, uw) == 2560);
     static_assert(physical_width(1720, uw) == 1280);
+    static_assert(auxiliary_safe_width(1671, uw) == 1243);
     constexpr LogicalRange uw_logical = expanded_logical_canvas(uw);
     static_assert(uw_logical.left == -220 && uw_logical.top == 0 &&
                   uw_logical.right == 1500 && uw_logical.bottom == 720);
@@ -33,6 +136,15 @@ int main() {
     constexpr Fixed16HorizontalRange uw_fixed = expanded_fixed16_x(uw);
     static_assert(uw_fixed.left == -3520 && uw_fixed.width == 27520 &&
                   uw_fixed.right == 24000);
+    static_assert(divide_nearest_signed(5, 2) == 3);
+    static_assert(divide_nearest_signed(-5, 2) == -3);
+    static_assert(divide_nearest_signed(4, 2) == 2);
+    static_assert(divide_nearest_signed(-4, 2) == -2);
+    constexpr std::int32_t map_centre = 13392;
+    static_assert(expand_fixed16_x_around(7392, map_centre, uw) == 5329);
+    static_assert(expand_fixed16_x_around(9632, map_centre, uw) == 8339);
+    static_assert(expand_fixed16_x_around(18592, map_centre, uw) == 20380);
+    static_assert(expand_fixed16_x_around(19392, map_centre, uw) == 21455);
 
     constexpr PhysicalRect weapon =
         uniform_safe_rect({1916, 510, 3431, 1172}, uw);

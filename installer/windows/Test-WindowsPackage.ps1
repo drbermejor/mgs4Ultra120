@@ -46,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.4-alpha.6") {
+if ($PackageVersion -ne "v0.3.4-alpha.7") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 
@@ -363,6 +363,8 @@ try {
     foreach ($ExpectedLine in @(
         "Enabled=0", "CenterSubtitles=1", "CenterMovies=1",
         "CenterTVMovies=1", "CenterInventoryPreviews=1",
+        "CorrectPauseMapAspect=1", "CorrectCodecRealtimeAspect=1",
+        "CorrectMissionBriefingAspect=1",
         "ExpandVerifiedFullscreenBackgrounds=1"
     )) {
         if ($HudIniText -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
@@ -541,6 +543,10 @@ try {
     $CustomizedHud = [regex]::Replace(
         (Get-Content -Raw -LiteralPath $HudIniPath),
         '(?m)^Enabled=.*$', 'Enabled=1')
+    $CustomizedHud = [regex]::Replace($CustomizedHud,
+        '(?m)^CorrectPauseMapAspect=.*$', 'CorrectPauseMapAspect=0')
+    $CustomizedHud = [regex]::Replace($CustomizedHud,
+        '(?m)^Correct(CodecRealtime|MissionBriefing)Aspect=.*\r?\n', '')
     [IO.File]::WriteAllText($HudIniPath, $CustomizedHud,
         [Text.UTF8Encoding]::new($false))
     & (Join-Path $PackageDir "scripts\windows\install.ps1") -GameDir $GameDir
@@ -563,6 +569,14 @@ try {
     $UpdatedHud = Get-Content -Raw -LiteralPath $HudIniPath
     if ($UpdatedHud -notmatch '(?m)^Enabled=1\r?$') {
         throw "Update did not preserve the explicit Native Centered HUD choice."
+    }
+    foreach ($ExpectedLine in @(
+        "CorrectPauseMapAspect=0", "CorrectCodecRealtimeAspect=1",
+        "CorrectMissionBriefingAspect=1"
+    )) {
+        if ($UpdatedHud -notmatch "(?m)^$([regex]::Escape($ExpectedLine))\r?$") {
+            throw "Update did not merge centered-HUD setting: $ExpectedLine"
+        }
     }
     if ($UpdatedHud -match '(?m)^(Width|Height)=') {
         throw "Native Centered HUD config still contains obsolete output-size fields."

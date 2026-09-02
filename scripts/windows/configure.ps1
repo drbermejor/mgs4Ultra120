@@ -5,7 +5,7 @@ param(
     [string]$WindowsDisplayMode,
     [string]$GameDir = "${env:ProgramFiles(x86)}\Steam\steamapps\common\METAL GEAR SOLID 4\MGS4"
 )
-$Mgs4Ultra120Version = "v0.3.4-alpha.6"
+$Mgs4Ultra120Version = "v0.3.4-alpha.7"
 $ErrorActionPreference = "Stop"
 $KnownExeSha256 = "9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41"
 if (-not $GameDir -or -not [IO.Directory]::Exists($GameDir)) {
@@ -311,7 +311,7 @@ $Ui = @{
         CinematicFov = "Experimental cinematic FOV (requires native FOV)"
         CinematicInherit = "Use gameplay FOV for cinematics"
         CinematicValue = "Separate cinematic FOV"
-        CenteredHud = "Native Centered HUD (experimental; map/Codec may be compressed)"
+        CenteredHud = "Native Centered HUD (experimental; guarded screen fixes)"
         Supersampling = "Experimental supersampling (off by default)"
         RenderScale = "Internal render scale"
         Presentation = "Windows presentation"
@@ -339,7 +339,7 @@ $Ui = @{
         NvidiaMessage = "On the tested NVIDIA system with 240/144 Hz monitors, G-SYNC/VRR caused display WATCHDOG events and a red sweep. Ten focus transitions were clean with G-SYNC disabled, including the final 3440x1440 test. This tool will not change the driver setting. Save anyway?"
         UnsupportedMessage = "Known offsets will be attempted on an unverified executable. This can crash the game. Continue under your responsibility?"
         FullscreenMessage = "Exclusive fullscreen can interact badly with HDR, VRR/G-SYNC or multiple monitors. The physical resolution will be synchronized first. Continue?"
-        ExperimentalMessage = "Native Centered HUD is experimental and disabled by default. The main HUD, menus, subtitles and guarded inventory previews are centered natively, but map and Codec auxiliary content can still be horizontally compressed. Native title artwork can remain pillarboxed, and Proton visual validation is pending. Cinematic FOV can reveal actors, geometry or animation transitions earlier than intended. Continue anyway?"
+        ExperimentalMessage = "Native Centered HUD is experimental and disabled by default. The main HUD, menus, subtitles, pause map, the observed live Codec feed, Mission Briefing and guarded inventory previews have native corrections. Coverage is limited to verified routes: other acts, languages, Codec content, briefing transitions or previews may still expose exceptions. Native title artwork can remain pillarboxed, and Proton visual validation is pending. Cinematic FOV can reveal actors, geometry or animation transitions earlier than intended. Continue anyway?"
 }
 
 $Form = [Windows.Forms.Form]@{

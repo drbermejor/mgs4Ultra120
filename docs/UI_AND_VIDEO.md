@@ -1,7 +1,7 @@
 # Native Centered HUD and video status
 
-`v0.3.4-alpha.6` replaces the retired renderer-level HUD experiment with the
-optional `MGS4NativeCenteredHUD.asi` companion. It operates on the game's
+`v0.3.4-alpha.7` uses the optional `MGS4NativeCenteredHUD.asi` companion. It
+operates on the game's
 native 1280x720 layout converter and a small set of guarded native surface and
 preview producers before the UI reaches D3D11 or D3D12.
 
@@ -23,14 +23,23 @@ Enabled=0
   their 3D content is not squeezed horizontally.
 - Exact verified modal backgrounds can remain output-covering while their
   controls remain centered.
+- The pause-map plane and its live markers keep their intended aspect without
+  changing the surrounding menu and legend.
+- The verified live in-engine Codec feed uses a corrected auxiliary render
+  width; static/prerendered Codec content keeps the normal centered path.
+- The verified Mission Briefing root, two persistent owner rectangles and four
+  child surfaces are fitted horizontally while full-output clears stay intact.
 - The implementation is graphics-API independent and reads the live render
   dimensions, so it does not store a hard-coded 3440x1440 canvas.
 
 ## Known limitations
 
-- The map inside the pause menu is still horizontally compressed.
-- Codec auxiliary scene/content is still horizontally compressed even though
-  its surrounding frame and controls are centered.
+- The live Codec correction was validated on the identified in-engine feed;
+  other Codec content types have not all been exercised.
+- Mission Briefing normal composition was validated, but alternate ticker,
+  help, fade and chapter-specific states are not exhaustively covered.
+- The Drebin Shop preview route is guarded in code but has not been
+  independently validated live.
 - Original 16:9 title artwork may remain pillarboxed by design.
 - The current visuals were validated on native Windows at 3440x1440. Package
   and configuration tests cover Linux, but visual validation under Proton is
@@ -58,6 +67,9 @@ CenterSubtitles=1
 CenterMovies=1
 CenterTVMovies=1
 CenterInventoryPreviews=1
+CorrectPauseMapAspect=1
+CorrectCodecRealtimeAspect=1
+CorrectMissionBriefingAspect=1
 ExpandVerifiedFullscreenBackgrounds=1
 ```
 

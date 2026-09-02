@@ -1,4 +1,4 @@
-$Mgs4Ultra120Version = "v0.3.4-alpha.6"
+$Mgs4Ultra120Version = "v0.3.4-alpha.7"
 $Mgs4Ultra120RegistryPath = "HKCU:\Software\MGS4Ultra120"
 $Mgs4Ultra120LegacyDllHashes = @(
     # v0.3.1-alpha.1/alpha.2 two-export proxy. Keeping this hash lets an
@@ -167,6 +167,8 @@ function Install-Mgs4Ultra120HudConfig([string]$Template, [string]$Destination,
             foreach ($Key in @(
                 "Enabled", "CenterSubtitles", "CenterMovies",
                 "CenterTVMovies", "CenterInventoryPreviews",
+                "CorrectPauseMapAspect", "CorrectCodecRealtimeAspect",
+                "CorrectMissionBriefingAspect",
                 "ExpandVerifiedFullscreenBackgrounds"
             )) {
                 $Match = [regex]::Match($ExistingText,

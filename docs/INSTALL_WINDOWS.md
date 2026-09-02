@@ -1,7 +1,7 @@
 # Windows installation
 
 Use the official
-[v0.3.4-alpha.6 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.6).
+[v0.3.4-alpha.7 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.7).
 Every Windows package contains the same MGS4Ultra120 core. Improved 120 FPS is
 an optional additive component supplied by
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
@@ -84,13 +84,15 @@ native-size windowed presentation, the tested FOV 1.200 recommendation,
 Unity-launcher bypass and —when selected—MGSFPSUnlock at 120. The controller-
 profile workaround is opt-in because it can interfere with keyboard/mouse and
 hybrid controller plus mouse/gyro input.
-Alpha.5 reset this workaround to disabled once; alpha.6 preserves an explicit
+Alpha.5 reset this workaround to disabled once; current releases preserve an explicit
 existing choice. If you need it, reopen the configurator, check **Controller
 profile fix**, and save. Manual users can set `ControllerProfileFixEnabled=1`
 under `[Input]` in `mgs4_ultrawide.ini`.
 Real-time cinematic FOV, Native Centered HUD and supersampling remain disabled
 by default. Native Centered HUD corrects the main HUD and menus before D3D11 or
-D3D12, but map and Codec auxiliary content can remain compressed. Closing the
+D3D12; alpha.7 adds guarded pause-map, live Codec and Mission Briefing fixes.
+Coverage is limited to verified routes, so other content can still expose
+exceptions. Closing the
 game and disabling an
 experimental switch is sufficient to return to the reference behavior;
 `v0.3.3-alpha.1` remains available as an older fallback.

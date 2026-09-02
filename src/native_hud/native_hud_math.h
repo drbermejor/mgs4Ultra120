@@ -117,6 +117,27 @@ constexpr Fixed16HorizontalRange expanded_fixed16_x(const Canvas& canvas) {
     return {left, right - left, right};
 }
 
+// Expand an already-centered signed 16.4 X coordinate by the inverse of the
+// safe-area factor. This is used by auxiliary UI surfaces which accidentally
+// receive the centered-HUD horizontal contraction twice. The division rounds
+// to nearest, with exact half cases away from zero, so negative and positive
+// coordinates remain symmetric around the supplied centre.
+constexpr std::int64_t divide_nearest_signed(std::int64_t numerator,
+                                             std::int64_t denominator) {
+    if (denominator <= 0) return numerator;
+    return numerator >= 0
+        ? (numerator + denominator / 2) / denominator
+        : -((-numerator + denominator / 2) / denominator);
+}
+
+constexpr std::int64_t expand_fixed16_x_around(
+    std::int32_t value, std::int32_t centre, const Canvas& canvas) {
+    if (!canvas.active()) return value;
+    return static_cast<std::int64_t>(centre) + divide_nearest_signed(
+        (static_cast<std::int64_t>(value) - centre) * canvas.output_width,
+        canvas.safe_width);
+}
+
 // Re-map a rectangle that is already expressed in output pixels into the
 // centered safe canvas.  This is used by native UI producers which bypass the
 // game's 1280x720 layout converter (subtitles and movie surfaces).
@@ -134,6 +155,15 @@ constexpr std::int32_t physical_width(std::int32_t value,
     return static_cast<std::int32_t>(
         static_cast<std::int64_t>(value) * canvas.safe_width /
         canvas.output_width);
+}
+
+// An auxiliary render-target constructor has no X coordinate to remap.  Its
+// width still needs exactly the horizontal safe-area factor so its camera and
+// viewport retain the original 16:9 aspect.  Invalid inputs are deliberately
+// returned unchanged by the caller rather than being coerced here.
+constexpr std::int32_t auxiliary_safe_width(std::int32_t value,
+                                            const Canvas& canvas) {
+    return physical_width(value, canvas);
 }
 
 // Fit an already-physical auxiliary render rectangle into the centered safe

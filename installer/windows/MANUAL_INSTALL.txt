@@ -31,8 +31,9 @@ Close the game before editing either INI.
   ExperimentalCinematicFOV=1. Keep CinematicFOVMultiplier=inherit to use the
   gameplay value, or enter a separate finite value of 0.500 or greater.
 - Native Centered HUD: in mgs4_native_centered_hud.ini set Enabled=1. The main
-  HUD and menus are centered before D3D11/D3D12, but map and Codec auxiliary
-  content can remain horizontally compressed.
+  HUD and menus are centered before D3D11/D3D12. Guarded fixes cover the
+  verified pause map, live Codec feed and Mission Briefing compositors, but
+  untested content can still expose exceptions.
 
 To return to the reference behavior, set ExperimentalCinematicFOV=0 and
 Enabled=0. The HUD ASI may remain installed: when disabled it exits without

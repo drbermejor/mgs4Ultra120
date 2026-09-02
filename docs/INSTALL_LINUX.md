@@ -19,9 +19,11 @@ CinematicFOVMultiplier=1.100
 Pre-rendered videos are unaffected. Expanded framing can reveal characters,
 objects or animation transitions earlier than the original shot intended.
 Native Centered HUD is disabled by default and works before D3D11/D3D12. The
-main HUD, menus, subtitles and guarded inventory previews are centered, but map
-and Codec auxiliary content can remain horizontally compressed. Proton visual
-validation is pending, so enable it only if you accept those limitations.
+main HUD, menus, subtitles and guarded inventory previews are centered. The
+verified pause map, live Codec feed and Mission Briefing compositors also have
+targeted corrections. Proton visual validation is pending and coverage outside
+the verified routes is not claimed, so enable it only if you accept those
+limitations.
 
 Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
 the supported Steam executable. Other Proton versions may work but have not

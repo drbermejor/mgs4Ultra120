@@ -4,7 +4,7 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
-> **Public alpha.** `v0.3.4-alpha.6` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.7` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -15,10 +15,11 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > **Native Centered HUD warning.** The old renderer-level HUD experiment has
 > been removed and replaced by an earlier native-layout correction. The main
 > HUD, menus, subtitles and guarded inventory previews now center much more
-> consistently, but map and Codec auxiliary content can still look
-> horizontally compressed. The option remains **experimental and disabled by
-> default**. Disabling it does not affect ultrawide, FOV, FPS, supersampling or
-> the reticle fix.
+> consistently. Alpha.7 also corrects the verified pause-map stream, live
+> Codec render target and Mission Briefing compositors. The option remains
+> **experimental and disabled by default** because coverage is deliberately
+> limited to exact observed routes. Disabling it does not affect ultrawide,
+> FOV, FPS, supersampling or the reticle fix.
 
 ## What the Windows release installs
 
@@ -59,7 +60,8 @@ unlock implementation.
 - Real-time cinematic FOV and Native Centered HUD are included as separate
   disabled options. The cinematic multiplier can inherit gameplay FOV or use
   an independent value. Native Centered HUD works on native layout data rather
-  than graphics-API draws; map and Codec auxiliary content remain known gaps.
+  than graphics-API draws. Its pause-map, live Codec and Mission Briefing
+  corrections use exact native identities and fail closed on unknown states.
 - Disabling `ExperimentalCinematicFOV` and the Native Centered HUD `Enabled`
   switch restores the reference rendering behavior without reinstalling. The
   HUD companion exits before installing any hooks while disabled.
@@ -104,7 +106,7 @@ Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
 
 ![Undistorted WeaponWindow at 3440x1440](docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png)
 
-### Experimental Native Centered HUD (`v0.3.4-alpha.6`)
+### Experimental Native Centered HUD (`v0.3.4-alpha.7`)
 
 The current native-layout path keeps gameplay widgets in a centered 16:9 safe
 area while the 3D scene continues to use the full ultrawide output.
@@ -113,23 +115,32 @@ area while the 3D scene continues to use the full ultrawide output.
 
 ![Native Centered HUD during 3440x1440 gameplay](docs/images/v0.3.4-alpha.6-native-centered-hud-gameplay.jpg)
 
-**Known map limitation**
+**Corrected pause map**
 
-The menu frame is centered, but the map content inside it is still compressed.
+The map plane and its live markers retain their intended aspect inside the
+centered menu. The surrounding legend follows the normal centered layout.
 
-![Centered pause menu with compressed map content](docs/images/v0.3.4-alpha.6-native-centered-hud-map-limitation.jpg)
+![Correctly proportioned pause map inside the centered menu](docs/images/v0.3.4-alpha.7-native-centered-hud-map.png)
 
-**Known Codec limitation**
+**Corrected Codec live feed**
 
-The Codec frame and controls are centered, but its auxiliary scene/content is
-still compressed.
+The observed in-engine Codec feed now uses the same 16:9 aspect as its centered
+frame and controls. Static/prerendered content already follows that frame.
 
-![Centered Codec frame with compressed auxiliary content](docs/images/v0.3.4-alpha.6-native-centered-hud-codec-limitation.jpg)
+![Correctly proportioned live Codec feed](docs/images/v0.3.4-alpha.7-native-centered-hud-codec.png)
+
+**Corrected Mission Briefing composition**
+
+The verified briefing root, persistent view rectangles and four auxiliary
+surfaces are fitted into the centered safe canvas while full-output clears are
+left untouched.
+
+![Mission Briefing fitted into the centered safe canvas](docs/images/v0.3.4-alpha.7-native-centered-hud-briefing.jpg)
 
 ## Windows downloads
 
 Use the
-[latest v0.3.4-alpha.6 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.6)
+[latest v0.3.4-alpha.7 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.7)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -159,8 +170,9 @@ their physical output resolution. See
 
 The real-time cinematic FOV and Native Centered HUD are also disabled by
 default. Native HUD centering is substantially more complete than the removed
-renderer-level experiment, but map and Codec auxiliary content can remain
-horizontally compressed. Leave it disabled unless you accept those gaps.
+renderer-level experiment, including guarded map, live Codec and Mission
+Briefing fixes. Leave it disabled unless you accept that untested acts,
+languages, content types and transitions can still expose exceptions.
 If either experiment causes a problem, close the game and disable that option.
 For a complete known fallback, the previous
 [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)
@@ -221,7 +233,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.4-alpha.6` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.7` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`

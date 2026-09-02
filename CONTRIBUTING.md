@@ -21,6 +21,14 @@ Follow [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Keep the build reproducible,
 format new code consistently with the surrounding source, and explain any new
 RVA or signature in `docs/TECHNICAL.md`.
 
+## AI-assisted tools
+
+AI-assisted tools may be used for research, drafting and code review. They do
+not replace maintainer responsibility. Every contribution, regardless of how
+it was produced, must be reviewed for correctness and licensing, pass the
+project's automated checks, and complete the applicable in-game validation.
+Do not commit chat transcripts, prompts or internal working notes.
+
 ## Testing checklist
 
 - Install and uninstall leave pre-existing proxy DLLs and INI files intact.

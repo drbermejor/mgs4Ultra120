@@ -105,7 +105,7 @@ Report the GPU, driver version, monitor resolutions/scaling, HDR/G-SYNC state
 and whether the symptom also occurs after uninstalling the patch. A desktop
 screenshot may not capture a scan-out/VRR fault, so a phone video is useful.
 
-The ASI release completed 20 confirmed automated focus changes and the user's
+The ASI release completed 20 confirmed automated focus changes and a
 subsequent manual focus test without an apparent recurrence. G-SYNC was still
 disabled during the automated run. Treat this as an acceptance result, not a
 universal guarantee for every driver/display pipeline.

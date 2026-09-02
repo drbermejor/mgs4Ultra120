@@ -13,11 +13,11 @@ desktop-resolution change.
 ## Aspect-ratio regression fixed
 
 The first alpha.6 package enabled an early camera/frustum rewrite that was not
-present in the alpha.5 ASI actually distributed. A user correctly reported that
-it made characters look unnaturally tall and thin with supersampling both on
-and off. Native Windows A/B testing reproduced the difference. The early hook
-has been removed and the visually validated alpha.5 renderer projection path is
-restored. FOV 1.150 and natural character proportions were confirmed in game.
+present in the alpha.5 ASI actually distributed. It made characters look
+unnaturally tall and thin with supersampling both on and off. Native Windows
+A/B testing reproduced the difference. The early hook has been removed and the
+visually validated alpha.5 renderer projection path is restored. FOV 1.150 and
+natural character proportions were confirmed in game.
 
 This correction also fixes the release record: synchronized CPU culling and
 continuous FOV through extreme close-ups are not claimed by the current binary.

@@ -76,11 +76,10 @@ secondary at 150% scaling. G-SYNC and Auto HDR were disabled.
   Windows reliability/display record.
 - The game and wrapper closed normally through `WM_CLOSE`.
 
-The user subsequently completed the manual focus-change validation without an
-apparent recurrence and accepted the ASI architecture for the main Windows
-line. This is not
-a full playthrough, and it is not a universal claim for every NVIDIA driver or
-mixed-monitor configuration.
+A subsequent manual focus-change pass completed without an apparent
+recurrence. This supported adopting the ASI architecture for the main Windows
+line. It was not a full playthrough and does not establish compatibility with
+every NVIDIA driver or mixed-monitor configuration.
 
 ## Acceptance status
 

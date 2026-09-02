@@ -303,7 +303,7 @@
   matching loader, configuration and `scripts/MGS4Ultra120.asi` payloads.
 - Simplified unsigned-binary guidance and documented source inspection, local
   compilation, ZIP/CMD setup and copy-only installation as equal choices.
-- Recorded the user's successful manual focus-change validation.
+- Completed a manual focus-change validation pass after the automated checks.
 - Accepted official `launcher_sv` variants that omit the redundant
   `WindowSizeW`/`WindowSizeH` fields when `ResolutionWindowW`/`H` are present.
 - Synchronized every available official display field without inventing absent

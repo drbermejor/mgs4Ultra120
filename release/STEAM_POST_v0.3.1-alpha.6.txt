@@ -2,7 +2,7 @@
 
 MGS4 Ultra120 adds native ultrawide/Hor+ rendering, configurable FOV, controller-profile correction and optional corrected 120 FPS support to the Steam PC version of MGS4.
 
-Alpha.6 has been updated after a user reported incorrect character proportions.
+Alpha.6 has been updated to correct improper character proportions.
 
 The first alpha.6 build enabled an early camera correction that could make characters look unnaturally tall and thin. This happened with supersampling both enabled and disabled. That path has now been removed, and the validated alpha.5 rendering/FOV behaviour has been restored.
 

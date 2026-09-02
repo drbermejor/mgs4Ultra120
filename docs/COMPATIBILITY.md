@@ -32,7 +32,7 @@ at physical 3440x1440/60. DWM measured the primary frame at exactly
 2752x1152. Ten cross-monitor focus cycles (20 confirmed foreground changes)
 passed with the game responding, clean physical captures, no new dump and no
 new reliability/display event. G-SYNC remained disabled during that automated
-run. The user later completed manual focus-change testing without an apparent
+run. A subsequent manual focus-change pass completed without an apparent
 recurrence; this still does not establish a universal result for every
 driver/display setup.
 

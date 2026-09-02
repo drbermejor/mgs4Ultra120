@@ -57,10 +57,11 @@ Experimental options are off by default. To enable real-time cinematic FOV,
 set `ExperimentalCinematicFOV=1` in `mgs4_ultrawide.ini`; keep
 `CinematicFOVMultiplier=inherit` or enter a separate finite value of at least
 `0.500`. To enable Native Centered HUD, set `Enabled=1` in
-`mgs4_native_centered_hud.ini`. Its verified pause-map, live Codec and Mission
-Briefing corrections are enabled by default with the module, but untested
-content can still expose exceptions. Set both switches back to `0` while the game is closed
-to restore the reference behavior.
+`mgs4_native_centered_hud.ini`. Its pause-map correction and partial live Codec
+and Mission Briefing adjustments are enabled by default with the module. The
+live Codec 3D feed can remain compressed, briefing text can overflow, and
+untested content can expose additional exceptions. Set both switches back to
+`0` while the game is closed to restore the reference behavior.
 
 To remove a purely manual installation, close the game and delete only files
 you personally copied. Never delete a pre-existing loader belonging to another

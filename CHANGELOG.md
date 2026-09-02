@@ -4,22 +4,27 @@
 
 - Corrected the verified pause-map plane and its live markers without changing
   the surrounding centered menu or legend.
-- Corrected the exact auxiliary render target used by the observed live
-  in-engine Codec feed; static/prerendered Codec content keeps the normal
-  centered path.
-- Corrected the verified Mission Briefing UI root, persistent owner rectangles
-  and four child surfaces while leaving full-output clears untouched.
+- Added a guarded adjustment for the exact auxiliary render target used by the
+  observed live in-engine Codec feed. The outer frame and static/prerendered
+  content center correctly, but live 3D content can remain horizontally
+  compressed.
+- Added guarded adjustments for the observed Mission Briefing UI root,
+  persistent owner rectangles and four child surfaces while leaving full-output
+  clears untouched. Control and ticker text can still overflow the safe canvas.
 - Added strict caller, resource, allocation, topology and coordinate-domain
   guards. Unknown or changed states fall back to the alpha.6 native-layout
   behavior instead of receiving a guessed correction.
 - Added independent INI switches for the pause map, live Codec feed and Mission
   Briefing. Windows and Linux updates preserve explicit values and add safe
   defaults for the new keys.
-- Replaced the former limitation screenshots with current 3440x1440 map, Codec
-  and Mission Briefing captures.
+- Replaced the former limitation screenshots with current 3440x1440 captures.
+  These document the corrected pause map and the remaining Codec and Mission
+  Briefing limitations.
 - Kept Native Centered HUD experimental and disabled by default. Native Windows
-  validation is limited to observed states; Proton visuals, other acts,
-  languages, Codec content and briefing transitions remain non-exhaustive.
+  validation is limited to observed states; the live Codec feed can remain
+  compressed and Mission Briefing text can overflow. Proton visuals, other
+  acts, languages, Codec content and briefing transitions remain
+  non-exhaustive.
 - Preserved the existing ultrawide, native/cinematic FOV, supersampling,
   high-resolution reticle, controller, direct-launch and corrected-FPS paths.
 

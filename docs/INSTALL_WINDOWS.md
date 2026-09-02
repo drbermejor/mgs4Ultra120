@@ -90,9 +90,10 @@ profile fix**, and save. Manual users can set `ControllerProfileFixEnabled=1`
 under `[Input]` in `mgs4_ultrawide.ini`.
 Real-time cinematic FOV, Native Centered HUD and supersampling remain disabled
 by default. Native Centered HUD corrects the main HUD and menus before D3D11 or
-D3D12; alpha.7 adds guarded pause-map, live Codec and Mission Briefing fixes.
-Coverage is limited to verified routes, so other content can still expose
-exceptions. Closing the
+D3D12; alpha.7 adds a guarded pause-map correction plus partial live Codec and
+Mission Briefing adjustments. The live Codec 3D feed can remain compressed and
+briefing text can overflow. Coverage is limited to observed routes, so other
+content can expose additional exceptions. Closing the
 game and disabling an
 experimental switch is sufficient to return to the reference behavior;
 `v0.3.3-alpha.1` remains available as an older fallback.

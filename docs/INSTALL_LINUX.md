@@ -20,10 +20,11 @@ Pre-rendered videos are unaffected. Expanded framing can reveal characters,
 objects or animation transitions earlier than the original shot intended.
 Native Centered HUD is disabled by default and works before D3D11/D3D12. The
 main HUD, menus, subtitles and guarded inventory previews are centered. The
-verified pause map, live Codec feed and Mission Briefing compositors also have
-targeted corrections. Proton visual validation is pending and coverage outside
-the verified routes is not claimed, so enable it only if you accept those
-limitations.
+verified pause map has a targeted correction; the live Codec and Mission
+Briefing paths have partial guarded adjustments. The live Codec 3D feed can
+remain compressed and briefing text can overflow. Proton visual validation is
+pending and coverage outside the observed routes is not claimed, so enable it
+only if you accept those limitations.
 
 Validated environment: GE-Proton10-34, DirectX 12, KDE/Wayland, 3440x1440 and
 the supported Steam executable. Other Proton versions may work but have not

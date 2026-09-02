@@ -25,19 +25,23 @@ Enabled=0
   controls remain centered.
 - The pause-map plane and its live markers keep their intended aspect without
   changing the surrounding menu and legend.
-- The verified live in-engine Codec feed uses a corrected auxiliary render
-  width; static/prerendered Codec content keeps the normal centered path.
-- The verified Mission Briefing root, two persistent owner rectangles and four
-  child surfaces are fitted horizontally while full-output clears stay intact.
+- The Codec frame and static/prerendered content keep the normal centered path.
+  A guarded auxiliary-width adjustment is active for the identified live
+  in-engine feed, but that 3D content can remain horizontally compressed.
+- The observed Mission Briefing root, two persistent owner rectangles and four
+  child surfaces receive guarded horizontal adjustments while full-output
+  clears stay intact. This does not yet contain all control and ticker text.
 - The implementation is graphics-API independent and reads the live render
   dimensions, so it does not store a hard-coded 3440x1440 canvas.
 
 ## Known limitations
 
-- The live Codec correction was validated on the identified in-engine feed;
-  other Codec content types have not all been exercised.
-- Mission Briefing normal composition was validated, but alternate ticker,
-  help, fade and chapter-specific states are not exhaustively covered.
+- The live Codec 3D feed can remain horizontally compressed even though its
+  outer frame is centered. Other Codec content types have not all been
+  exercised.
+- Mission Briefing control and ticker text can overflow or be clipped by the
+  safe canvas. Alternate help, fade and chapter-specific states are not
+  exhaustively covered.
 - The Drebin Shop preview route is guarded in code but has not been
   independently validated live.
 - Original 16:9 title artwork may remain pillarboxed by design.

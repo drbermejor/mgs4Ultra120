@@ -15,8 +15,11 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > **Native Centered HUD warning.** The old renderer-level HUD experiment has
 > been removed and replaced by an earlier native-layout correction. The main
 > HUD, menus, subtitles and guarded inventory previews now center much more
-> consistently. Alpha.7 also corrects the verified pause-map stream, live
-> Codec render target and Mission Briefing compositors. The option remains
+> consistently. Alpha.7 corrects the verified pause-map stream and adds guarded
+> experimental adjustments for the live Codec render target and Mission
+> Briefing compositors. The Codec frame is centered, but its live in-engine
+> content can remain horizontally compressed; Mission Briefing control and
+> ticker text can still overflow the safe area. The option remains
 > **experimental and disabled by default** because coverage is deliberately
 > limited to exact observed routes. Disabling it does not affect ultrawide,
 > FOV, FPS, supersampling or the reticle fix.
@@ -60,8 +63,9 @@ unlock implementation.
 - Real-time cinematic FOV and Native Centered HUD are included as separate
   disabled options. The cinematic multiplier can inherit gameplay FOV or use
   an independent value. Native Centered HUD works on native layout data rather
-  than graphics-API draws. Its pause-map, live Codec and Mission Briefing
-  corrections use exact native identities and fail closed on unknown states.
+  than graphics-API draws. Its pause-map correction and partial live Codec and
+  Mission Briefing adjustments use exact native identities and fail closed on
+  unknown states.
 - Disabling `ExperimentalCinematicFOV` and the Native Centered HUD `Enabled`
   switch restores the reference rendering behavior without reinstalling. The
   HUD companion exits before installing any hooks while disabled.
@@ -122,20 +126,23 @@ centered menu. The surrounding legend follows the normal centered layout.
 
 ![Correctly proportioned pause map inside the centered menu](docs/images/v0.3.4-alpha.7-native-centered-hud-map.png)
 
-**Corrected Codec live feed**
+**Centered Codec frame; live-feed limitation remains**
 
-The observed in-engine Codec feed now uses the same 16:9 aspect as its centered
-frame and controls. Static/prerendered content already follows that frame.
+The Codec frame and controls use the centered 16:9 canvas, and static or
+prerendered content follows it. The observed live in-engine 3D feed can still
+remain horizontally compressed. The screenshot below documents that current
+experimental state; it is not evidence of a fully corrected live feed.
 
-![Correctly proportioned live Codec feed](docs/images/v0.3.4-alpha.7-native-centered-hud-codec.png)
+![Centered Codec frame with horizontally compressed live content](docs/images/v0.3.4-alpha.7-native-centered-hud-codec.png)
 
-**Corrected Mission Briefing composition**
+**Partially adjusted Mission Briefing composition**
 
-The verified briefing root, persistent view rectangles and four auxiliary
-surfaces are fitted into the centered safe canvas while full-output clears are
-left untouched.
+The guarded briefing hooks reposition the observed root, persistent view
+rectangles and four auxiliary surfaces while leaving full-output clears
+untouched. The composition is not fully contained: control and ticker text can
+still extend beyond or be clipped by the centered safe canvas.
 
-![Mission Briefing fitted into the centered safe canvas](docs/images/v0.3.4-alpha.7-native-centered-hud-briefing.jpg)
+![Mission Briefing with remaining control-text overflow](docs/images/v0.3.4-alpha.7-native-centered-hud-briefing.jpg)
 
 ## Windows downloads
 
@@ -170,9 +177,11 @@ their physical output resolution. See
 
 The real-time cinematic FOV and Native Centered HUD are also disabled by
 default. Native HUD centering is substantially more complete than the removed
-renderer-level experiment, including guarded map, live Codec and Mission
-Briefing fixes. Leave it disabled unless you accept that untested acts,
-languages, content types and transitions can still expose exceptions.
+renderer-level experiment and includes a verified pause-map correction plus
+guarded, partial Codec and Mission Briefing adjustments. The live Codec 3D feed
+can remain compressed, and briefing text can overflow. Leave it disabled unless
+you accept these and other exceptions in untested acts, languages, content
+types and transitions.
 If either experiment causes a problem, close the game and disable that option.
 For a complete known fallback, the previous
 [`v0.3.3-alpha.1`](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.3-alpha.1)

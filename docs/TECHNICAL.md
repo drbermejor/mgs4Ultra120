@@ -125,10 +125,12 @@ removed. `MGS4NativeCenteredHUD.asi` instead hooks the native 1280x720 layout
 converter plus guarded surface, preview and modal producers before either
 graphics backend receives the UI. This produces a substantially more stable
 main HUD while keeping resolution/FOV ownership separate. Exact additional
-hooks correct the verified pause-map command stream, live Codec auxiliary
-surface and Mission Briefing compositor owners. Each path validates its caller,
-resource, topology and coordinate domain before writing; unknown states keep
-the baseline native-layout result.
+hooks correct the verified pause-map command stream and apply guarded partial
+adjustments to the live Codec auxiliary surface and Mission Briefing compositor
+owners. The latter two do not yet guarantee a visually correct result: live
+Codec 3D content can remain compressed and briefing text can overflow. Each
+path validates its caller, resource, topology and coordinate domain before
+writing; unknown states keep the baseline native-layout result.
 
 ## Direct launcher
 

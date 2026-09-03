@@ -287,6 +287,7 @@ Further reading:
 - [Direct-launch wrapper](docs/LAUNCHER_WRAPPER.md)
 - [UI and video status](docs/UI_AND_VIDEO.md)
 - [Technical notes](docs/TECHNICAL.md)
+- [Patch architecture and game-update playbook](docs/PATCH_ARCHITECTURE.md)
 - [Development and reproducible builds](docs/DEVELOPMENT.md)
 
 MGS4 Ultra120 is MIT-licensed. Third-party components retain their own terms;

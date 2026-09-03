@@ -24,6 +24,10 @@
 #if defined(MGS4ULTRA120_WINMM_PROXY)
 extern "C" FARPROC winmm_proxy_resolve_by_name(const char* name);
 #endif
+// Runtime state is written once by patch_thread before hooks are published.
+// Hook callbacks then treat it as immutable, except for atomic activity
+// counters and the controller-profile latch. Resolution changes update only
+// the game's fields through apply_resolution_state().
 static float g_target_aspect = 43.0f / 18.0f;
 static volatile LONG g_projection_patches;
 static volatile LONG g_extended_projection_patches;
@@ -223,6 +227,10 @@ static void log_line(const char* message) {
 
 static bool create_and_enable_hook(void* target, void* detour, void** original,
                                    const char* name) {
+    // Callers must first validate the supported executable, wait for the
+    // protected target to decrypt, and temporarily grant execute/write access.
+    // Keeping those checks outside this helper makes each hook's expected
+    // bytes visible beside its RVA.
     const MH_STATUS create = MH_CreateHook(target, detour, original);
     const MH_STATUS enable =
         create == MH_OK ? MH_EnableHook(target) : MH_UNKNOWN;
@@ -382,6 +390,10 @@ static void __fastcall hooked_set_resolution(std::uint16_t mode,
 }
 
 static bool supported_executable(std::uintptr_t base) {
+    // This PE tuple selects the only address profile built into this release.
+    // Code hooks additionally validate their decrypted prologues. Data RVAs
+    // cannot be signature-checked, which is why the unsupported-build override
+    // is explicitly unsafe and disabled by default.
     auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
     if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
     auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(base + dos->e_lfanew);
@@ -744,12 +756,17 @@ static void put32(std::uintptr_t base, std::uintptr_t rva, std::uint32_t value) 
 
 static void put_resolution_pair_atomic(std::uintptr_t base, std::uintptr_t rva,
                                        std::uint32_t width, std::uint32_t height) {
+    // The game reads adjacent width/height fields as one state. Publish both in
+    // a single aligned exchange so a render thread cannot observe mixed epochs.
     const LONG64 packed = static_cast<LONG64>(
         (static_cast<std::uint64_t>(height) << 32) | width);
     InterlockedExchange64(reinterpret_cast<volatile LONG64*>(base + rva), packed);
 }
 
 static void apply_resolution_state() {
+    // These are native render-state mirrors, not presentation-window fields.
+    // The display-mode hook calls this after every game-owned mode change; the
+    // startup thread calls it once for the already-created initial state.
     const auto base = g_executable_base;
     const auto width = g_target_width;
     const auto height = g_target_height;
@@ -770,6 +787,12 @@ static void apply_resolution_state() {
 }
 
 static DWORD WINAPI patch_thread(void*) {
+    // Initialization is deliberately phase-ordered:
+    //   1. parse and validate configuration without touching game memory;
+    //   2. gate the executable profile;
+    //   3. install event-driven hooks/patches after protected code decrypts;
+    //   4. publish the initial resolution state and finish.
+    // No maintenance or per-frame polling thread remains after this returns.
     log_line("MGS4 Ultra120 " MGS4ULTRA120_VERSION);
 #if defined(MGS4ULTRA120_ASI)
     log_line("Module layout: MGS4Ultra120.asi loaded by an external ASI loader.");

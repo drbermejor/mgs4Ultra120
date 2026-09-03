@@ -19,7 +19,9 @@ Thank you for helping improve MGS4 Ultra 120.
 
 Follow [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Keep the build reproducible,
 format new code consistently with the surrounding source, and explain any new
-RVA or signature in `docs/TECHNICAL.md`.
+RVA or signature in `docs/TECHNICAL.md`. The maintainer-level component map,
+failure contracts and game-update procedure are in
+[docs/PATCH_ARCHITECTURE.md](docs/PATCH_ARCHITECTURE.md).
 
 ## AI-assisted tools
 

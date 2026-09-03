@@ -6,6 +6,9 @@
 
 namespace mgs4_supersampling {
 
+// Pure boundary between user-facing output resolution and the internal render
+// extent written to MGS4. The checked double-precision calculation prevents a
+// malformed INI value from wrapping the game's 32-bit resolution fields.
 inline bool compute_render_extent(std::uint32_t output_width,
                                   std::uint32_t output_height,
                                   float render_scale,

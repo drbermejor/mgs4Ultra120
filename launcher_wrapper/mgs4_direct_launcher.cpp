@@ -48,6 +48,8 @@ std::string utf8(const std::wstring& value) {
 }
 
 bool safe_token(const std::wstring& value) {
+    // Launcher options become command-line tokens. Restricting their alphabet
+    // avoids quoting ambiguity and prevents an edited INI from adding switches.
     if (value.empty() || value.size() > 16) return false;
     for (wchar_t character : value) {
         const bool allowed = (character >= L'a' && character <= L'z') ||

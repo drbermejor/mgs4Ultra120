@@ -22,6 +22,9 @@ static std::uintptr_t WINAPI unsupported_winmm_export() {
 }
 
 static BOOL CALLBACK initialize_system_winmm(PINIT_ONCE, PVOID, PVOID*) {
+    // Always resolve the genuine library from System32. Loading by bare name
+    // would recurse into this local proxy or allow normal DLL search order to
+    // select an unintended file.
     wchar_t system_directory[MAX_PATH]{};
     const UINT length = GetSystemDirectoryW(system_directory, MAX_PATH);
     if (!length || length + 10 >= MAX_PATH) return FALSE;
@@ -47,6 +50,9 @@ static bool ensure_system_winmm() {
 }
 
 extern "C" FARPROC winmm_proxy_resolve(unsigned index) {
+    // Assembly trampolines pass their generated table index here. A stable
+    // failure stub preserves the export surface even if an OS version omits an
+    // individual function.
     if (ensure_system_winmm() && index < std::size(g_winmm_functions) &&
         g_winmm_functions[index])
         return g_winmm_functions[index];

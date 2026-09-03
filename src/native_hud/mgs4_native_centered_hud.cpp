@@ -153,6 +153,9 @@ using MissionBriefingChildSurfaceFn = std::uintptr_t(__fastcall*)(
     std::int32_t, std::int32_t, std::int32_t, std::int32_t, std::int32_t);
 
 struct Configuration {
+    // Each exceptional producer can be disabled independently. The core layout
+    // conversion remains owned by NativeHUD.Enabled and is never inferred from
+    // these flags.
     bool center_subtitles{true};
     bool center_movies{true};
     bool center_tv_movies{true};
@@ -315,6 +318,8 @@ void load_configuration() {
 }
 
 Canvas current_canvas() {
+    // Width and height are separate native globals. Double-sampling avoids
+    // constructing a safe canvas from values that straddle a mode change.
     const auto* width_ptr = reinterpret_cast<volatile const std::int32_t*>(
         g_base + kRenderWidthRva);
     const auto* height_ptr = reinterpret_cast<volatile const std::int32_t*>(
@@ -364,6 +369,9 @@ std::uint8_t write_centered_layout(std::uintptr_t object, std::int32_t x,
                                    std::int32_t y, std::int32_t width,
                                    std::int32_t height,
                                    const Canvas& canvas) {
+    // Reimplement the native converter from the current call arguments. This
+    // avoids a saved-rectangle lookup and leaves no original/corrected write
+    // window for another thread to observe.
     std::uint8_t changed = 0;
     changed += set_field(object, 0x200,
                          mgs4::native_hud::logical_x(x, canvas));
@@ -384,6 +392,9 @@ std::uint8_t write_centered_layout(std::uintptr_t object, std::int32_t x,
 
 std::uint8_t write_logical_root_layout(std::uintptr_t object,
                                        const Canvas& canvas) {
+    // Full 1280x720 roots keep an output-sized physical viewport. Widening the
+    // logical X range makes ordinary children land in the centered 16:9 band
+    // while still allowing positively identified backgrounds to cover output.
     const auto logical =
         mgs4::native_hud::expanded_logical_canvas(canvas);
     std::uint8_t changed = 0;
@@ -408,6 +419,9 @@ bool is_full_logical_canvas(std::int32_t x, std::int32_t y,
 std::uint8_t __fastcall hooked_layout(std::uintptr_t object, std::int32_t x,
                                       std::int32_t y, std::int32_t width,
                                       std::int32_t height) {
+    // Default policy: center every safe native layout call. Exact semantic
+    // identities below opt special roots into a different mapping only when
+    // their dedicated correction hooks are available.
     if (!object) return g_original_layout(object, x, y, width, height);
     const Canvas canvas = current_canvas();
     if (!canvas.active())
@@ -465,6 +479,9 @@ bool fits_u16(std::int32_t value) {
 std::uint8_t* __fastcall hooked_physical_rect(
     std::uint8_t* destination, std::uint16_t x, std::uint16_t y,
     std::uint16_t width, std::uint16_t height) {
+    // Subtitles and movie surfaces bypass the 1280x720 layout converter and
+    // arrive in output pixels. Caller allowlisting prevents this physical
+    // remap from affecting unrelated rectangles emitted by the same routine.
     const std::uint32_t caller =
         to_caller_rva(
             reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
@@ -488,6 +505,9 @@ std::uint8_t* __fastcall hooked_physical_rect(
 std::uintptr_t __fastcall hooked_auxiliary_surface_factory(
     std::uint32_t type, std::uint32_t resource, std::uint32_t width,
     std::uint32_t height) {
+    // The realtime Codec feed owns a separate render target. Correcting that
+    // target's width once prevents the already-centered panel from applying
+    // the safe-area contraction a second time to its live 3D contents.
     const std::uint32_t caller =
         to_caller_rva(
             reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
@@ -587,6 +607,9 @@ void write_mission_briefing_horizontal_fields(
 
 std::uint64_t __fastcall hooked_mission_briefing_init(
     std::uintptr_t owner, std::uint32_t flags) {
+    // The original constructor must populate both rectangles first. Validate
+    // the complete pair before changing horizontal fields so transient or
+    // unknown owner layouts remain wholly game-owned.
     const std::uint64_t result =
         g_original_mission_briefing_init(owner, flags);
     if (!g_config.correct_mission_briefing_aspect || !owner ||
@@ -634,6 +657,9 @@ std::uint64_t __fastcall hooked_mission_briefing_init(
 std::uintptr_t __fastcall hooked_mission_briefing_child_surface(
     std::int32_t x, std::int32_t y, std::int32_t width,
     std::int32_t height, std::int32_t index) {
+    // Four child surfaces form the other half of the briefing compositor. This
+    // hook is installed atomically with the owner hook below; exact caller,
+    // index and geometry guards reject unrelated users of the shared routine.
     const std::uint32_t caller =
         to_caller_rva(
             reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
@@ -707,6 +733,8 @@ bool is_inventory_preview_caller(std::uint32_t caller) {
 std::uint64_t __fastcall hooked_semantic_owner_rect(
     std::uint64_t handle, std::int32_t left, std::int32_t top,
     std::int32_t right, std::int32_t bottom) {
+    // Inventory previews are semantic rectangles rather than ordinary HUD
+    // nodes. Uniform X/Y scaling preserves their aspect inside the safe band.
     const std::uint32_t caller =
         to_caller_rva(
             reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
@@ -752,6 +780,9 @@ bool parent_uses_expanded_logical_root(std::uintptr_t parent,
 
 bool map_command_stream_matches(std::uintptr_t self,
                                 std::array<std::int16_t, 16>& source_x) {
+    // Treat the pause map as a typed native command stream, not as an arbitrary
+    // memory block. Opcode topology, internal pointers, colours, UVs and both
+    // duplicate vertex batches must all agree before any coordinate is usable.
     if (!self) return false;
     const auto opcode = [self](std::uintptr_t offset, std::uint8_t expected) {
         return read_unaligned<std::uint8_t>(self + offset) == expected;
@@ -840,6 +871,9 @@ bool map_command_stream_matches(std::uintptr_t self,
 }
 
 std::uint64_t __fastcall hooked_map_command_builder(std::uintptr_t self) {
+    // The map vertices have already received the general HUD contraction. Undo
+    // exactly that extra X factor around the map's authored centre. Source and
+    // canvas are revalidated immediately before the bounded write loop.
     const std::uint32_t caller =
         to_caller_rva(
             reinterpret_cast<std::uintptr_t>(MGS4_RETURN_ADDRESS()));
@@ -930,6 +964,8 @@ bool is_verified_fullscreen_solid(std::uint32_t resource,
                                   std::uint32_t raw_item_index,
                                   std::uint32_t identity_seed_key,
                                   std::uint32_t identity_seed_raw_item) {
+    // Fullscreen expansion is an allowlist of observed semantic identities.
+    // Matching dimensions alone would also expand ordinary panels and tints.
     return std::any_of(kVerifiedFullscreenSolids.begin(),
                        kVerifiedFullscreenSolids.end(),
                        [&](const VerifiedFullscreenSolid& solid) {
@@ -1075,6 +1111,9 @@ std::uint32_t find_raw_layer_item(NodeTraversalContext& context,
 std::uintptr_t __fastcall hooked_native_node_dispatcher(
     std::uintptr_t parent, std::uintptr_t chain, std::uintptr_t node,
     std::uintptr_t auxiliary) {
+    // The dispatcher supplies provenance that the solid-node handler cannot
+    // recover from geometry alone: raw layer ordinal and the immediately
+    // preceding identity transform. Thread-local scopes preserve nested calls.
     if (!parent || !node) {
         return g_original_native_node_dispatcher(parent, chain, node,
                                                  auxiliary);
@@ -1162,6 +1201,9 @@ void rollback_hooks(const HookSpec* hooks, std::size_t count) {
 }
 
 bool create_and_enable_group(const HookSpec* hooks, std::size_t count) {
+    // A group is transactional from the game's point of view: create every
+    // trampoline first, queue every enable, then publish with one apply. Any
+    // failure disables and removes the whole set.
     std::size_t created = 0;
     for (; created < count; ++created) {
         void* target = reinterpret_cast<void*>(g_base + hooks[created].rva);
@@ -1253,6 +1295,9 @@ bool install_mission_briefing_hooks() {
 }
 
 DWORD WINAPI install_late_hooks(void*) {
+    // Steam's protected image reveals these functions after the core layout
+    // path. Poll only during bounded initialization, installing each optional
+    // feature once; this worker exits and performs no frame-time maintenance.
     int preview_state = 0;  // 0 waiting, 1 installed, -1 failed
     int modal_state = 0;
     int map_state = g_config.correct_pause_map_aspect ? 0 : 1;
@@ -1355,6 +1400,9 @@ DWORD WINAPI install_late_hooks(void*) {
 }
 
 DWORD WINAPI initialize(void*) {
+    // Fail closed before creating any hook: resolve paths, require explicit
+    // enablement, reject duplicate ASIs, gate the PE profile, and wait for the
+    // two mandatory native UI routines. Optional producers are added later.
     if (!resolve_paths()) return 0;
     DeleteFileW(g_log_path);
     log_line("---- MGS4 Ultra120 native centered HUD ----");

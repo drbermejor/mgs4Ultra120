@@ -18,11 +18,11 @@ inside the extracted manual folder into the folder that directly contains
 ## Add corrected 120 FPS manually
 
 1. Download `MGSFPSUnlock.zip` from the official
-   [MGSFPSUnlock 0.1.0 release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
-2. Open the ZIP and enter `MGSFPSUnlock\scripts`.
+   [MGSFPSUnlock 0.1.3 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3).
+2. Open the ZIP and enter its top-level `scripts` folder.
 3. Copy only `MGSFPSUnlock.asi` and `MGSFPSUnlock.ini` to `MGS4\scripts`.
-4. Do not copy the external package's `d3d11.dll`, `winhttp.dll` or
-   `wininet.dll`; `winmm.dll` already loads both ASIs.
+4. Do not copy the external package's `winmm.dll` or `wininet.dll`; the MGS4
+   Ultra120 `winmm.dll` already loads both ASIs.
 5. Open `MGS4\scripts\MGSFPSUnlock.ini` and confirm:
 
    ```ini
@@ -31,6 +31,12 @@ inside the extracted manual folder into the folder that directly contains
    ```
 
 6. Launch normally through Steam.
+
+Back up both MGSFPSUnlock files before replacing an older version. Easy Setup
+currently pins upstream version 0.1.0 for its automated, hash-verified path. To
+keep a manually installed 0.1.3 copy during later MGS4 Ultra120 updates, leave
+**Install / update improved 120 FPS support** unchecked. The unchecked option
+does not delete the manual copy.
 
 Final layout:
 

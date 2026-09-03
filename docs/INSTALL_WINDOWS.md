@@ -16,10 +16,12 @@ an optional additive component supplied by
 5. Keep the recommended values and click **Save and close**.
 6. Launch normally through Steam.
 
-The 120 option downloads MGSFPSUnlock 0.1.0 from its official GitHub release
-and rejects it unless both pinned SHA-256 checks pass. If download fails, the
-core remains installed and the setup reports that 120 was skipped; retry later
-without reinstalling the game.
+The 120 option currently downloads the separately maintained MGSFPSUnlock 0.1.0
+package from its official GitHub release and rejects it unless both pinned
+SHA-256 checks pass. This is a validated integration pin, not a claim that
+0.1.0 is the newest upstream release. If download fails, the core remains
+installed and the setup reports that 120 was skipped; retry later without
+reinstalling the game.
 
 Clearing the 120 FPS box skips installation or update; it does not delete a
 copy that is already present. Use this project's uninstaller for a managed
@@ -58,11 +60,16 @@ MGS4\scripts\MGS4Ultra120.asi
 MGS4\scripts\MGS4NativeCenteredHUD.asi
 ```
 
-For corrected 120 FPS, download the official
-[MGSFPSUnlock 0.1.0 ZIP](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0)
-and copy only `MGSFPSUnlock.asi` plus `MGSFPSUnlock.ini` from its `scripts`
-folder into `MGS4\scripts`. Do not copy its alternative proxy DLLs because
-`winmm.dll` already loads both plugins.
+For corrected 120 FPS, download `MGSFPSUnlock.zip` from Cipherxof's current
+[official MGSFPSUnlock 0.1.3 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3).
+Open the archive's `scripts` folder and copy only `MGSFPSUnlock.asi` plus
+`MGSFPSUnlock.ini` into `MGS4\scripts`. Do not copy the archive's `winmm.dll`
+or `wininet.dll`; the MGS4 Ultra120 `winmm.dll` already loads both ASIs.
+
+Back up the two MGSFPSUnlock files before replacing an older version. To retain
+a manually installed 0.1.3 copy during a later guided MGS4 Ultra120 update,
+leave **Install / update improved 120 FPS support** unchecked. That choice skips
+the currently pinned 0.1.0 download and does not remove the manual copy.
 
 The copy-only route does not replace the Unity launcher. Most Steam clients can
 approve its normal child launch, but if it returns to the launcher and repeats

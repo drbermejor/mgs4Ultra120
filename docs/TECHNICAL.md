@@ -57,9 +57,13 @@ PS3 addresses are research references and are not copied into the PC hook.
 
 ## Frame rate ownership
 
-The current Windows MGS4Ultra120 ASI does not write the frame-limit field and
-does not register an FPS hotkey. Legacy FPS keys remain in the root INI only for
-safe migration and are forced off by setup.
+The first MGS4 Ultra120 implementation used a limited single-value FPS override.
+I retired that implementation rather than presenting it as equivalent to the
+more extensive, FPS-focused work in
+[MGSFPSUnlock by Cipherxof](https://github.com/cipherxof/MGSFPSUnlock). The
+current Windows MGS4Ultra120 ASI does not write the frame-limit field and does
+not register an FPS hotkey. Legacy FPS keys remain in the root INI only for safe
+migration and are forced off by setup.
 
 Optional corrected high-frame-rate support is delegated to the independent
 `cipherxof/MGSFPSUnlock` ASI. Its MGS4 implementation locates code by validated
@@ -68,7 +72,13 @@ character tick, polygon demos, wind, SPURS tasks, cloth, hair/bandana, rigid
 body physics and ragdoll contact velocity. Its independent INI contains the
 persistent target, normally 120. Guided setup verifies the official 0.1.0
 archive and ASI hashes before placing only those two upstream files in
-`scripts`.
+`scripts`. MGS4 Ultra120 provides installer and configurator integration only;
+the FPS patch, implementation decisions and FPS-specific hooks remain
+Cipherxof's work. The exact upstream package is linked in the
+[official MGSFPSUnlock 0.1.0 release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
+That version is the current validated automation pin, not the newest upstream
+release. Manual Windows installation of upstream 0.1.3 is documented in
+[Windows installation](INSTALL_WINDOWS.md#manual-zip).
 
 ## Controller profile
 

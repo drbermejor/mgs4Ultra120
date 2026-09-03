@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Made ownership of the current FPS implementation prominent: the original
+  limited MGS4 Ultra120 override was retired, and the corrected high-frame-rate
+  patch and its FPS-specific timing hooks are Cipherxof's independent
+  MGSFPSUnlock work.
+- Added direct upstream source and release links plus explicit confirmation
+  that MGS4 Ultra120 does not repackage or claim authorship of MGSFPSUnlock.
+- Documented manual Windows installation of the current upstream 0.1.3 pre-release
+  while clearly distinguishing it from Easy Setup's validated 0.1.0 pin.
+
 ## v0.3.4-alpha.7 - Native interface coverage
 
 - Corrected the verified pause-map plane and its live markers without changing

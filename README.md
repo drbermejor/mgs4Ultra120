@@ -4,6 +4,19 @@ Open-source ultrawide, FOV and controller-profile fixes for the Steam PC port
 of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 [cipherxof/MGSFPSUnlock](https://github.com/cipherxof/MGSFPSUnlock).
 
+> **FPS implementation and credit.** The current high-frame-rate patch is
+> [MGSFPSUnlock by Cipherxof](https://github.com/cipherxof/MGSFPSUnlock), not an
+> MGS4 Ultra120 implementation. I retired my original, limited single-value FPS
+> override in favor of Cipherxof's substantially more comprehensive and focused
+> timing work. All optional FPS-specific hooks installed by Easy Setup come
+> from that independent project. MGS4 Ultra120 only provides setup and
+> configuration integration; it does not bundle or claim authorship of the FPS
+> patch. The guided path currently uses a separately downloaded and verified
+> `0.1.0` package, while manual Windows users can install the current upstream
+> [`0.1.3` pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3).
+> Full credit for the FPS component belongs to Cipherxof, with my thanks for
+> making the work publicly available.
+
 > **Public alpha.** `v0.3.4-alpha.7` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
@@ -33,22 +46,23 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 | `mgs4_ultrawide.ini` | Shared MGS4Ultra120 settings |
 | `scripts/MGS4NativeCenteredHUD.asi` | Optional experimental native 16:9 HUD correction |
 | `mgs4_native_centered_hud.ini` | Independent HUD switch; disabled by default |
-| `scripts/MGSFPSUnlock.asi` | Corrected high-frame-rate implementation by cipherxof |
-| `scripts/MGSFPSUnlock.ini` | Persistent FPS target; defaults to 120 |
+| `scripts/MGSFPSUnlock.asi` | Independent high-frame-rate patch by Cipherxof; downloaded from its official release |
+| `scripts/MGSFPSUnlock.ini` | Upstream FPS target; configured by Easy Setup and defaulted to 120 |
 
-Our old single-value FPS override is disabled and no longer writes the game's
-FPS state. MGSFPSUnlock owns frame-rate timing and supplies separate fixes for
-camera movement, character control, polygon demos, physics, ragdolls, cloth,
-hair/bandana, wind and SPURS tasks. This avoids two plugins fighting over the
-same setting.
+I discarded the original MGS4 Ultra120 single-value FPS override. The current
+MGS4 Ultra120 ASI no longer writes the game's FPS state or registers an FPS
+hotkey. MGSFPSUnlock exclusively owns the optional high-frame-rate timing and
+supplies separate fixes for camera movement, character control, polygon demos,
+physics, ragdolls, cloth, hair/bandana, wind and SPURS tasks. This prevents two
+plugins from competing over the same state.
 
 MGSFPSUnlock is an independent source-published project. Because its repository
 currently does not declare a redistribution license, its binary is **not
-repackaged** in our downloads. Guided setup downloads version 0.1.0 directly
+repackaged** in MGS4 Ultra120 downloads. Guided setup downloads version 0.1.0 directly
 from its official GitHub release, requires the pinned archive and ASI SHA-256
-values to match, and installs only its ASI and INI. Thank you to
-[cipherxof](https://github.com/cipherxof) for the substantially improved FPS
-unlock implementation.
+values to match, and installs only its ASI and INI. See the
+[upstream source](https://github.com/cipherxof/MGSFPSUnlock) and
+[official package pinned by Easy Setup](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
 
 ## Rendering status
 
@@ -152,12 +166,12 @@ and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
    uninstall. It requires internet access once to fetch the verified
-   MGSFPSUnlock 0.1.0 package.
+   MGSFPSUnlock 0.1.0 package currently pinned by Easy Setup.
 2. **Portable ZIP** — extract it, then run `MGS4Ultra120-Setup.cmd`. It provides
    the same guided installation without registering a persistent application.
-3. **Manual ZIP** — the most transparent copy-only route. It runs no script,
-   but corrected 120 FPS requires two additional files from the official
-   MGSFPSUnlock 0.1.0 ZIP; see the short instructions below.
+3. **Manual ZIP** — the most transparent copy-only route. It runs no script.
+   The current upstream MGSFPSUnlock pre-release can be installed separately by
+   following the short instructions below.
 4. **Complete ZIP** — portable setup, manual folder, source-facing notices and
    all documentation in one archive.
 5. **16:9 supersampling ZIP** — portable setup preconfigured for 1920x1080
@@ -201,21 +215,27 @@ MGS4\scripts\MGS4Ultra120.asi
 MGS4\scripts\MGS4NativeCenteredHUD.asi
 ```
 
-For corrected 120 FPS, download
-[MGSFPSUnlock 0.1.0](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0),
-open its ZIP and copy only these two files into the same `MGS4\scripts` folder:
+For corrected 120 FPS on Windows, download the official
+[MGSFPSUnlock 0.1.3 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3),
+open `MGSFPSUnlock.zip`, enter its `scripts` folder and copy only these two
+files into the same `MGS4\scripts` folder:
 
 ```text
-MGSFPSUnlock\scripts\MGSFPSUnlock.asi
-MGSFPSUnlock\scripts\MGSFPSUnlock.ini
+scripts\MGSFPSUnlock.asi
+scripts\MGSFPSUnlock.ini
 ```
 
-Do **not** copy its `d3d11.dll`, `winhttp.dll` or `wininet.dll`; our package
+Do **not** copy `winmm.dll` or `wininet.dll` from that archive; MGS4 Ultra120
 already provides the required ASI loader. Confirm that its INI contains
 `TargetFrameRate = 120`, then launch normally through Steam. The manual ZIP
 does not install the optional launcher bypass; choose the game language in the
 official Unity launcher. The `Language=` INI setting controls only the optional
 wrapper installed by guided setup.
+
+Easy Setup remains deliberately pinned to the previously validated upstream
+`0.1.0` package. To keep a manually installed `0.1.3` copy during later MGS4
+Ultra120 updates, leave **Install / update improved 120 FPS support** unchecked;
+this skips the managed FPS download without deleting the existing manual copy.
 
 See [Windows installation](docs/INSTALL_WINDOWS.md) and
 [manual installation](docs/MANUAL_INI.md) for backup and removal details.

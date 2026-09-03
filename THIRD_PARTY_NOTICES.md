@@ -13,17 +13,26 @@ License. The pinned upstream archive/DLL hashes and a copy of its license are
 stored under `third_party/ultimate_asi_loader`:
 https://github.com/ThirteenAG/Ultimate-ASI-Loader
 
-Corrected high-frame-rate support is provided by the independent
-`cipherxof/MGSFPSUnlock` project, version `0.1.0`:
-https://github.com/cipherxof/MGSFPSUnlock
+## MGSFPSUnlock by Cipherxof
 
-Thank you to cipherxof for the improved MGS4 FPS unlock and its subsystem-level
-camera, animation, cutscene and physics timing work. MGS4 Ultra120 does not
-claim that work as its own. Because the upstream repository currently does not
-declare a redistribution license, its binary is not bundled in our archives.
-Guided setup downloads the official upstream ZIP directly after checking pinned
-archive and ASI SHA-256 values. Linux additionally creates a locally adapted
-copy for Wine and verifies its final hash; that copy is not redistributed.
+The current corrected high-frame-rate implementation is provided entirely by
+Cipherxof's independent `MGSFPSUnlock` project. I discarded the original,
+limited MGS4 Ultra120 single-value FPS override in favor of Cipherxof's more
+comprehensive and specialized MGS4 timing work. MGS4 Ultra120 does not claim
+authorship of MGSFPSUnlock or any of its camera, character, animation, cutscene,
+physics, cloth, hair, wind, ragdoll or SPURS timing hooks.
+
+- Upstream project: https://github.com/cipherxof/MGSFPSUnlock
+- Official version used by Easy Setup: https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0
+- Current upstream pre-release for manual Windows installation: https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3
+- Author: https://github.com/cipherxof
+
+Thank you to Cipherxof for publishing this work. Because the upstream repository
+currently does not declare a redistribution license, its binary is not bundled
+in MGS4 Ultra120 archives. Guided setup downloads the unchanged official ZIP
+directly from the upstream release after checking pinned archive and ASI SHA-256
+values. Linux additionally creates a locally adapted copy for Wine and verifies
+its final hash; that copy is not redistributed.
 
 No game executable, launcher, asset, key, or other copyrighted game file is
 included in this repository or in its release packages. METAL GEAR SOLID and

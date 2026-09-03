@@ -42,15 +42,18 @@ reinstall a known working release.
 
 OPTIONAL CORRECTED 120 FPS
 
-1. Download MGSFPSUnlock.zip only from:
-   https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0
-2. Open MGSFPSUnlock\scripts inside that ZIP.
+1. Download MGSFPSUnlock.zip only from the current official pre-release:
+   https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3
+2. Open the top-level scripts folder inside that ZIP.
 3. Copy only MGSFPSUnlock.asi and MGSFPSUnlock.ini to MGS4\scripts.
-4. Do not copy d3d11.dll, winhttp.dll or wininet.dll. The included winmm.dll
-   already loads both ASIs.
+4. Do not copy winmm.dll or wininet.dll from that archive. The MGS4 Ultra120
+   winmm.dll already loads both ASIs.
 5. Confirm MGSFPSUnlock.ini says: TargetFrameRate = 120
 
 Thanks to cipherxof for the improved FPS unlock implementation.
+MGS4 Ultra120 does not bundle or claim authorship of that independent patch.
+Easy Setup currently pins 0.1.0; leave its optional FPS box unchecked during
+later updates to preserve a manually installed 0.1.3 copy.
 
 This copy-only route runs no installer or script, creates no shortcuts and does
 not install the optional Unity-launcher bypass. Back up every existing file with

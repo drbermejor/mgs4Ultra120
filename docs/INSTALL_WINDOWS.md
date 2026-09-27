@@ -23,6 +23,13 @@ SHA-256 checks pass. This is a validated integration pin, not a claim that
 installed and the setup reports that 120 was skipped; retry later without
 reinstalling the game.
 
+**Game version 1.4.1 (2026-09-11):** MGSFPSUnlock 0.1.0 predates this game
+update, and cutscenes running too fast with desynchronized audio have been
+reported with older versions. Cipherxof's
+[0.1.4](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4) adds 1.4.1
+support. Until Easy Setup is updated, install it manually as described in
+[Manual ZIP](#manual-zip).
+
 Clearing the 120 FPS box skips installation or update; it does not delete a
 copy that is already present. Use this project's uninstaller for a managed
 copy, or remove a manually installed copy manually.
@@ -61,13 +68,13 @@ MGS4\scripts\MGS4NativeCenteredHUD.asi
 ```
 
 For corrected 120 FPS, download `MGSFPSUnlock.zip` from Cipherxof's current
-[official MGSFPSUnlock 0.1.3 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3).
+[official MGSFPSUnlock 0.1.4 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4).
 Open the archive's `scripts` folder and copy only `MGSFPSUnlock.asi` plus
 `MGSFPSUnlock.ini` into `MGS4\scripts`. Do not copy the archive's `winmm.dll`
 or `wininet.dll`; the MGS4 Ultra120 `winmm.dll` already loads both ASIs.
 
 Back up the two MGSFPSUnlock files before replacing an older version. To retain
-a manually installed 0.1.3 copy during a later guided MGS4 Ultra120 update,
+a manually installed 0.1.4 copy during a later guided MGS4 Ultra120 update,
 leave **Install / update improved 120 FPS support** unchecked. That choice skips
 the currently pinned 0.1.0 download and does not remove the manual copy.
 

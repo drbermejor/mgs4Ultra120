@@ -24,7 +24,7 @@ physics, cloth, hair, wind, ragdoll or SPURS timing hooks.
 
 - Upstream project: https://github.com/cipherxof/MGSFPSUnlock
 - Official version used by Easy Setup: https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0
-- Current upstream pre-release for manual Windows installation: https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3
+- Current upstream pre-release for manual Windows installation: https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4
 - Author: https://github.com/cipherxof
 
 Thank you to Cipherxof for publishing this work. Because the upstream repository

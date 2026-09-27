@@ -82,7 +82,7 @@ the FPS patch, implementation decisions and FPS-specific hooks remain
 Cipherxof's work. The exact upstream package is linked in the
 [official MGSFPSUnlock 0.1.0 release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.0).
 That version is the current validated automation pin, not the newest upstream
-release. Manual Windows installation of upstream 0.1.3 is documented in
+release. Manual Windows installation of upstream 0.1.4 is documented in
 [Windows installation](INSTALL_WINDOWS.md#manual-zip).
 
 ## Controller profile

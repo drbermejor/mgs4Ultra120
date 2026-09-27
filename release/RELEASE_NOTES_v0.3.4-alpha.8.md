@@ -1,5 +1,19 @@
 # MGS4 Ultra120 v0.3.4-alpha.8
 
+> **MGSFPSUnlock and game version 1.4.1.** Easy Setup installs MGSFPSUnlock
+> 0.1.0, which predates the 2026-09-11 game update (1.4.1). Players have
+> reported cutscenes running too fast with desynchronized audio on 1.4.1 with
+> older MGSFPSUnlock versions. Cipherxof's
+> [MGSFPSUnlock 0.1.4](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4)
+> adds 1.4.1 support. Until Easy Setup is updated:
+>
+> - **Windows:** from `MGSFPSUnlock.zip`, copy only `scripts\MGSFPSUnlock.asi`
+>   and `scripts\MGSFPSUnlock.ini` into `MGS4\scripts`, replacing the old
+>   files. Do not copy `winmm.dll` or `wininet.dll`. In later MGS4 Ultra120
+>   updates, leave **Install / update improved 120 FPS support** unchecked.
+> - **Linux/Proton:** a manual update is not possible yet; if cutscenes run too
+>   fast, select 60 FPS in the configurator.
+
 This release restores compatibility after the Steam update of MGS4 published
 on 2026-09-11. Earlier Ultra120 releases detect the new `mgs4.exe` as an
 unknown version and safely apply no changes. No feature, default or setting

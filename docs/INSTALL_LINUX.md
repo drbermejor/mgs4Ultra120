@@ -55,6 +55,10 @@ passed the same release checks.
    directly contains `mgs4.exe` in the graphical folder picker.
 5. The installer downloads MGSFPSUnlock 0.1.0 directly from its official
    release, verifies it and applies the Proton compatibility byte locally.
+   0.1.0 predates game version 1.4.1 (2026-09-11), and cutscenes running too
+   fast have been reported with older versions on 1.4.1. The Proton
+   adaptation does not accept newer versions yet; if cutscenes run too fast,
+   select 60 FPS in the configurator until an updated installer is released.
 6. The graphical configurator opens automatically when `zenity` is installed.
    Choose output resolution, FOV, optional cinematic FOV, optional centered
    HUD, supersampling, FPS, launcher mode and fullscreen mode, then save.

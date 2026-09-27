@@ -13,9 +13,26 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > configuration integration; it does not bundle or claim authorship of the FPS
 > patch. The guided path currently uses a separately downloaded and verified
 > `0.1.0` package, while manual Windows users can install the current upstream
-> [`0.1.3` pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3).
+> [`0.1.4` pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4).
 > Full credit for the FPS component belongs to Cipherxof, with my thanks for
 > making the work publicly available.
+
+> **Update MGSFPSUnlock after the 2026-09-11 game update (1.4.1).** Easy
+> Setup still installs MGSFPSUnlock `0.1.0`, which predates game version 1.4.1.
+> Players have reported cutscenes running too fast with desynchronized audio on
+> 1.4.1 with older MGSFPSUnlock versions. Cipherxof's
+> [`0.1.4`](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4) adds
+> 1.4.1 support. Until Easy Setup is updated:
+>
+> - **Windows:** download `MGSFPSUnlock.zip` from that release and copy only
+>   `scripts\MGSFPSUnlock.asi` and `scripts\MGSFPSUnlock.ini` into
+>   `MGS4\scripts`, replacing the old files. Do not copy the archive's
+>   `winmm.dll` or `wininet.dll`. In later MGS4 Ultra120 updates, leave
+>   **Install / update improved 120 FPS support** unchecked so the manual copy
+>   is kept.
+> - **Linux/Proton:** the installer's Proton adaptation accepts only `0.1.0`, so
+>   a manual update is not possible yet. If cutscenes run too fast, select
+>   60 FPS in the configurator until an updated installer is released.
 
 > **Public alpha.** `v0.3.4-alpha.8` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
@@ -225,7 +242,7 @@ MGS4\scripts\MGS4NativeCenteredHUD.asi
 ```
 
 For corrected 120 FPS on Windows, download the official
-[MGSFPSUnlock 0.1.3 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.3),
+[MGSFPSUnlock 0.1.4 pre-release](https://github.com/cipherxof/MGSFPSUnlock/releases/tag/0.1.4),
 open `MGSFPSUnlock.zip`, enter its `scripts` folder and copy only these two
 files into the same `MGS4\scripts` folder:
 
@@ -242,7 +259,7 @@ official Unity launcher. The `Language=` INI setting controls only the optional
 wrapper installed by guided setup.
 
 Easy Setup remains deliberately pinned to the previously validated upstream
-`0.1.0` package. To keep a manually installed `0.1.3` copy during later MGS4
+`0.1.0` package. To keep a manually installed `0.1.4` copy during later MGS4
 Ultra120 updates, leave **Install / update improved 120 FPS support** unchecked;
 this skips the managed FPS download without deleting the existing manual copy.
 

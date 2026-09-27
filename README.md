@@ -20,6 +20,8 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > **Public alpha.** `v0.3.4-alpha.8` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
+> Update to alpha.8 after the 2026-09-11 Steam update; earlier releases detect
+> the new executable as unknown and apply no changes.
 
 > **Recommended unified release.** Windows and Linux now share the validated
 > native-camera FOV implementation. Optional supersampling remains experimental

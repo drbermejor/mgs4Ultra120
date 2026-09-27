@@ -23,6 +23,13 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > Update to alpha.8 after the 2026-09-11 Steam update; earlier releases detect
 > the new executable as unknown and apply no changes.
 
+> **Pre-release `v0.3.4-alpha.9`.** Same features as alpha.8, plus
+> signature-based address resolution intended to keep the patch working after
+> a future game update until a validated release is available. alpha.8 remains
+> the recommended stable release. See the
+> [pre-release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.9)
+> and [signature resolver](docs/SIGNATURE_RESOLVER.md) notes.
+
 > **Recommended unified release.** Windows and Linux now share the validated
 > native-camera FOV implementation. Optional supersampling remains experimental
 > and disabled by default.

@@ -46,7 +46,7 @@ foreach ($RelativePath in $RequiredFiles) {
 
 $VersionPath = Join-Path $PackageDir "VERSION"
 $PackageVersion = (Get-Content -Raw -LiteralPath $VersionPath).Trim()
-if ($PackageVersion -ne "v0.3.4-alpha.8") {
+if ($PackageVersion -ne "v0.3.4-alpha.9") {
     throw "Package VERSION is incorrect: $PackageVersion"
 }
 

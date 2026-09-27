@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.3.4-alpha.9 - Signature resolver (pre-release)
+
+- Every code, caller and data address used by both ASIs is now resolved from
+  generated masked signatures instead of fixed offsets. Relative call and
+  RIP-relative displacements are wildcards, so ordinary code and data
+  movement in a future game update does not break them.
+- Addresses are resolved and cross-checked by feature group: caller routes
+  must call the resolved function, and data references must agree across
+  independent native readers and writers. A group that does not resolve
+  completely is not installed.
+- On the supported executable every signature is required at its known
+  address. On an unrecognized executable, the new `SignatureRelocation=1`
+  default installs each group only if all of its signatures match exactly
+  once and pass their cross-checks, and the log states that the build is not
+  validated. `SignatureRelocation=0` applies nothing instead.
+- `AllowUnsupportedExecutable` no longer applies fixed offsets; it now enables
+  the same signature relocation.
+- Added the `SignatureAudit` and `ForceSignatureRelocation` diagnostics, the
+  signature generator and an offline resolver test.
+- No feature, default or visual behavior changed on the supported executable.
+
 ## v0.3.4-alpha.8 - Steam 2026-09-11 executable
 
 - Ported both ASIs to the Steam executable updated on 2026-09-11

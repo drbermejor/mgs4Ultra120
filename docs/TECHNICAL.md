@@ -10,7 +10,7 @@ unsafe rather than silently claiming compatibility.
 
 ## World rendering and FOV
 
-The native camera builder at RVA `0x0b9bb0` is intercepted at its scalar input.
+The native camera builder at RVA `0x0b9b70` is intercepted at its scalar input.
 FOV is applied before the game constructs projection matrices, combined
 view-projection matrices and visibility planes:
 
@@ -18,14 +18,14 @@ view-projection matrices and visibility planes:
 adjusted_camera_scale = original_camera_scale / FOVMultiplier
 ```
 
-The common renderer projection setter at RVA `0x0e3410` is also intercepted.
+The common renderer projection setter at RVA `0x0e34d0` is also intercepted.
 With native-camera mode active it changes only `m00` to the configured aspect
 and leaves `m11` untouched, preventing a second FOV application. If the native
 hook cannot be installed, it automatically falls back to applying both aspect
 and FOV in the final setter. Non-perspective, malformed and unknown-aspect
 matrices are untouched.
-Resolution getters at RVAs `0x65c040` and `0x65c030` return configured internal
-dimensions; the central setter at `0x65f050` substitutes them when resolution
+Resolution getters at RVAs `0x65c240` and `0x65c230` return configured internal
+dimensions; the central setter at `0x65f250` substitutes them when resolution
 state changes. This is event-driven and uses no polling loop.
 
 The withdrawn alpha.6 approach instead modified returned matrices and manually
@@ -35,7 +35,7 @@ only the original input and lets the game execute its complete native builder.
 The final setter also has no old `m00`/`m11` ceiling, so tight close-ups remain
 eligible without broad memory scanning or periodic rewriting.
 
-Only the primary caller return RVA `0x0ba3a3` owns native FOV. Routes later in
+Only the primary caller return RVA `0x0ba363` owns native FOV. Routes later in
 the same camera rebuild chain receive the already-corrected state and must not
 apply the multiplier again. This route isolation fixed WeaponWindow distortion
 while retaining gameplay and cinematic FOV.
@@ -82,9 +82,9 @@ release. Manual Windows installation of upstream 0.1.3 is documented in
 
 ## Controller profile
 
-The game's detected-profile setter at RVA `0x750ec0` is hooked. Profiles 1-7
+The game's detected-profile setter at RVA `0x7511c0` is hooked. Profiles 1-7
 are learned only while the game's controller-connected mask at RVA
-`0x23d2dbc0` is nonzero. A request for keyboard profile 0 is replaced by the
+`0x23d2dc10` is nonzero. A request for keyboard profile 0 is replaced by the
 latched controller profile while connected. When the mask reaches zero the
 latch is cleared. All other profile values continue to the original function.
 
@@ -94,15 +94,15 @@ proxy, controller poller, virtual-device layer or periodic memory writer.
 ## UI
 
 The aiming reticle's X and Y are truncated to signed 16 bits on their way to
-the UI canvas. At RVAs `0xe39816` and `0xe3990c`, `movsx edx, cx` keeps only the
+the UI canvas. At RVAs `0xe3a146` and `0xe3a23c`, `movsx edx, cx` keeps only the
 low 16 bits of an X position already scaled to 1/16 px:
 
 ```text
-0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
-0xe39816  movsx edx, cx           ; truncates to int16
-0xe3981d  lea eax,[rdx+rdx*4]
-0xe39820  shl eax, 8              ; x1280, the UI canvas width
-0xe39824  idiv [render width]
+0xe3a13c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
+0xe3a146  movsx edx, cx           ; truncates to int16
+0xe3a14d  lea eax,[rdx+rdx*4]
+0xe3a150  shl eax, 8              ; x1280, the UI canvas width
+0xe3a154  idiv [render width]
 ```
 
 A centred reticle stores `width/2 * 16`, so the value crosses 32767 at exactly
@@ -113,7 +113,7 @@ v0.3.1-alpha.6 as stable at 3956x1656 and flickering at 4096. At 5120 wide,
 
 Both X sites are replaced with `mov edx, ecx` plus a nop, which keeps the full
 32-bit value: `40960*1280/5120 = 10240`, the canvas centre. The matching Y
-truncations at RVAs `0xe39830` and `0xe398f1` are removed as well. At the screen
+truncations at RVAs `0xe3a160` and `0xe3a221` are removed as well. At the screen
 centre, either axis reaches the signed limit at an internal extent of 4096
 pixels; Y therefore has more margin in the currently documented 1440p tests,
 but retaining it would leave the same latent defect on the other axis.
@@ -179,7 +179,7 @@ The table and forwarding release gate are documented in
 The protected executable can reveal decrypted signatures while a page still
 has a transient non-executable protection. Successful hooks keep that code
 executable; restoring the transient value caused a native-Windows execute
-violation at projection RVA `0x0e3410` while Proton had tolerated it.
+violation at projection RVA `0x0e34d0` while Proton had tolerated it.
 
 The patch uses a pinned MinHook revision. Disabling ultrawide avoids all project
 resolution/projection hooks; disabling the controller fix avoids its profile

@@ -20,19 +20,19 @@ struct TruncationPatch {
 };
 
 inline constexpr std::array<TruncationPatch, 4> truncation_patches = {{
-    {0xe39816,
+    {0xe3a146,
      {0x0f, 0xbf, 0xd1, 0x00},              // movsx edx, cx
      {0x8b, 0xd1, 0x90, 0x00},              // mov edx, ecx ; nop
      3, Axis::X},
-    {0xe39830,
+    {0xe3a160,
      {0x44, 0x0f, 0xbf, 0xc1},              // movsx r8d, cx
      {0x41, 0x89, 0xc8, 0x90},              // mov r8d, ecx ; nop
      4, Axis::Y},
-    {0xe398f1,
+    {0xe3a221,
      {0x0f, 0xbf, 0xd1, 0x00},              // movsx edx, cx
      {0x8b, 0xd1, 0x90, 0x00},              // mov edx, ecx ; nop
      3, Axis::Y},
-    {0xe3990c,
+    {0xe3a23c,
      {0x0f, 0xbf, 0xd1, 0x00},              // movsx edx, cx
      {0x8b, 0xd1, 0x90, 0x00},              // mov edx, ecx ; nop
      3, Axis::X},

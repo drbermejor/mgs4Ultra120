@@ -10,11 +10,11 @@ compatible and crashes remain possible.
 |---|---|
 | Store | Steam |
 | Executable | `MGS4/mgs4.exe` |
-| SHA-256 | `9e8df67ea7f41e7f8306ce1a77584707209069b3c75389b3f00445efe459fe41` |
-| File size | `32,682,568` bytes |
-| PE timestamp | `0x6a8cfc47` (2026-08-25) |
+| SHA-256 | `656ede900b03467e4ed05a00eca35f0ac306ce57a8f29a76a20e5a5410d02900` |
+| File size | `32,684,616` bytes |
+| PE timestamp | `0x6aa36b7c` (2026-09-11) |
 | PE image size | `0x241be000` |
-| Internal version ID | `Pela_[MPA]_x64_BGFX_0.0.3_Release_ww_[Code]a84606af_[DataNew]d06ab525_2026_0825` |
+| Internal version ID | `Pela_[MPA]_x64_BGFX_0.0.16_Release_ww_[Code]e9923cfe_[DataNew]4a9b66e6_2026_0911` |
 
 The native-Windows alpha.3 acceptance setup is an RTX 4090, a 3440x1440 240 Hz
 primary monitor at 125% scaling, a 2560x1440 144 Hz secondary monitor at 150%,
@@ -43,7 +43,7 @@ driver/display setup.
   output and no repeated/corrupt right-side surface.
 - The load-complete screen waits at `PULSE CUALQUIER BOTÓN` until explicit
   confirmation.
-- Native-input FOV at 3440x1440: route `0x0ba3a3` is the sole owner of the
+- Native-input FOV at 3440x1440: route `0x0ba363` is the sole owner of the
   multiplier; downstream camera rebuild routes are left untouched. `1.200`
   kept natural character proportions, a working aiming crosshair, an
   undistorted WeaponWindow and clean problematic cinematics. It is the tested

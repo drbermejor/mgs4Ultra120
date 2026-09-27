@@ -10,13 +10,13 @@ int main() {
     using mgs4_reticle::truncation_patches;
 
     if (truncation_patches.size() != 4) return 1;
-    if (truncation_patches[0].rva != 0xe39816 ||
+    if (truncation_patches[0].rva != 0xe3a146 ||
         truncation_patches[0].axis != Axis::X ||
-        truncation_patches[1].rva != 0xe39830 ||
+        truncation_patches[1].rva != 0xe3a160 ||
         truncation_patches[1].axis != Axis::Y ||
-        truncation_patches[2].rva != 0xe398f1 ||
+        truncation_patches[2].rva != 0xe3a221 ||
         truncation_patches[2].axis != Axis::Y ||
-        truncation_patches[3].rva != 0xe3990c ||
+        truncation_patches[3].rva != 0xe3a23c ||
         truncation_patches[3].axis != Axis::X) return 2;
 
     std::array<std::array<unsigned char, 4>, 4> bytes = {};

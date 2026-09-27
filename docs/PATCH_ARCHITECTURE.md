@@ -53,16 +53,16 @@ All RVAs below belong only to the executable profile in
 
 | Area | Native path | Selection and validation | Effect |
 | --- | --- | --- | --- |
-| Output/internal resolution | getters `0x65c040`, `0x65c030`; setter `0x65f050` | PE gate, exact getter bytes, setter prologue | Keeps the presentation resolution separate from the optional supersampled internal extent and republishes native render-state mirrors on mode changes. |
-| Gameplay FOV | camera builder `0x0b9bb0`, owner return `0x0ba3a3` | PE gate, exact builder prologue, caller ownership | Divides the native camera input scale by `FOVMultiplier`; the game remains responsible for projections, combined matrices and frustum planes. |
-| Final aspect correction | projection setter `0x0e3410` | PE gate, decrypted prologue, complete perspective-matrix structure and recognized aspect | Rewrites horizontal projection scale for Hor+ output. It is aspect-only when the native FOV hook owns FOV and becomes the automatic FOV fallback if that hook cannot start. |
-| Cinematic FOV preview | owner `0x652e00`, shared camera routes | Explicit opt-in, owner prologue, TLS ownership and final-rebuild continuity | Extends only the observed in-engine cinematic owner; unrelated auxiliary cameras keep their original FOV. |
-| Controller profile | detected-profile setter `0x750ec0`, connection mask `0x23d2dbc0` | Explicit opt-in, setter prologue, native nonzero connection mask | Latches the last native controller family while connected so a transient keyboard-profile request cannot neutralize controller axes. It does not create or enumerate devices. |
-| Aiming reticle | `0xe39816`, `0xe39830`, `0xe398f1`, `0xe3990c` | Exact original/applied byte classification across all four sites | Replaces signed 16-bit coordinate truncation with 32-bit moves on both axes, removing the 4096-pixel internal-extent overflow. |
+| Output/internal resolution | getters `0x65c240`, `0x65c230`; setter `0x65f250` | PE gate, exact getter bytes, setter prologue | Keeps the presentation resolution separate from the optional supersampled internal extent and republishes native render-state mirrors on mode changes. |
+| Gameplay FOV | camera builder `0x0b9b70`, owner return `0x0ba363` | PE gate, exact builder prologue, caller ownership | Divides the native camera input scale by `FOVMultiplier`; the game remains responsible for projections, combined matrices and frustum planes. |
+| Final aspect correction | projection setter `0x0e34d0` | PE gate, decrypted prologue, complete perspective-matrix structure and recognized aspect | Rewrites horizontal projection scale for Hor+ output. It is aspect-only when the native FOV hook owns FOV and becomes the automatic FOV fallback if that hook cannot start. |
+| Cinematic FOV preview | owner `0x653000`, shared camera routes | Explicit opt-in, owner prologue, TLS ownership and final-rebuild continuity | Extends only the observed in-engine cinematic owner; unrelated auxiliary cameras keep their original FOV. |
+| Controller profile | detected-profile setter `0x7511c0`, connection mask `0x23d2dc10` | Explicit opt-in, setter prologue, native nonzero connection mask | Latches the last native controller family while connected so a transient keyboard-profile request cannot neutralize controller axes. It does not create or enumerate devices. |
+| Aiming reticle | `0xe3a146`, `0xe3a160`, `0xe3a221`, `0xe3a23c` | Exact original/applied byte classification across all four sites | Replaces signed 16-bit coordinate truncation with 32-bit moves on both axes, removing the 4096-pixel internal-extent overflow. |
 
 The raw resolution mirrors written by `apply_resolution_state()` are
-`0x1b00000`, `0x22a8d40`, `0x22a8d48`, `0x1ddda94`, `0x1ddda98`,
-`0x1dddaac`, `0x1dddab0`, and `0x3bd1158` through `0x3bd1178`. Adjacent
+`0x1b00000`, `0x22a8d40`, `0x22a8d48`, `0x1dddab4`, `0x1dddab8`,
+`0x1dddacc`, `0x1dddad0`, and `0x3bd1158` through `0x3bd1178`. Adjacent
 width/height pairs are published with an atomic 64-bit exchange where their
 layout permits it.
 
@@ -75,13 +75,13 @@ horizontal factor twice.
 
 | Area | Native path | Guard | Effect and current boundary |
 | --- | --- | --- | --- |
-| Core HUD/menu layout | layout converter `0x439810` | Mandatory prologue, safe arithmetic | Reimplements the converter from the current call arguments. Full logical roots retain an output-sized physical viewport with an expanded logical X range. |
-| Subtitles and movies | physical rectangle emitter `0x0be090` | Exact caller allowlist | Maps output-pixel rectangles into the centered safe band. Each producer is separately configurable. |
-| Inventory previews | semantic owner rectangle `0x4da5b0` | Four exact caller RVAs and in-bounds rectangle | Uniformly scales X and Y so preview aspect is preserved. |
-| Pause map | command builder `0x4e9d00` | Two caller returns, descriptor, parent identity, callback, command topology, vertices, colors and UVs | Removes the second horizontal contraction from the two verified map vertex batches around their authored center. |
-| Realtime Codec feed | auxiliary surface factory `0x4dbd60` | Caller, type, resource and dimensions | Reduces the auxiliary target width once. The surrounding Codec UI is handled by the core canvas. Some live 3D sequences can still appear compressed and require further validation. |
-| Mission Briefing | owner `0x0e6cf20`; child surface `0x0e7ce20` | Exact prologues, caller, four-child index domain and consistent rectangle pairs | Maps the known compositor rectangles horizontally as one hook group. Control/ticker text can still overflow and the screen remains experimental. |
-| Full-output modal backgrounds | traversal `0x428510`; dispatcher `0x4278b0`; solid handler `0x425520` | Resource/allocation identity, normal traversal, raw ordinal, identity-transform provenance, node fields and exact geometry | Expands only verified output-covering solids. The classifier trio is installed atomically; geometry alone never opts a node in. |
+| Core HUD/menu layout | layout converter `0x4399e0` | Mandatory prologue, safe arithmetic | Reimplements the converter from the current call arguments. Full logical roots retain an output-sized physical viewport with an expanded logical X range. |
+| Subtitles and movies | physical rectangle emitter `0x0be050` | Exact caller allowlist | Maps output-pixel rectangles into the centered safe band. Each producer is separately configurable. |
+| Inventory previews | semantic owner rectangle `0x4da780` | Four exact caller RVAs and in-bounds rectangle | Uniformly scales X and Y so preview aspect is preserved. |
+| Pause map | command builder `0x4e9ed0` | Two caller returns, descriptor, parent identity, callback, command topology, vertices, colors and UVs | Removes the second horizontal contraction from the two verified map vertex batches around their authored center. |
+| Realtime Codec feed | auxiliary surface factory `0x4dbf30` | Caller, type, resource and dimensions | Reduces the auxiliary target width once. The surrounding Codec UI is handled by the core canvas. Some live 3D sequences can still appear compressed and require further validation. |
+| Mission Briefing | owner `0x0e6d850`; child surface `0x0e7d750` | Exact prologues, caller, four-child index domain and consistent rectangle pairs | Maps the known compositor rectangles horizontally as one hook group. Control/ticker text can still overflow and the screen remains experimental. |
+| Full-output modal backgrounds | traversal `0x4286e0`; dispatcher `0x427a80`; solid handler `0x4256f0` | Resource/allocation identity, normal traversal, raw ordinal, identity-transform provenance, node fields and exact geometry | Expands only verified output-covering solids. The classifier trio is installed atomically; geometry alone never opts a node in. |
 
 The values that identify map, Codec, briefing and modal objects live in
 `src/native_hud/native_hud_signatures.h`. Pure coordinate operations live in

@@ -149,16 +149,16 @@ int main() {
 
     // Native FOV belongs to route 03 only. The adjacent rebuild routes inherit
     // its result and must never compound the multiplier.
-    if (!mgs4_camera::owns_native_fov(0x0ba3a3)) return 38;
-    if (mgs4_camera::owns_native_fov(0x0b9ba0)) return 39;
+    if (!mgs4_camera::owns_native_fov(0x0ba363)) return 38;
+    if (mgs4_camera::owns_native_fov(0x0b9b60)) return 39;
     if (mgs4_camera::owns_native_fov(0x0b8a43)) return 40;
     if (mgs4_camera::owns_native_fov(0x0b8b4f)) return 41;
-    if (mgs4_camera::owns_native_fov(0x0eb0eb)) return 42;
+    if (mgs4_camera::owns_native_fov(0x0eb1ab)) return 42;
     if (mgs4_camera::owns_native_fov(0x0eb191)) return 43;
     if (mgs4_camera::owns_native_fov(0)) return 44;
-    if (!mgs4_camera::owns_cinematic_source(0x0b9ba0)) return 48;
-    if (mgs4_camera::owns_cinematic_source(0x0ba3a3)) return 49;
-    if (!mgs4_camera::owns_cinematic_final_rebuild(0x0eb0eb)) return 50;
+    if (!mgs4_camera::owns_cinematic_source(0x0b9b60)) return 48;
+    if (mgs4_camera::owns_cinematic_source(0x0ba363)) return 49;
+    if (!mgs4_camera::owns_cinematic_final_rebuild(0x0eb1ab)) return 50;
     if (mgs4_camera::owns_cinematic_final_rebuild(0x0eb191)) return 51;
     if (!mgs4_camera::renderer_is_aspect_only(true, true)) return 45;
     if (mgs4_camera::renderer_is_aspect_only(false, true)) return 46;

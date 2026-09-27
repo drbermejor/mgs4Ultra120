@@ -26,33 +26,33 @@ namespace {
 
 using mgs4::native_hud::Canvas;
 
-constexpr DWORD kSupportedTimeDateStamp = 0x6a8cfc47;
+constexpr DWORD kSupportedTimeDateStamp = 0x6aa36b7c;
 constexpr DWORD kSupportedSizeOfImage = 0x241be000;
 constexpr std::uintptr_t kRenderWidthRva = 0x1b00000;
 constexpr std::uintptr_t kRenderHeightRva = 0x1b00004;
-constexpr std::uintptr_t kHudLayoutRva = 0x439810;
-constexpr std::uintptr_t kPhysicalRectEmitterRva = 0x0be090;
-constexpr std::uintptr_t kSemanticOwnerRectRva = 0x4da5b0;
-constexpr std::uintptr_t kNativeSolidNodeRva = 0x425520;
-constexpr std::uintptr_t kNativeNodeDispatcherRva = 0x4278b0;
-constexpr std::uintptr_t kNativeLayerTraversalRva = 0x428510;
-constexpr std::uintptr_t kMapCommandBuilderRva = 0x4e9d00;
-constexpr std::uint32_t kMapCommandBuilderInitReturnRva = 0x004e716f;
-constexpr std::uint32_t kMapCommandBuilderFrameReturnRva = 0x004e3dc1;
+constexpr std::uintptr_t kHudLayoutRva = 0x4399e0;
+constexpr std::uintptr_t kPhysicalRectEmitterRva = 0x0be050;
+constexpr std::uintptr_t kSemanticOwnerRectRva = 0x4da780;
+constexpr std::uintptr_t kNativeSolidNodeRva = 0x4256f0;
+constexpr std::uintptr_t kNativeNodeDispatcherRva = 0x427a80;
+constexpr std::uintptr_t kNativeLayerTraversalRva = 0x4286e0;
+constexpr std::uintptr_t kMapCommandBuilderRva = 0x4e9ed0;
+constexpr std::uint32_t kMapCommandBuilderInitReturnRva = 0x004e733f;
+constexpr std::uint32_t kMapCommandBuilderFrameReturnRva = 0x004e3f91;
 constexpr std::uintptr_t kMapCommandBuilderDescriptorRva = 0x1c2d270;
-constexpr std::uintptr_t kAuxiliarySurfaceFactoryRva = 0x4dbd60;
-constexpr std::uintptr_t kMissionBriefingInitRva = 0x0e6cf20;
-constexpr std::uintptr_t kMissionBriefingChildSurfaceRva = 0x0e7ce20;
-constexpr std::uint32_t kMissionBriefingChildSurfaceCaller = 0x00e6d4a2;
+constexpr std::uintptr_t kAuxiliarySurfaceFactoryRva = 0x4dbf30;
+constexpr std::uintptr_t kMissionBriefingInitRva = 0x0e6d850;
+constexpr std::uintptr_t kMissionBriefingChildSurfaceRva = 0x0e7d750;
+constexpr std::uint32_t kMissionBriefingChildSurfaceCaller = 0x00e6ddd2;
 
-constexpr std::uint32_t kSubtitlePhysicalRectCaller = 0x00084b5c;
-constexpr std::uint32_t kMoviePhysicalRectCaller = 0x00096c80;
-constexpr std::uint32_t kTvMoviePhysicalRectCaller = 0x00e367bb;
-constexpr std::uint32_t kCamouflagePreviewCaller = 0x004f8b3b;
-constexpr std::uint32_t kItemPreviewCaller = 0x004fc9e3;
-constexpr std::uint32_t kDrebinShopPreviewCaller = 0x00504363;
-constexpr std::uint32_t kWeaponPreviewCaller = 0x005085a3;
-constexpr std::uint32_t kNormalLayerTraversalCaller = 0x00428643;
+constexpr std::uint32_t kSubtitlePhysicalRectCaller = 0x00084b1c;
+constexpr std::uint32_t kMoviePhysicalRectCaller = 0x00096c40;
+constexpr std::uint32_t kTvMoviePhysicalRectCaller = 0x00e370eb;
+constexpr std::uint32_t kCamouflagePreviewCaller = 0x004f8d0b;
+constexpr std::uint32_t kItemPreviewCaller = 0x004fcbb3;
+constexpr std::uint32_t kDrebinShopPreviewCaller = 0x00504533;
+constexpr std::uint32_t kWeaponPreviewCaller = 0x00508773;
+constexpr std::uint32_t kNormalLayerTraversalCaller = 0x00428813;
 
 constexpr std::uint32_t kLoadSaveConfirmationResource = 0x00298bf7;
 constexpr std::uint32_t kLoadSaveConfirmationAllocationBytes = 0x000029a8;

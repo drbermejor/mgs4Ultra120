@@ -194,7 +194,7 @@ static void __fastcall hooked_set_detected_profile(std::int32_t profile) {
     const auto base = g_executable_base;
     if (g_controller_profile_fix && base) {
         const LONG connected_mask =
-            *reinterpret_cast<volatile LONG*>(base + 0x23d2dbc0);
+            *reinterpret_cast<volatile LONG*>(base + 0x23d2dc10);
         if (!connected_mask) {
             InterlockedExchange(&g_locked_controller_profile, 0);
         } else if (profile >= 1 && profile <= 7) {
@@ -397,7 +397,7 @@ static bool supported_executable(std::uintptr_t base) {
     auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
     if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
     auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(base + dos->e_lfanew);
-    return nt->Signature == IMAGE_NT_SIGNATURE && nt->FileHeader.TimeDateStamp == 0x6a8cfc47 &&
+    return nt->Signature == IMAGE_NT_SIGNATURE && nt->FileHeader.TimeDateStamp == 0x6aa36b7c &&
            nt->OptionalHeader.SizeOfImage == 0x241be000;
 }
 
@@ -417,12 +417,12 @@ static bool force_resolution_getters(std::uintptr_t base,
         const char* name;
     };
     constexpr unsigned char width_expected[] =
-        {0x8b, 0x05, 0x32, 0x51, 0x57, 0x03, 0xc3};
+        {0x8b, 0x05, 0x32, 0x4f, 0x57, 0x03, 0xc3};
     constexpr unsigned char height_expected[] =
-        {0x8b, 0x05, 0x46, 0x51, 0x57, 0x03, 0xc3};
+        {0x8b, 0x05, 0x46, 0x4f, 0x57, 0x03, 0xc3};
     const GetterPatch patches[] = {
-        {0x65c040, width_expected, width, "width"},
-        {0x65c030, height_expected, height, "height"},
+        {0x65c240, width_expected, width, "width"},
+        {0x65c230, height_expected, height, "height"},
     };
 
     for (const GetterPatch& patch : patches) {
@@ -457,12 +457,12 @@ static bool force_resolution_getters(std::uintptr_t base,
 // `cvttss2si` produces each position in 1/16 px, and the following `movsx`
 // instructions keep only the low 16 bits.  For the first X route:
 //
-//     0xe3980c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
-//     0xe39816  movsx edx, cx           ; truncates to int16
-//     0xe3981d  lea eax,[rdx+rdx*4]
-//     0xe39820  shl eax, 8              ; x1280, the UI canvas width
-//     0xe39823  cdq
-//     0xe39824  idiv [render width]
+//     0xe3a13c  cvttss2si ecx, xmm0     ; ecx = screen_x * 16
+//     0xe3a146  movsx edx, cx           ; truncates to int16
+//     0xe3a14d  lea eax,[rdx+rdx*4]
+//     0xe3a150  shl eax, 8              ; x1280, the UI canvas width
+//     0xe3a153  cdq
+//     0xe3a154  idiv [render width]
 //
 // A centred reticle stores width/2 * 16, so the value crosses 32767 at exactly
 // 4096 px of internal width: 2048*16 = 32768.  That is the boundary recorded in
@@ -551,7 +551,7 @@ static bool initialize_minhook() {
 }
 
 static bool install_controller_profile_fix(std::uintptr_t base) {
-    constexpr std::uintptr_t setter_rva = 0x750ec0;
+    constexpr std::uintptr_t setter_rva = 0x7511c0;
     constexpr unsigned char expected[] =
         {0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x8b, 0xd9};
     auto* target = reinterpret_cast<unsigned char*>(base + setter_rva);
@@ -587,7 +587,7 @@ static bool install_controller_profile_fix(std::uintptr_t base) {
 }
 
 static bool install_resolution_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t resolution_setter_rva = 0x65f050;
+    constexpr std::uintptr_t resolution_setter_rva = 0x65f250;
     constexpr unsigned char expected[] =
         {0x48, 0x89, 0x5c, 0x24, 0x18, 0x48, 0x89, 0x6c, 0x24, 0x20};
     auto* target = reinterpret_cast<unsigned char*>(base + resolution_setter_rva);
@@ -629,7 +629,7 @@ static bool install_resolution_hook(std::uintptr_t base) {
 }
 
 static bool install_engine_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t projection_setter_rva = 0x0e3410;
+    constexpr std::uintptr_t projection_setter_rva = 0x0e34d0;
     auto* target = reinterpret_cast<unsigned char*>(base + projection_setter_rva);
 
     // The protected executable is decrypted in memory. Wait for the known
@@ -674,7 +674,7 @@ static bool install_engine_hook(std::uintptr_t base) {
 }
 
 static bool install_native_camera_fov_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t camera_builder_rva = 0x0b9bb0;
+    constexpr std::uintptr_t camera_builder_rva = 0x0b9b70;
     const unsigned char expected[] = { 0x48, 0x8b, 0xc4, 0x53, 0x56, 0x57 };
     auto* target = reinterpret_cast<unsigned char*>(base + camera_builder_rva);
 
@@ -718,7 +718,7 @@ static bool install_native_camera_fov_hook(std::uintptr_t base) {
 }
 
 static bool install_cinematic_camera_owner_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t cinematic_camera_owner_rva = 0x652e00;
+    constexpr std::uintptr_t cinematic_camera_owner_rva = 0x653000;
     constexpr unsigned char expected[] =
         {0x40, 0x55, 0x53, 0x57, 0x41, 0x56, 0x48, 0x8d};
     auto* target = reinterpret_cast<unsigned char*>(
@@ -776,8 +776,8 @@ static void apply_resolution_state() {
         put_resolution_pair_atomic(base, 0x1b00000, width, height);
         put_resolution_pair_atomic(base, 0x22a8d40, width, height);
         put_resolution_pair_atomic(base, 0x22a8d48, width, height);
-        put32(base, 0x1ddda94, width); put32(base, 0x1ddda98, height);
-        put32(base, 0x1dddaac, width); put32(base, 0x1dddab0, height);
+        put32(base, 0x1dddab4, width); put32(base, 0x1dddab8, height);
+        put32(base, 0x1dddacc, width); put32(base, 0x1dddad0, height);
         put_resolution_pair_atomic(base, 0x3bd1158, width, height);
         put_resolution_pair_atomic(base, 0x3bd1160, width, height);
         put_resolution_pair_atomic(base, 0x3bd1168, width, height);
@@ -927,7 +927,7 @@ static DWORD WINAPI patch_thread(void*) {
         }
         install_engine_hook(base);
         if (g_native_camera_fov_requested) {
-            log_line("Experimental native FOV requested. Route 0x0ba3a3 owns the multiplier; common-setter FOV remains the automatic fallback only if the native hook cannot start.");
+            log_line("Experimental native FOV requested. Route 0x0ba363 owns the multiplier; common-setter FOV remains the automatic fallback only if the native hook cannot start.");
         } else {
             log_line("Experimental native FOV disabled by the user. Ultrawide aspect correction remains active with the game's original vertical FOV.");
         }

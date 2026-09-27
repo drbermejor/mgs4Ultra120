@@ -8,9 +8,9 @@ namespace mgs4_camera {
 // chain. Routes after it inherit the adjusted scale and must not apply FOV a
 // second time. This RVA is valid only for the executable signature already
 // enforced by supported_executable().
-inline constexpr std::uintptr_t kPrimaryFovReturnRva = 0x0ba3a3;
-inline constexpr std::uintptr_t kCinematicSourceReturnRva = 0x0b9ba0;
-inline constexpr std::uintptr_t kCinematicFinalRebuildReturnRva = 0x0eb0eb;
+inline constexpr std::uintptr_t kPrimaryFovReturnRva = 0x0ba363;
+inline constexpr std::uintptr_t kCinematicSourceReturnRva = 0x0b9b60;
+inline constexpr std::uintptr_t kCinematicFinalRebuildReturnRva = 0x0eb1ab;
 
 inline bool owns_native_fov(std::uintptr_t caller_return_rva) {
     return caller_return_rva == kPrimaryFovReturnRva;

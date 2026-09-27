@@ -7,7 +7,7 @@ namespace mgs4::native_hud {
 // Exact native layout signature of the auxiliary Codec canvas.  This is an
 // allowlist, not a geometry heuristic: every field must match, so unknown
 // layouts keep the normal centered-HUD policy.
-inline constexpr std::uint32_t kCodecAuxRootLayoutCaller = 0x00435d42;
+inline constexpr std::uint32_t kCodecAuxRootLayoutCaller = 0x00435f12;
 inline constexpr std::uint32_t kCodecAuxRootResource = 0x00d41dd6;
 inline constexpr std::uint32_t kCodecAuxRootAllocationBytes = 0x000035f0;
 
@@ -16,14 +16,14 @@ inline constexpr std::uint32_t kCodecAuxRootAllocationBytes = 0x000035f0;
 // gives the camera an ultrawide aspect before the texture is placed inside the
 // 16:9 Codec panel.  Keep this as a full call signature: the factory is shared
 // by unrelated auxiliary renderers.
-inline constexpr std::uint32_t kCodecRealtimeSurfaceCaller = 0x00510f84;
+inline constexpr std::uint32_t kCodecRealtimeSurfaceCaller = 0x00511154;
 inline constexpr std::uint32_t kCodecRealtimeSurfaceType = 0x0000000d;
 inline constexpr std::uint32_t kCodecRealtimeSurfaceResource = 0x00521d96;
 
 // Mission Briefing's normal UI/ticker tree needs the safe physical viewport,
 // not the output-wide root used by ordinary HUD layers.  Its exact identity is
 // stable and distinct from the auxiliary camera surfaces corrected elsewhere.
-inline constexpr std::uint32_t kMissionBriefingUiRootLayoutCaller = 0x00435d42;
+inline constexpr std::uint32_t kMissionBriefingUiRootLayoutCaller = 0x00435f12;
 inline constexpr std::uint32_t kMissionBriefingUiRootResource = 0x00122bca;
 inline constexpr std::uint32_t kMissionBriefingUiRootAllocationBytes = 0x000058ac;
 
@@ -34,12 +34,12 @@ inline constexpr std::uint32_t kMissionBriefingUiRootAllocationBytes = 0x000058a
 // linked after the first large root.  Later the internal-map root receives the
 // callback below.  Keep every field in the signature so an unknown object
 // always falls back to the ordinary centered-HUD policy.
-inline constexpr std::uint32_t kPauseMapRootLayoutCaller = 0x00435d42;
+inline constexpr std::uint32_t kPauseMapRootLayoutCaller = 0x00435f12;
 inline constexpr std::uint32_t kPauseMapLargeRootResource = 0x001986a8;
 inline constexpr std::uint32_t kPauseMapLargeRootAllocationBytes = 0x0001dbb4;
 inline constexpr std::uint32_t kPauseMapSmallRootResource = 0x001997e2;
 inline constexpr std::uint32_t kPauseMapSmallRootAllocationBytes = 0x00002c00;
-inline constexpr std::uint32_t kPauseMapCallbackRva = 0x004d7a20;
+inline constexpr std::uint32_t kPauseMapCallbackRva = 0x004d7bf0;
 
 enum class PauseMapLargeRootRole : std::uint8_t {
     Unknown = 0,

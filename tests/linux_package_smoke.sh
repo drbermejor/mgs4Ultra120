@@ -13,7 +13,7 @@ FPS_ARCHIVE="${2:-}"
 [[ -f "$PACKAGE_DIR/bin/winmm.dll" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4Ultra120.asi" ]]
 [[ -f "$PACKAGE_DIR/bin/MGS4NativeCenteredHUD.asi" ]]
-grep -qx 'v0.3.4-alpha.7' "$PACKAGE_DIR/VERSION"
+grep -qx 'v0.3.4-alpha.8' "$PACKAGE_DIR/VERSION"
 
 FIXTURE="$(mktemp -d -t mgs4ultra120-linux-package-XXXXXX)"
 cleanup() {
@@ -127,10 +127,10 @@ grep -q 'WINEDLLOVERRIDES=\\"winmm=n,b\\" PROTON_LOG=1 %command%' "$CONFIG"
 [[ -x "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop" ]]
 grep -q "Exec=\"$LOCAL_PACKAGE/MGS4Ultra120-Linux-Configure.sh\"" \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
-grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.7 Configurator$' \
+grep -q '^Name=MGS4 Ultra120 v0.3.4-alpha.8 Configurator$' \
   "$DESKTOP_DIR/MGS4 Ultra120 Configurator.desktop"
 grep -Fxq "$GAME_DIR" "$XDG_CONFIG/mgs4Ultra120/game-dir"
-grep -Fxq 'v0.3.4-alpha.7' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
+grep -Fxq 'v0.3.4-alpha.8' "$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 printf '%s\n' 'v0.3.4-alpha.1' \
   >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
@@ -142,7 +142,7 @@ if XDG_CONFIG_HOME="$XDG_CONFIG" \
 fi
 grep -q 'mismatched/stale\|configurator belongs to' \
   "$FIXTURE/stale-configurator.out"
-printf '%s\n' 'v0.3.4-alpha.7' \
+printf '%s\n' 'v0.3.4-alpha.8' \
   >"$GAME_DIR/.mgs4ultra120-backup/installed-version"
 
 XDG_CONFIG_HOME="$XDG_CONFIG" \

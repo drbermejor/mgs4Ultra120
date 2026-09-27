@@ -25,6 +25,7 @@ in `MGS4\mgs4_native_centered_hud.ini`.
 UltrawideEnabled=1
 FPSOverrideEnabled=0
 AllowUnsupportedExecutable=0
+SignatureRelocation=1
 
 [Ultrawide]
 Width=3440
@@ -40,6 +41,10 @@ Limit=60
 
 [Input]
 ControllerProfileFixEnabled=0
+
+[Diagnostics]
+SignatureAudit=0
+ForceSignatureRelocation=0
 
 [Launcher]
 SkipUnityLauncher=1
@@ -90,8 +95,21 @@ UsePrimaryPhysicalResolution=1
   controller family when the port incorrectly attempts to switch to keyboard
   profile 0. It is disabled by default; keep it off for keyboard/mouse and
   hybrid controller plus mouse/gyro input.
-- `AllowUnsupportedExecutable=1` attempts known offsets on an unverified build
-  and may crash. It is off by default.
+- `SignatureRelocation=1` (default) lets both ASIs patch an unrecognized
+  `mgs4.exe`, for example after a game update. Every feature group is then
+  located by masked signatures that must match exactly once in `.text` and
+  pass cross-checks such as call targets and shared data references. A group
+  that fails is not installed and the log names it. `0` applies nothing to an
+  unrecognized executable. On the reference executable this setting has no
+  effect.
+- `AllowUnsupportedExecutable=1` is a legacy key. It no longer applies fixed
+  offsets; it enables the same signature relocation as `SignatureRelocation=1`.
+- `SignatureAudit=1` is a maintainer diagnostic. Before any hook is installed,
+  each ASI logs how many `.text` matches every signature it uses has. It never
+  changes which addresses are used.
+- `ForceSignatureRelocation=1` is a maintainer diagnostic that resolves every
+  group by `.text` scan even on the reference executable, exercising the
+  unknown-build path. Keep both diagnostics off for ordinary play.
 - `DisplayMode=Windowed` is recommended. `Fullscreen` is an advanced option.
 - `UsePrimaryPhysicalResolution=1` refreshes dimensions from Win32 rather than
   DPI-scaled desktop bounds when the GUI saves.

@@ -180,6 +180,12 @@ if(BUILD_TESTING AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
         "${CMAKE_SOURCE_DIR}/src")
     add_test(NAME reticle_truncation_patch COMMAND reticle_truncation_patch_test)
 
+    add_executable(signature_resolver_test tests/signature_resolver_test.cpp)
+    target_compile_features(signature_resolver_test PRIVATE cxx_std_17)
+    target_include_directories(signature_resolver_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/src")
+    add_test(NAME signature_resolver COMMAND signature_resolver_test)
+
     add_executable(native_hud_math_test tests/native_hud_math_test.cpp)
     target_compile_features(native_hud_math_test PRIVATE cxx_std_17)
     target_include_directories(native_hud_math_test PRIVATE

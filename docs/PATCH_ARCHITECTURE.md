@@ -159,6 +159,14 @@ constants in public documentation.
 
 ## Moving from fixed RVAs to signatures
 
+**Status:** implemented. Every code, caller and data address is now resolved
+from generated signature windows and cross-checked by feature group; see
+[signature resolver](SIGNATURE_RESOLVER.md). The design notes below are kept
+as the rationale. One deliberate difference: an unrecognized executable is no
+longer blocked by default. With `SignatureRelocation=1`, each group is
+installed on it only when every signature is unique and every cross-check
+agrees; `SignatureRelocation=0` restores the strict gate.
+
 Address discovery can make routine code-layout updates cheaper, but it must not
 turn an unknown executable into an implicitly supported one. The appropriate
 design is a **hybrid resolver**:

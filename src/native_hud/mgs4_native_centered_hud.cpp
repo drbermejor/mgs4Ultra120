@@ -21,28 +21,18 @@
 
 #include "native_hud_math.h"
 #include "native_hud_signatures.h"
+#include "../game_profile.h"
+#include "../patch_resolver.h"
 
 namespace {
 
 using mgs4::native_hud::Canvas;
 
-constexpr DWORD kSupportedTimeDateStamp = 0x6aa36b7c;
-constexpr DWORD kSupportedSizeOfImage = 0x241be000;
-constexpr std::uintptr_t kRenderWidthRva = 0x1b00000;
-constexpr std::uintptr_t kRenderHeightRva = 0x1b00004;
-constexpr std::uintptr_t kHudLayoutRva = 0x4399e0;
-constexpr std::uintptr_t kPhysicalRectEmitterRva = 0x0be050;
-constexpr std::uintptr_t kSemanticOwnerRectRva = 0x4da780;
-constexpr std::uintptr_t kNativeSolidNodeRva = 0x4256f0;
-constexpr std::uintptr_t kNativeNodeDispatcherRva = 0x427a80;
-constexpr std::uintptr_t kNativeLayerTraversalRva = 0x4286e0;
-constexpr std::uintptr_t kMapCommandBuilderRva = 0x4e9ed0;
+// Caller identities are the reference-profile return RVAs. At runtime each
+// resolved return address is translated to its identity by to_caller_rva(),
+// so the classifiers below and in native_hud_signatures.h stay build-neutral.
 constexpr std::uint32_t kMapCommandBuilderInitReturnRva = 0x004e733f;
 constexpr std::uint32_t kMapCommandBuilderFrameReturnRva = 0x004e3f91;
-constexpr std::uintptr_t kMapCommandBuilderDescriptorRva = 0x1c2d270;
-constexpr std::uintptr_t kAuxiliarySurfaceFactoryRva = 0x4dbf30;
-constexpr std::uintptr_t kMissionBriefingInitRva = 0x0e6d850;
-constexpr std::uintptr_t kMissionBriefingChildSurfaceRva = 0x0e7d750;
 constexpr std::uint32_t kMissionBriefingChildSurfaceCaller = 0x00e6ddd2;
 
 constexpr std::uint32_t kSubtitlePhysicalRectCaller = 0x00084b1c;
@@ -53,6 +43,39 @@ constexpr std::uint32_t kItemPreviewCaller = 0x004fcbb3;
 constexpr std::uint32_t kDrebinShopPreviewCaller = 0x00504533;
 constexpr std::uint32_t kWeaponPreviewCaller = 0x00508773;
 constexpr std::uint32_t kNormalLayerTraversalCaller = 0x00428813;
+
+enum Route : std::size_t {
+    kRouteLayoutRoot,
+    kRouteSubtitle,
+    kRouteMovie,
+    kRouteTvMovie,
+    kRouteCamouflage,
+    kRouteItem,
+    kRouteDrebin,
+    kRouteWeapon,
+    kRouteNormalTraversal,
+    kRouteMapInit,
+    kRouteMapFrame,
+    kRouteCodec,
+    kRouteBriefingChild,
+    kRouteCount,
+};
+
+constexpr std::array<std::uint32_t, kRouteCount> kRouteIdentities{{
+    mgs4::native_hud::kCodecAuxRootLayoutCaller,
+    kSubtitlePhysicalRectCaller,
+    kMoviePhysicalRectCaller,
+    kTvMoviePhysicalRectCaller,
+    kCamouflagePreviewCaller,
+    kItemPreviewCaller,
+    kDrebinShopPreviewCaller,
+    kWeaponPreviewCaller,
+    kNormalLayerTraversalCaller,
+    kMapCommandBuilderInitReturnRva,
+    kMapCommandBuilderFrameReturnRva,
+    mgs4::native_hud::kCodecRealtimeSurfaceCaller,
+    kMissionBriefingChildSurfaceCaller,
+}};
 
 constexpr std::uint32_t kLoadSaveConfirmationResource = 0x00298bf7;
 constexpr std::uint32_t kLoadSaveConfirmationAllocationBytes = 0x000029a8;
@@ -83,52 +106,6 @@ constexpr std::array<VerifiedFullscreenSolid, 3>
         {kTitleMenuResource, kTitleMenuAllocationBytes,
          0x43420002, 0x006b7b88, 0xffffff80, 5, 0x00115670, 4},
     }};
-
-constexpr unsigned char kHudLayoutPrologue[] = {
-    0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c,
-};
-constexpr unsigned char kPhysicalRectEmitterBytes[] = {
-    0x0f, 0xb7, 0x44, 0x24, 0x28, 0x66, 0x89, 0x41,
-    0x0e, 0x48, 0x8d, 0x41, 0x10, 0xc6, 0x01, 0x0a,
-    0x66, 0x89, 0x51, 0x08, 0x66, 0x44, 0x89, 0x41,
-    0x0a, 0x66, 0x44, 0x89, 0x49, 0x0c, 0xc3,
-};
-constexpr unsigned char kSemanticOwnerRectBytes[] = {
-    0x40, 0x53, 0x48, 0x83, 0xec, 0x30, 0x4c, 0x8b, 0xd9,
-};
-constexpr unsigned char kNativeSolidNodeBytes[] = {
-    0x48, 0x83, 0xec, 0x38, 0x48, 0x8b, 0x4a, 0x1c,
-    0x4c, 0x8b, 0xca, 0x44, 0x0f, 0xb6, 0x52, 0x18,
-    0x4d, 0x8b, 0xd8, 0x48, 0x8b, 0x42, 0x24, 0x45,
-    0x03, 0xd2, 0xba, 0xff, 0x00, 0x00, 0x00,
-};
-constexpr unsigned char kNativeNodeDispatcherBytes[] = {
-    0x48, 0x89, 0x6c, 0x24, 0x20, 0x56, 0x57, 0x41, 0x57,
-    0x48, 0x83, 0xec, 0x50, 0x41, 0x8b, 0x00, 0x49, 0x8b,
-    0xe9, 0x48, 0x89, 0x5c, 0x24, 0x78, 0x49, 0x8b, 0xf8,
-};
-constexpr unsigned char kNativeLayerTraversalBytes[] = {
-    0x48, 0x89, 0x5c, 0x24, 0x18, 0x48, 0x89, 0x6c, 0x24,
-    0x20, 0x56, 0x57, 0x41, 0x57, 0x48, 0x83, 0xec, 0x20,
-    0x0f, 0xb7, 0x7a, 0x10, 0x45, 0x33, 0xff, 0x48, 0x8b, 0xf2,
-};
-constexpr unsigned char kMapCommandBuilderBytes[] = {
-    0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41,
-    0x56, 0x41, 0x57, 0x48, 0x8d, 0x6c, 0x24, 0xe1, 0x48, 0x81,
-    0xec, 0x98, 0x00, 0x00, 0x00, 0x45, 0x33, 0xe4,
-};
-constexpr unsigned char kAuxiliarySurfaceFactoryBytes[] = {
-    0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c,
-    0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57,
-};
-constexpr unsigned char kMissionBriefingInitBytes[] = {
-    0x48, 0x89, 0x5c, 0x24, 0x10, 0x55, 0x56, 0x57,
-    0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0xac, 0x24,
-};
-constexpr unsigned char kMissionBriefingChildSurfaceBytes[] = {
-    0x48, 0x89, 0x5c, 0x24, 0x18, 0x57, 0x41, 0x54,
-    0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83,
-};
 
 using HudLayoutFn = std::uint8_t(__fastcall*)(std::uintptr_t, std::int32_t,
                                               std::int32_t, std::int32_t,
@@ -200,6 +177,17 @@ AuxiliarySurfaceFactoryFn g_original_auxiliary_surface_factory;
 MissionBriefingInitFn g_original_mission_briefing_init;
 MissionBriefingChildSurfaceFn g_original_mission_briefing_child_surface;
 std::uintptr_t g_base;
+// Resolved addresses. Each group is written before its hooks are enabled and
+// is only read by those hooks afterwards.
+mgs4::resolver::Locator g_locator;
+std::uintptr_t g_render_extent;
+mgs4::resolver::HudCoreTargets g_hud_core;
+mgs4::resolver::HudPreviewTargets g_hud_previews;
+mgs4::resolver::HudModalTargets g_hud_modal;
+mgs4::resolver::HudMapTargets g_hud_map;
+mgs4::resolver::HudCodecTargets g_hud_codec;
+mgs4::resolver::HudBriefingTargets g_hud_briefing;
+volatile LONG64 g_route_addresses[kRouteCount];
 wchar_t g_game_dir[MAX_PATH]{};
 wchar_t g_ini_path[MAX_PATH]{};
 wchar_t g_log_path[MAX_PATH]{};
@@ -267,33 +255,63 @@ bool duplicate_native_hud_install_present() {
 }
 
 bool supported_executable() {
-    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(g_base);
-    if (!dos || dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
-    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS64*>(
-        g_base + static_cast<std::uintptr_t>(dos->e_lfanew));
-    return nt->Signature == IMAGE_NT_SIGNATURE &&
-           nt->FileHeader.TimeDateStamp == kSupportedTimeDateStamp &&
-           nt->OptionalHeader.SizeOfImage == kSupportedSizeOfImage;
+    return mgs4::profile::matches_loaded_image(
+        g_base, mgs4::profile::kSteam20260911);
 }
 
-bool bytes_match(std::uintptr_t rva, const unsigned char* expected,
-                 std::size_t expected_size) {
-    return std::memcmp(reinterpret_cast<const void*>(g_base + rva), expected,
-                       expected_size) == 0;
+void publish_route(Route route, std::uintptr_t address) {
+    InterlockedExchange64(&g_route_addresses[route],
+                          static_cast<LONG64>(address));
+}
+
+bool scanning() {
+    return g_locator.mode == mgs4::resolver::Mode::relocate;
 }
 
 bool wait_for_core_native_code() {
-    for (unsigned attempt = 0; attempt < 400; ++attempt) {
-        if (bytes_match(kHudLayoutRva, kHudLayoutPrologue,
-                        sizeof(kHudLayoutPrologue)) &&
-            bytes_match(kPhysicalRectEmitterRva,
-                        kPhysicalRectEmitterBytes,
-                        sizeof(kPhysicalRectEmitterBytes))) {
+    // Reference builds check fixed windows every 25 ms. Unknown builds scan
+    // .text, so attempts are spaced further apart within a similar window.
+    const unsigned attempts = scanning() ? 100 : 400;
+    const DWORD delay = scanning() ? 100 : 25;
+    for (unsigned attempt = 0; attempt < attempts; ++attempt) {
+        mgs4::resolver::RenderExtent extent{};
+        mgs4::resolver::HudCoreTargets core{};
+        if (mgs4::resolver::resolve_render_extent(g_locator, &extent) &&
+            mgs4::resolver::resolve_hud_core(g_locator, &core)) {
+            g_render_extent = extent.width;
+            g_hud_core = core;
+            publish_route(kRouteLayoutRoot, core.layout_root_return);
+            publish_route(kRouteSubtitle, core.subtitle_return);
+            publish_route(kRouteMovie, core.movie_return);
+            publish_route(kRouteTvMovie, core.tv_movie_return);
+            if (!core.subtitle_return || !core.movie_return ||
+                !core.tv_movie_return) {
+                log_line("WARNING: a subtitle/movie producer route did not "
+                         "resolve; that producer keeps its original "
+                         "mapping.");
+            }
             return true;
         }
-        Sleep(25);
+        Sleep(delay);
     }
     return false;
+}
+
+void audit_hud_signatures() {
+    const mgs4::resolver::Locator scan{g_locator.base, g_locator.text,
+                                       mgs4::resolver::Mode::relocate};
+    unsigned warnings = 0;
+    for (const auto& entry : mgs4::windows::kHudAuditWindows) {
+        const std::size_t matches =
+            mgs4::resolver::count_matches(scan, *entry.window);
+        const bool okay = matches == entry.expected_matches;
+        if (!okay) ++warnings;
+        log_line("%sSignature audit: %s has %zu .text match(es); expected "
+                 "%zu.",
+                 okay ? "" : "WARNING: ", entry.window->name, matches,
+                 entry.expected_matches);
+    }
+    log_line("Signature audit finished with %u warning(s).", warnings);
 }
 
 bool config_flag(const wchar_t* name, bool default_value) {
@@ -320,10 +338,11 @@ void load_configuration() {
 Canvas current_canvas() {
     // Width and height are separate native globals. Double-sampling avoids
     // constructing a safe canvas from values that straddle a mode change.
+    if (!g_render_extent) return {};
     const auto* width_ptr = reinterpret_cast<volatile const std::int32_t*>(
-        g_base + kRenderWidthRva);
+        g_render_extent);
     const auto* height_ptr = reinterpret_cast<volatile const std::int32_t*>(
-        g_base + kRenderHeightRva);
+        g_render_extent + 4);
     for (unsigned attempt = 0; attempt < 4; ++attempt) {
         const std::int32_t width_before = *width_ptr;
         const std::int32_t height_before = *height_ptr;
@@ -340,9 +359,14 @@ Canvas current_canvas() {
 }
 
 std::uint32_t to_caller_rva(std::uintptr_t address) {
-    if (address < g_base || address - g_base > 0xffffffffull)
-        return 0xffffffffu;
-    return static_cast<std::uint32_t>(address - g_base);
+    // Translate a resolved return address to its reference identity. Unknown
+    // callers never match any identity.
+    for (std::size_t route = 0; route < kRouteCount; ++route) {
+        const auto resolved =
+            static_cast<std::uintptr_t>(g_route_addresses[route]);
+        if (resolved && resolved == address) return kRouteIdentities[route];
+    }
+    return 0xffffffffu;
 }
 
 template <typename T>
@@ -889,13 +913,13 @@ std::uint64_t __fastcall hooked_map_command_builder(std::uintptr_t self) {
          caller != kMapCommandBuilderFrameReturnRva) ||
         !self || !parent ||
         read_unaligned<std::uintptr_t>(self + 0x50) !=
-            g_base + kMapCommandBuilderDescriptorRva ||
+            g_hud_map.descriptor ||
         read_unaligned<std::uint32_t>(parent + 0x1c) !=
             mgs4::native_hud::kPauseMapLargeRootResource ||
         read_unaligned<std::uint32_t>(parent + 0x34) !=
             mgs4::native_hud::kPauseMapLargeRootAllocationBytes ||
         read_unaligned<std::uintptr_t>(parent + 0x158) !=
-            g_base + mgs4::native_hud::kPauseMapCallbackRva ||
+            g_hud_map.callback ||
         !parent_uses_expanded_logical_root(parent, canvas) ||
         !map_command_stream_matches(self, source_x)) {
         const LONG64 rejected =
@@ -1182,19 +1206,19 @@ std::uintptr_t __fastcall hooked_native_node_dispatcher(
 }
 
 struct HookSpec {
-    std::uintptr_t rva{};
+    std::uintptr_t address{};
     void* detour{};
     void** original{};
 };
 
 void rollback_hooks(const HookSpec* hooks, std::size_t count) {
     for (std::size_t index = 0; index < count; ++index) {
-        void* target = reinterpret_cast<void*>(g_base + hooks[index].rva);
+        void* target = reinterpret_cast<void*>(hooks[index].address);
         MH_QueueDisableHook(target);
     }
     MH_ApplyQueued();
     for (std::size_t index = 0; index < count; ++index) {
-        void* target = reinterpret_cast<void*>(g_base + hooks[index].rva);
+        void* target = reinterpret_cast<void*>(hooks[index].address);
         MH_DisableHook(target);
         MH_RemoveHook(target);
     }
@@ -1206,7 +1230,7 @@ bool create_and_enable_group(const HookSpec* hooks, std::size_t count) {
     // failure disables and removes the whole set.
     std::size_t created = 0;
     for (; created < count; ++created) {
-        void* target = reinterpret_cast<void*>(g_base + hooks[created].rva);
+        void* target = reinterpret_cast<void*>(hooks[created].address);
         if (MH_CreateHook(target, hooks[created].detour,
                           hooks[created].original) != MH_OK) {
             rollback_hooks(hooks, created);
@@ -1214,7 +1238,7 @@ bool create_and_enable_group(const HookSpec* hooks, std::size_t count) {
         }
     }
     for (std::size_t index = 0; index < count; ++index) {
-        void* target = reinterpret_cast<void*>(g_base + hooks[index].rva);
+        void* target = reinterpret_cast<void*>(hooks[index].address);
         if (MH_QueueEnableHook(target) != MH_OK) {
             rollback_hooks(hooks, count);
             return false;
@@ -1229,9 +1253,9 @@ bool create_and_enable_group(const HookSpec* hooks, std::size_t count) {
 
 bool install_core_hooks() {
     const HookSpec hooks[] = {
-        {kHudLayoutRva, reinterpret_cast<void*>(&hooked_layout),
+        {g_hud_core.layout, reinterpret_cast<void*>(&hooked_layout),
          reinterpret_cast<void**>(&g_original_layout)},
-        {kPhysicalRectEmitterRva,
+        {g_hud_core.physical_rect,
          reinterpret_cast<void*>(&hooked_physical_rect),
          reinterpret_cast<void**>(&g_original_physical_rect)},
     };
@@ -1240,7 +1264,7 @@ bool install_core_hooks() {
 
 bool install_preview_hook() {
     const HookSpec hook{
-        kSemanticOwnerRectRva,
+        g_hud_previews.semantic_rect,
         reinterpret_cast<void*>(&hooked_semantic_owner_rect),
         reinterpret_cast<void**>(&g_original_semantic_owner_rect)};
     return create_and_enable_group(&hook, 1);
@@ -1251,13 +1275,13 @@ bool install_modal_hook_trio() {
     // solid handler without the layer/dispatcher provenance it requires.
     // Create in dependency order and publish all three with one queued apply.
     const HookSpec hooks[] = {
-        {kNativeLayerTraversalRva,
+        {g_hud_modal.layer_traversal,
          reinterpret_cast<void*>(&hooked_native_layer_traversal),
          reinterpret_cast<void**>(&g_original_native_layer_traversal)},
-        {kNativeNodeDispatcherRva,
+        {g_hud_modal.node_dispatcher,
          reinterpret_cast<void*>(&hooked_native_node_dispatcher),
          reinterpret_cast<void**>(&g_original_native_node_dispatcher)},
-        {kNativeSolidNodeRva,
+        {g_hud_modal.solid_node,
          reinterpret_cast<void*>(&hooked_native_solid_node),
          reinterpret_cast<void**>(&g_original_native_solid_node)},
     };
@@ -1266,7 +1290,7 @@ bool install_modal_hook_trio() {
 
 bool install_pause_map_hook() {
     const HookSpec hook{
-        kMapCommandBuilderRva,
+        g_hud_map.builder,
         reinterpret_cast<void*>(&hooked_map_command_builder),
         reinterpret_cast<void**>(&g_original_map_command_builder)};
     return create_and_enable_group(&hook, 1);
@@ -1274,7 +1298,7 @@ bool install_pause_map_hook() {
 
 bool install_auxiliary_surface_hook() {
     const HookSpec hook{
-        kAuxiliarySurfaceFactoryRva,
+        g_hud_codec.surface_factory,
         reinterpret_cast<void*>(&hooked_auxiliary_surface_factory),
         reinterpret_cast<void**>(&g_original_auxiliary_surface_factory)};
     return create_and_enable_group(&hook, 1);
@@ -1284,10 +1308,10 @@ bool install_mission_briefing_hooks() {
     // The post-constructor owner fields and the four child surfaces form one
     // compositor. Never publish only half of this correction.
     const HookSpec hooks[] = {
-        {kMissionBriefingChildSurfaceRva,
+        {g_hud_briefing.child_surface,
          reinterpret_cast<void*>(&hooked_mission_briefing_child_surface),
          reinterpret_cast<void**>(&g_original_mission_briefing_child_surface)},
-        {kMissionBriefingInitRva,
+        {g_hud_briefing.init,
          reinterpret_cast<void*>(&hooked_mission_briefing_init),
          reinterpret_cast<void**>(&g_original_mission_briefing_init)},
     };
@@ -1306,9 +1330,18 @@ DWORD WINAPI install_late_hooks(void*) {
     int mission_briefing_state =
         g_config.correct_mission_briefing_aspect ? 0 : 1;
     for (unsigned attempt = 0; attempt < 24000; ++attempt) {
+        // Unknown builds scan .text: try every 500 ms instead of every 25 ms.
+        if (scanning() && attempt % 20 != 0) {
+            Sleep(25);
+            continue;
+        }
         if (preview_state == 0 &&
-            bytes_match(kSemanticOwnerRectRva, kSemanticOwnerRectBytes,
-                        sizeof(kSemanticOwnerRectBytes))) {
+            mgs4::resolver::resolve_hud_previews(g_locator,
+                                                 &g_hud_previews)) {
+            publish_route(kRouteCamouflage, g_hud_previews.returns[0]);
+            publish_route(kRouteItem, g_hud_previews.returns[1]);
+            publish_route(kRouteDrebin, g_hud_previews.returns[2]);
+            publish_route(kRouteWeapon, g_hud_previews.returns[3]);
             preview_state = install_preview_hook() ? 1 : -1;
             log_line(preview_state == 1
                          ? "Inventory-preview hook active."
@@ -1317,14 +1350,9 @@ DWORD WINAPI install_late_hooks(void*) {
         }
 
         if (modal_state == 0 &&
-            bytes_match(kNativeLayerTraversalRva,
-                        kNativeLayerTraversalBytes,
-                        sizeof(kNativeLayerTraversalBytes)) &&
-            bytes_match(kNativeNodeDispatcherRva,
-                        kNativeNodeDispatcherBytes,
-                        sizeof(kNativeNodeDispatcherBytes)) &&
-            bytes_match(kNativeSolidNodeRva, kNativeSolidNodeBytes,
-                        sizeof(kNativeSolidNodeBytes))) {
+            mgs4::resolver::resolve_hud_modal(g_locator, &g_hud_modal)) {
+            publish_route(kRouteNormalTraversal,
+                          g_hud_modal.normal_traversal_return);
             modal_state = install_modal_hook_trio() ? 1 : -1;
             log_line(modal_state == 1
                          ? "Atomic modal hook trio active."
@@ -1333,8 +1361,9 @@ DWORD WINAPI install_late_hooks(void*) {
         }
 
         if (map_state == 0 &&
-            bytes_match(kMapCommandBuilderRva, kMapCommandBuilderBytes,
-                        sizeof(kMapCommandBuilderBytes))) {
+            mgs4::resolver::resolve_hud_map(g_locator, &g_hud_map)) {
+            publish_route(kRouteMapInit, g_hud_map.init_return);
+            publish_route(kRouteMapFrame, g_hud_map.frame_return);
             map_state = install_pause_map_hook() ? 1 : -1;
             log_line(map_state == 1
                          ? "Pause-map native stream hook active."
@@ -1343,9 +1372,8 @@ DWORD WINAPI install_late_hooks(void*) {
         }
 
         if (auxiliary_surface_state == 0 &&
-            bytes_match(kAuxiliarySurfaceFactoryRva,
-                        kAuxiliarySurfaceFactoryBytes,
-                        sizeof(kAuxiliarySurfaceFactoryBytes))) {
+            mgs4::resolver::resolve_hud_codec(g_locator, &g_hud_codec)) {
+            publish_route(kRouteCodec, g_hud_codec.realtime_return);
             auxiliary_surface_state =
                 install_auxiliary_surface_hook() ? 1 : -1;
             log_line(auxiliary_surface_state == 1
@@ -1355,12 +1383,9 @@ DWORD WINAPI install_late_hooks(void*) {
         }
 
         if (mission_briefing_state == 0 &&
-            bytes_match(kMissionBriefingInitRva,
-                        kMissionBriefingInitBytes,
-                        sizeof(kMissionBriefingInitBytes)) &&
-            bytes_match(kMissionBriefingChildSurfaceRva,
-                        kMissionBriefingChildSurfaceBytes,
-                        sizeof(kMissionBriefingChildSurfaceBytes))) {
+            mgs4::resolver::resolve_hud_briefing(g_locator,
+                                                 &g_hud_briefing)) {
+            publish_route(kRouteBriefingChild, g_hud_briefing.child_return);
             mission_briefing_state =
                 install_mission_briefing_hooks() ? 1 : -1;
             if (mission_briefing_state == 1)
@@ -1416,15 +1441,53 @@ DWORD WINAPI initialize(void*) {
         return 0;
     }
     g_base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+    // Relocation and audit are shared settings in mgs4_ultrawide.ini so both
+    // ASIs follow the same policy for an unknown executable.
+    wchar_t patch_ini[MAX_PATH]{};
+    std::swprintf(patch_ini, MAX_PATH, L"%ls\\mgs4_ultrawide.ini",
+                  g_game_dir);
+    const bool relocation =
+        GetPrivateProfileIntW(L"Patch", L"SignatureRelocation", 1,
+                              patch_ini) != 0 ||
+        GetPrivateProfileIntW(L"Patch", L"AllowUnsupportedExecutable", 0,
+                              patch_ini) != 0;
+    const bool audit = GetPrivateProfileIntW(L"Diagnostics",
+                                             L"SignatureAudit", 0,
+                                             patch_ini) != 0;
+    const bool force_relocation =
+        GetPrivateProfileIntW(L"Diagnostics", L"ForceSignatureRelocation", 0,
+                              patch_ini) != 0;
+    mgs4::resolver::Mode mode = mgs4::resolver::Mode::reference;
     if (!supported_executable()) {
-        log_line("ERROR: unsupported mgs4.exe; no hook installed.");
+        if (!relocation) {
+            log_line("ERROR: unsupported mgs4.exe and SignatureRelocation=0; "
+                     "no hook installed.");
+            return 0;
+        }
+        mode = mgs4::resolver::Mode::relocate;
+        log_line("WARNING: unrecognized mgs4.exe. This build has not been "
+                 "validated; each HUD group is installed only if all of its "
+                 "signatures resolve uniquely and pass their cross-checks.");
+    } else if (force_relocation) {
+        mode = mgs4::resolver::Mode::relocate;
+        log_line("Diagnostics: ForceSignatureRelocation=1; HUD groups are "
+                 "resolved by unique .text scan.");
+    }
+    g_locator = mgs4::resolver::make_locator(g_base, mode);
+    if (!g_locator.text.valid()) {
+        log_line("ERROR: executable .text section is unavailable; no hook "
+                 "installed.");
         return 0;
     }
     if (!wait_for_core_native_code()) {
-        log_line("ERROR: native UI functions did not decrypt or match in "
-                 "time.");
+        log_line(scanning()
+                     ? "ERROR: native UI signatures did not resolve uniquely; "
+                       "no hook installed."
+                     : "ERROR: native UI functions did not decrypt or match "
+                       "in time.");
         return 0;
     }
+    if (audit) audit_hud_signatures();
     load_configuration();
     const MH_STATUS initialized = MH_Initialize();
     if (initialized != MH_OK &&

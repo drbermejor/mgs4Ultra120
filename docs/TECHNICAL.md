@@ -2,11 +2,16 @@
 
 ## Executable gate
 
-The patch validates the PE timestamp and image size before enabling game
-hooks. Unknown builds are blocked unless `AllowUnsupportedExecutable=1`.
-Relevant code-hook sites still verify expected bytes after protected code has
-initialized. The override cannot validate known data RVAs and therefore remains
-unsafe rather than silently claiming compatibility.
+The patch compares the PE timestamp and image size with the reference
+profile. On that executable every signature window is required at its recorded
+RVA. On an unrecognized executable, `SignatureRelocation=1` (default) locates
+each feature group by masked signatures that must match exactly once in
+`.text`; code, caller and data addresses are then decoded from those windows
+and cross-checked before anything is written. Groups that fail are skipped and
+logged. This makes ordinary code and data movement survivable, but it cannot
+prove that a changed routine keeps its meaning, so the log always states that
+an unrecognized build has not been validated. See
+[signature resolver](SIGNATURE_RESOLVER.md).
 
 ## World rendering and FOV
 

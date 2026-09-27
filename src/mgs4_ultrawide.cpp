@@ -11,8 +11,12 @@
 #pragma intrinsic(_ReturnAddress)
 #endif
 
+#include <array>
+
 #include "MinHook.h"
 #include "camera_route_policy.h"
+#include "game_profile.h"
+#include "patch_resolver.h"
 #include "projection_math.h"
 #include "supersampling_math.h"
 #include "reticle_truncation_patch.h"
@@ -47,8 +51,20 @@ static bool g_native_camera_fov_requested;
 static bool g_native_camera_fov_active;
 static bool g_experimental_cinematic_fov_requested;
 static bool g_experimental_cinematic_fov_active;
+static bool g_signature_audit;
+static bool g_known_executable_profile;
 static volatile LONG g_locked_controller_profile;
 static volatile LONG g_minhook_state;
+static volatile LONG g_resolved_groups;
+static volatile LONG g_unresolved_groups;
+// Addresses resolved once by patch_thread before the hooks that use them are
+// published. Hook callbacks only read them.
+static mgs4::resolver::Locator g_locator;
+static mgs4::resolver::ResolutionTargets g_resolution;
+static mgs4::resolver::CameraTargets g_camera;
+static std::uintptr_t g_render_extent;
+static std::uintptr_t g_controller_mask;
+static std::array<std::uintptr_t, 4> g_reticle_sites;
 static thread_local unsigned g_cinematic_camera_owner_depth;
 static thread_local void* g_cinematic_camera_object;
 static thread_local ULONGLONG g_cinematic_camera_tick;
@@ -191,10 +207,9 @@ static bool ascii_equals_ignore_case(const char* left, const char* right) {
 // detected (profiles 1..7) until every controller slot is disconnected. This
 // neither synthesizes input nor periodically rewrites game state.
 static void __fastcall hooked_set_detected_profile(std::int32_t profile) {
-    const auto base = g_executable_base;
-    if (g_controller_profile_fix && base) {
+    if (g_controller_profile_fix && g_controller_mask) {
         const LONG connected_mask =
-            *reinterpret_cast<volatile LONG*>(base + 0x23d2dc10);
+            *reinterpret_cast<volatile LONG*>(g_controller_mask);
         if (!connected_mask) {
             InterlockedExchange(&g_locked_controller_profile, 0);
         } else if (profile >= 1 && profile <= 7) {
@@ -241,6 +256,66 @@ static bool create_and_enable_hook(void* target, void* detour, void** original,
                   MH_StatusToString(create), MH_StatusToString(enable));
     log_line(message);
     return false;
+}
+
+// Resolve one target group. The loader can start this thread before Steam's
+// protected code is decrypted, so a group is retried during a bounded startup
+// window. In relocation mode each attempt scans .text, so attempts are spaced
+// further apart. A group is used only when every address in it resolved and
+// its cross-checks agreed; otherwise its feature is not installed.
+template <typename Resolve>
+static bool wait_for_group(const char* name, Resolve resolve) {
+    const bool scanning =
+        g_locator.mode == mgs4::resolver::Mode::relocate;
+    const unsigned attempts = scanning ? 100 : 200;
+    const DWORD delay = scanning ? 100 : 25;
+    for (unsigned attempt = 0; attempt < attempts; ++attempt) {
+        if (resolve()) {
+            InterlockedIncrement(&g_resolved_groups);
+            if (scanning) {
+                char message[256]{};
+                std::snprintf(message, sizeof(message),
+                              "Signature group resolved by unique .text matches: %s.",
+                              name);
+                log_line(message);
+            }
+            return true;
+        }
+        Sleep(delay);
+    }
+    InterlockedIncrement(&g_unresolved_groups);
+    char message[256]{};
+    std::snprintf(message, sizeof(message),
+                  scanning
+                      ? "ERROR: %s did not resolve to unique, consistent signatures; that feature was not installed."
+                      : "ERROR: %s did not decrypt or match at the reference profile addresses; that feature was not installed.",
+                  name);
+    log_line(message);
+    return false;
+}
+
+// Diagnostic only: count the .text matches of every core signature before any
+// hook changes those bytes. The reference addresses stay in use.
+static void audit_core_signatures() {
+    const mgs4::resolver::Locator scan{g_locator.base, g_locator.text,
+                                       mgs4::resolver::Mode::relocate};
+    unsigned warnings = 0;
+    for (const auto& entry : mgs4::windows::kCoreAuditWindows) {
+        const std::size_t matches =
+            mgs4::resolver::count_matches(scan, *entry.window);
+        const bool okay = matches == entry.expected_matches;
+        if (!okay) ++warnings;
+        char message[256]{};
+        std::snprintf(message, sizeof(message),
+                      "%sSignature audit: %s has %zu .text match(es); expected %zu.",
+                      okay ? "" : "WARNING: ", entry.window->name, matches,
+                      entry.expected_matches);
+        log_line(message);
+    }
+    char summary[128]{};
+    std::snprintf(summary, sizeof(summary),
+                  "Signature audit finished with %u warning(s).", warnings);
+    log_line(summary);
 }
 
 #if defined(MGS4ULTRA120_WINMM_PROXY)
@@ -324,10 +399,16 @@ static void __fastcall hooked_build_camera(void* camera, const void* source,
     const auto return_address = reinterpret_cast<std::uintptr_t>(
         __builtin_return_address(0));
 #endif
+    // Map the resolved return address to its reference identity so the route
+    // policy stays independent of where this build placed the call.
     const std::uintptr_t caller_return_rva =
-        return_address >= g_executable_base
-            ? return_address - g_executable_base
-            : return_address;
+        return_address == g_camera.primary_return
+            ? mgs4_camera::kPrimaryFovReturnRva
+        : return_address == g_camera.cinematic_source_return
+            ? mgs4_camera::kCinematicSourceReturnRva
+        : return_address == g_camera.cinematic_final_return
+            ? mgs4_camera::kCinematicFinalRebuildReturnRva
+            : 0;
     const bool direct_cinematic_owner =
         g_experimental_cinematic_fov_active &&
         g_cinematic_camera_owner_depth != 0 &&
@@ -390,15 +471,10 @@ static void __fastcall hooked_set_resolution(std::uint16_t mode,
 }
 
 static bool supported_executable(std::uintptr_t base) {
-    // This PE tuple selects the only address profile built into this release.
-    // Code hooks additionally validate their decrypted prologues. Data RVAs
-    // cannot be signature-checked, which is why the unsupported-build override
-    // is explicitly unsafe and disabled by default.
-    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
-    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(base + dos->e_lfanew);
-    return nt->Signature == IMAGE_NT_SIGNATURE && nt->FileHeader.TimeDateStamp == 0x6aa36b7c &&
-           nt->OptionalHeader.SizeOfImage == 0x241be000;
+    // This PE tuple selects the reference profile: every signature window is
+    // then required at its recorded RVA and no scan is needed.
+    return mgs4::profile::matches_loaded_image(
+        base, mgs4::profile::kSteam20260911);
 }
 
 // The game copies these two compositor getters into its global render size
@@ -407,34 +483,26 @@ static bool supported_executable(std::uintptr_t base) {
 // for the whole session.  Cinematic/post-processing passes then sampled a
 // 2560-wide surface into a 3440-wide output, corrupting the extra right-hand
 // region.  Replace the trivial getters before initialization can copy them.
-static bool force_resolution_getters(std::uintptr_t base,
-                                     std::uint32_t width,
+static bool force_resolution_getters(std::uint32_t width,
                                      std::uint32_t height) {
     struct GetterPatch {
-        std::uintptr_t rva;
-        const unsigned char* expected;
+        std::uintptr_t address;
         std::uint32_t value;
-        const char* name;
     };
-    constexpr unsigned char width_expected[] =
-        {0x8b, 0x05, 0x32, 0x4f, 0x57, 0x03, 0xc3};
-    constexpr unsigned char height_expected[] =
-        {0x8b, 0x05, 0x46, 0x4f, 0x57, 0x03, 0xc3};
     const GetterPatch patches[] = {
-        {0x65c240, width_expected, width, "width"},
-        {0x65c230, height_expected, height, "height"},
+        {g_resolution.width_getter, width},
+        {g_resolution.height_getter, height},
     };
 
     for (const GetterPatch& patch : patches) {
-        auto* target = reinterpret_cast<unsigned char*>(base + patch.rva);
-        for (unsigned attempt = 0; attempt < 200; ++attempt) {
-            if (std::memcmp(target, patch.expected, 7) == 0) break;
-            if (attempt == 199) {
-                log_line("ERROR: a resolution getter did not decrypt in time.");
-                return false;
-            }
-            Sleep(25);
+        // Resolution already decoded both getters; re-check immediately before
+        // writing so discovery and mutation stay separate.
+        std::uintptr_t data{};
+        if (!mgs4::resolver::decode_getter(g_locator, patch.address, &data)) {
+            log_line("ERROR: a resolution getter changed before it could be written.");
+            return false;
         }
+        auto* target = reinterpret_cast<unsigned char*>(patch.address);
         unsigned char replacement[] = {0xb8, 0, 0, 0, 0, 0xc3};
         std::memcpy(replacement + 1, &patch.value, sizeof(patch.value));
         DWORD old_protection = 0;
@@ -480,11 +548,18 @@ static bool force_resolution_getters(std::uintptr_t base,
 // reaches 4096 pixels.  Current guidance warns above 2x supersampling, so the Y
 // limit is less likely at 1440p, but removing all four truncations avoids a
 // latent axis-dependent ceiling.
-static bool fix_reticle_truncation(std::uintptr_t base) {
+static bool fix_reticle_truncation() {
     using mgs4_reticle::PatchSetState;
     using mgs4_reticle::TruncationPatch;
-    const auto read_site = [base](const TruncationPatch& patch) {
-        return reinterpret_cast<const unsigned char*>(base + patch.rva);
+    // truncation_patches keeps the reference RVAs as identities; the resolved
+    // sites are stored in the same X, Y, Y, X order.
+    const auto site = [](const TruncationPatch& patch) {
+        const auto index = static_cast<std::size_t>(
+            &patch - mgs4_reticle::truncation_patches.data());
+        return reinterpret_cast<unsigned char*>(g_reticle_sites[index]);
+    };
+    const auto read_site = [&site](const TruncationPatch& patch) {
+        return static_cast<const unsigned char*>(site(patch));
     };
 
     PatchSetState state = PatchSetState::Unavailable;
@@ -508,20 +583,24 @@ static bool fix_reticle_truncation(std::uintptr_t base) {
         return false;
     }
 
-    const TruncationPatch& first = mgs4_reticle::truncation_patches.front();
-    const TruncationPatch& last = mgs4_reticle::truncation_patches.back();
-    auto* patch_begin = reinterpret_cast<unsigned char*>(base + first.rva);
-    const std::size_t patch_span = last.rva + last.size - first.rva;
+    unsigned char* patch_begin = nullptr;
+    unsigned char* patch_end = nullptr;
+    for (const TruncationPatch& patch : mgs4_reticle::truncation_patches) {
+        unsigned char* begin = site(patch);
+        if (!patch_begin || begin < patch_begin) patch_begin = begin;
+        if (!patch_end || begin + patch.size > patch_end)
+            patch_end = begin + patch.size;
+    }
+    const std::size_t patch_span =
+        static_cast<std::size_t>(patch_end - patch_begin);
     DWORD old_protection = 0;
     if (!VirtualProtect(patch_begin, patch_span, PAGE_EXECUTE_READWRITE,
                         &old_protection)) {
         log_line("ERROR: could not write the reticle truncation sites.");
         return false;
     }
-    for (const TruncationPatch& patch : mgs4_reticle::truncation_patches) {
-        auto* target = reinterpret_cast<unsigned char*>(base + patch.rva);
-        std::memcpy(target, patch.replacement.data(), patch.size);
-    }
+    for (const TruncationPatch& patch : mgs4_reticle::truncation_patches)
+        std::memcpy(site(patch), patch.replacement.data(), patch.size);
     FlushInstructionCache(GetCurrentProcess(), patch_begin, patch_span);
     const bool verified =
         mgs4_reticle::classify_patch_set(read_site) == PatchSetState::Applied;
@@ -550,19 +629,16 @@ static bool initialize_minhook() {
     return InterlockedCompareExchange(&g_minhook_state, 0, 0) == 2;
 }
 
-static bool install_controller_profile_fix(std::uintptr_t base) {
-    constexpr std::uintptr_t setter_rva = 0x7511c0;
-    constexpr unsigned char expected[] =
-        {0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x8b, 0xd9};
-    auto* target = reinterpret_cast<unsigned char*>(base + setter_rva);
-    for (unsigned attempt = 0; attempt < 200; ++attempt) {
-        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
-        if (attempt == 199) {
-            log_line("ERROR: controller-profile target did not decrypt in time.");
-            return false;
-        }
-        Sleep(25);
-    }
+static bool install_controller_profile_fix() {
+    mgs4::resolver::ControllerTargets controller{};
+    if (!wait_for_group("controller-profile setter and connection mask",
+                        [&] {
+                            return mgs4::resolver::resolve_controller(
+                                g_locator, &controller);
+                        }))
+        return false;
+    g_controller_mask = controller.connection_mask;
+    auto* target = reinterpret_cast<unsigned char*>(controller.setter);
 
     if (!initialize_minhook()) {
         log_line("ERROR: MinHook initialization failed for controller-profile fix.");
@@ -586,19 +662,8 @@ static bool install_controller_profile_fix(std::uintptr_t base) {
     return okay;
 }
 
-static bool install_resolution_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t resolution_setter_rva = 0x65f250;
-    constexpr unsigned char expected[] =
-        {0x48, 0x89, 0x5c, 0x24, 0x18, 0x48, 0x89, 0x6c, 0x24, 0x20};
-    auto* target = reinterpret_cast<unsigned char*>(base + resolution_setter_rva);
-    for (unsigned attempt = 0; attempt < 200; ++attempt) {
-        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
-        if (attempt == 199) {
-            log_line("ERROR: resolution setter did not decrypt in time.");
-            return false;
-        }
-        Sleep(25);
-    }
+static bool install_resolution_hook() {
+    auto* target = reinterpret_cast<unsigned char*>(g_resolution.setter);
 
     DWORD old_protection = 0;
     if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
@@ -628,21 +693,14 @@ static bool install_resolution_hook(std::uintptr_t base) {
     return true;
 }
 
-static bool install_engine_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t projection_setter_rva = 0x0e34d0;
-    auto* target = reinterpret_cast<unsigned char*>(base + projection_setter_rva);
-
-    // The protected executable is decrypted in memory. Wait for the known
-    // prologue instead of asking MinHook to decode encrypted bytes.
-    for (unsigned attempt = 0; attempt < 200; ++attempt) {
-        if (target[0] == 0x48 && target[1] == 0x83 && target[2] == 0xec && target[3] == 0x68)
-            break;
-        if (attempt == 199) {
-            log_line("ERROR: projection function did not decrypt in time.");
-            return false;
-        }
-        Sleep(25);
-    }
+static bool install_engine_hook() {
+    std::uintptr_t setter{};
+    if (!wait_for_group("projection setter", [&] {
+            setter = mgs4::resolver::resolve_projection_setter(g_locator);
+            return setter != 0;
+        }))
+        return false;
+    auto* target = reinterpret_cast<unsigned char*>(setter);
 
     DWORD old_protection = 0;
     if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
@@ -673,19 +731,16 @@ static bool install_engine_hook(std::uintptr_t base) {
     return true;
 }
 
-static bool install_native_camera_fov_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t camera_builder_rva = 0x0b9b70;
-    const unsigned char expected[] = { 0x48, 0x8b, 0xc4, 0x53, 0x56, 0x57 };
-    auto* target = reinterpret_cast<unsigned char*>(base + camera_builder_rva);
-
-    for (unsigned attempt = 0; attempt < 200; ++attempt) {
-        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
-        if (attempt == 199) {
-            log_line("ERROR: native camera builder did not decrypt in time; common-setter FOV fallback remains active.");
-            return false;
-        }
-        Sleep(25);
+static bool install_native_camera_fov_hook() {
+    mgs4::resolver::CameraTargets camera{};
+    if (!wait_for_group("native camera builder and caller routes", [&] {
+            return mgs4::resolver::resolve_camera(g_locator, &camera);
+        })) {
+        log_line("Native camera builder unresolved; common-setter FOV fallback remains active.");
+        return false;
     }
+    g_camera = camera;
+    auto* target = reinterpret_cast<unsigned char*>(camera.builder);
 
     DWORD old_protection = 0;
     if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
@@ -717,20 +772,16 @@ static bool install_native_camera_fov_hook(std::uintptr_t base) {
     return true;
 }
 
-static bool install_cinematic_camera_owner_hook(std::uintptr_t base) {
-    constexpr std::uintptr_t cinematic_camera_owner_rva = 0x653000;
-    constexpr unsigned char expected[] =
-        {0x40, 0x55, 0x53, 0x57, 0x41, 0x56, 0x48, 0x8d};
-    auto* target = reinterpret_cast<unsigned char*>(
-        base + cinematic_camera_owner_rva);
-    for (unsigned attempt = 0; attempt < 200; ++attempt) {
-        if (std::memcmp(target, expected, sizeof(expected)) == 0) break;
-        if (attempt == 199) {
-            log_line("ERROR: experimental cinematic camera owner did not decrypt in time; cinematic FOV remains disabled.");
-            return false;
-        }
-        Sleep(25);
+static bool install_cinematic_camera_owner_hook() {
+    std::uintptr_t owner{};
+    if (!wait_for_group("experimental cinematic camera owner", [&] {
+            owner = mgs4::resolver::resolve_cinematic_owner(g_locator);
+            return owner != 0;
+        })) {
+        log_line("Experimental cinematic camera owner unresolved; cinematic FOV remains disabled.");
+        return false;
     }
+    auto* target = reinterpret_cast<unsigned char*>(owner);
     DWORD old_protection = 0;
     if (!VirtualProtect(target, 32, PAGE_EXECUTE_READWRITE, &old_protection)) {
         log_line("ERROR: could not enable the experimental cinematic camera hook.");
@@ -750,39 +801,41 @@ static bool install_cinematic_camera_owner_hook(std::uintptr_t base) {
     return true;
 }
 
-static void put32(std::uintptr_t base, std::uintptr_t rva, std::uint32_t value) {
-    *reinterpret_cast<volatile std::uint32_t*>(base + rva) = value;
+static void put32(std::uintptr_t address, std::uint32_t value) {
+    *reinterpret_cast<volatile std::uint32_t*>(address) = value;
 }
 
-static void put_resolution_pair_atomic(std::uintptr_t base, std::uintptr_t rva,
+static void put_resolution_pair_atomic(std::uintptr_t address,
                                        std::uint32_t width, std::uint32_t height) {
     // The game reads adjacent width/height fields as one state. Publish both in
     // a single aligned exchange so a render thread cannot observe mixed epochs.
     const LONG64 packed = static_cast<LONG64>(
         (static_cast<std::uint64_t>(height) << 32) | width);
-    InterlockedExchange64(reinterpret_cast<volatile LONG64*>(base + rva), packed);
+    InterlockedExchange64(reinterpret_cast<volatile LONG64*>(address), packed);
 }
 
 static void apply_resolution_state() {
     // These are native render-state mirrors, not presentation-window fields.
     // The display-mode hook calls this after every game-owned mode change; the
     // startup thread calls it once for the already-created initial state.
-    const auto base = g_executable_base;
+    const auto& targets = g_resolution;
     const auto width = g_target_width;
     const auto height = g_target_height;
-    if (!base) return;
+    if (!targets.render_extent) return;
 
     if (g_enable_resolution_override) {
-        put_resolution_pair_atomic(base, 0x1b00000, width, height);
-        put_resolution_pair_atomic(base, 0x22a8d40, width, height);
-        put_resolution_pair_atomic(base, 0x22a8d48, width, height);
-        put32(base, 0x1dddab4, width); put32(base, 0x1dddab8, height);
-        put32(base, 0x1dddacc, width); put32(base, 0x1dddad0, height);
-        put_resolution_pair_atomic(base, 0x3bd1158, width, height);
-        put_resolution_pair_atomic(base, 0x3bd1160, width, height);
-        put_resolution_pair_atomic(base, 0x3bd1168, width, height);
-        put_resolution_pair_atomic(base, 0x3bd1170, 0, 0);
-        put_resolution_pair_atomic(base, 0x3bd1178, width, height);
+        put_resolution_pair_atomic(targets.render_extent, width, height);
+        put_resolution_pair_atomic(targets.scaled_extent, width, height);
+        put_resolution_pair_atomic(targets.scaled_extent + 0x08, width, height);
+        put32(targets.compositor_mirror + 0x00, width);
+        put32(targets.compositor_mirror + 0x04, height);
+        put32(targets.compositor_mirror + 0x18, width);
+        put32(targets.compositor_mirror + 0x1c, height);
+        put_resolution_pair_atomic(targets.getter_block + 0x00, width, height);
+        put_resolution_pair_atomic(targets.getter_block + 0x08, width, height);
+        put_resolution_pair_atomic(targets.getter_block + 0x10, width, height);
+        put_resolution_pair_atomic(targets.getter_block + 0x18, 0, 0);
+        put_resolution_pair_atomic(targets.getter_block + 0x20, width, height);
     }
 }
 
@@ -815,6 +868,12 @@ static DWORD WINAPI patch_thread(void*) {
         "Patch", "AllowUnsupportedExecutable", 0, ini_path) != 0;
     const bool controller_profile_fix = GetPrivateProfileIntA(
         "Input", "ControllerProfileFixEnabled", 0, ini_path) != 0;
+    const bool signature_audit = GetPrivateProfileIntA(
+        "Diagnostics", "SignatureAudit", 0, ini_path) != 0;
+    const bool signature_relocation = GetPrivateProfileIntA(
+        "Patch", "SignatureRelocation", 1, ini_path) != 0;
+    const bool force_relocation = GetPrivateProfileIntA(
+        "Diagnostics", "ForceSignatureRelocation", 0, ini_path) != 0;
     g_native_camera_fov_requested = GetPrivateProfileIntA(
         "Ultrawide", "NativeCameraFOV", 1, ini_path) != 0;
     g_experimental_cinematic_fov_requested = GetPrivateProfileIntA(
@@ -862,6 +921,7 @@ static DWORD WINAPI patch_thread(void*) {
     g_enable_ultrawide = enable_ultrawide;
     g_enable_resolution_override = enable_ultrawide || enable_supersampling;
     g_controller_profile_fix = controller_profile_fix;
+    g_signature_audit = signature_audit;
     g_output_width = width;
     g_output_height = height;
     g_target_width = render_width;
@@ -902,39 +962,80 @@ static DWORD WINAPI patch_thread(void*) {
         log_line("WARNING: supersampling is enabled at 1.0x, so internal and output resolution are identical.");
 
     const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
-    if (!supported_executable(base)) {
-        if (!allow_unsupported) {
-            log_line("ERROR: unrecognized mgs4.exe version; no offsets were applied. Set AllowUnsupportedExecutable=1 only if you accept crash/corruption risk.");
+    g_known_executable_profile = supported_executable(base);
+    mgs4::resolver::Mode mode = mgs4::resolver::Mode::reference;
+    if (!g_known_executable_profile) {
+        if (!signature_relocation && !allow_unsupported) {
+            log_line("ERROR: unrecognized mgs4.exe version and SignatureRelocation=0; no changes were applied.");
             return 0;
         }
-        log_line("WARNING: unsupported executable override enabled. Known RVAs will be attempted under user responsibility; hook signatures are still checked.");
+        // An unknown build is patched only where every signature of a feature
+        // group is found exactly once and its native relationships agree.
+        mode = mgs4::resolver::Mode::relocate;
+        log_line("WARNING: unrecognized mgs4.exe version. This build has not been validated; each feature is installed only if all of its signatures resolve uniquely and pass their cross-checks. Set SignatureRelocation=0 to apply nothing instead.");
+    } else if (force_relocation) {
+        // Diagnostic: exercise the unknown-build path on the reference build.
+        mode = mgs4::resolver::Mode::relocate;
+        log_line("Diagnostics: ForceSignatureRelocation=1; every group is resolved by unique .text scan instead of reference addresses.");
     }
     g_executable_base = base;
-    if (g_enable_resolution_override) {
-        force_resolution_getters(base, render_width, render_height);
-        install_resolution_hook(base);
+    g_locator = mgs4::resolver::make_locator(base, mode);
+    if (!g_locator.text.valid()) {
+        log_line("ERROR: executable .text section is unavailable; no changes were applied.");
+        return 0;
+    }
+    if (g_signature_audit) {
+        if (wait_for_group("render extent (audit start)", [] {
+                mgs4::resolver::RenderExtent extent{};
+                return mgs4::resolver::resolve_render_extent(g_locator,
+                                                             &extent);
+            }))
+            audit_core_signatures();
+    }
+    if (g_enable_resolution_override &&
+        wait_for_group("resolution getters, setter and render-state mirrors",
+                       [] {
+                           return mgs4::resolver::resolve_resolution(
+                               g_locator, &g_resolution);
+                       })) {
+        g_render_extent = g_resolution.render_extent;
+        force_resolution_getters(render_width, render_height);
+        install_resolution_hook();
     }
     if (enable_ultrawide) {
         bool native_hook_started = false;
         if (g_native_camera_fov_requested)
-            native_hook_started = install_native_camera_fov_hook(base);
+            native_hook_started = install_native_camera_fov_hook();
         if (g_experimental_cinematic_fov_requested) {
             if (native_hook_started) {
-                install_cinematic_camera_owner_hook(base);
+                install_cinematic_camera_owner_hook();
             } else {
                 log_line("WARNING: experimental cinematic FOV requires the native camera hook and remains disabled for this run.");
             }
         }
-        install_engine_hook(base);
+        install_engine_hook();
         if (g_native_camera_fov_requested) {
-            log_line("Experimental native FOV requested. Route 0x0ba363 owns the multiplier; common-setter FOV remains the automatic fallback only if the native hook cannot start.");
+            log_line("Experimental native FOV requested. The primary camera route owns the multiplier; common-setter FOV remains the automatic fallback only if the native hook cannot start.");
         } else {
             log_line("Experimental native FOV disabled by the user. Ultrawide aspect correction remains active with the game's original vertical FOV.");
         }
     }
     if (controller_profile_fix)
-        install_controller_profile_fix(base);
-    fix_reticle_truncation(base);
+        install_controller_profile_fix();
+    if (!g_render_extent) {
+        mgs4::resolver::RenderExtent extent{};
+        if (wait_for_group("render extent", [&] {
+                return mgs4::resolver::resolve_render_extent(g_locator,
+                                                             &extent);
+            }))
+            g_render_extent = extent.width;
+    }
+    if (g_render_extent &&
+        wait_for_group("reticle truncation sites", [] {
+            return mgs4::resolver::resolve_reticle(g_locator, g_render_extent,
+                                                   &g_reticle_sites);
+        }))
+        fix_reticle_truncation();
     apply_resolution_state();
     // The display-mode hook handles subsequent changes; resolution is not polled.
     Sleep(2000);
@@ -948,6 +1049,33 @@ static DWORD WINAPI patch_thread(void*) {
                   g_native_camera_fov_active ? "active" :
                       (g_native_camera_fov_requested ? "fallback" : "disabled"));
     log_line(projection_message);
+    char signature_message[256] = {};
+    std::snprintf(signature_message, sizeof(signature_message),
+                  "Signature groups: %ld resolved (%s); %ld unresolved.",
+                  InterlockedCompareExchange(&g_resolved_groups, 0, 0),
+                  g_locator.mode == mgs4::resolver::Mode::reference
+                      ? "reference profile addresses"
+                      : "relocated by unique .text match",
+                  InterlockedCompareExchange(&g_unresolved_groups, 0, 0));
+    log_line(signature_message);
+    if (g_locator.mode == mgs4::resolver::Mode::relocate) {
+        const auto rva = [base](std::uintptr_t address) {
+            return static_cast<unsigned long long>(address ? address - base : 0);
+        };
+        char resolved_message[512] = {};
+        std::snprintf(resolved_message, sizeof(resolved_message),
+                      "Resolved RVAs: render extent 0x%llx; resolution setter 0x%llx; getters 0x%llx/0x%llx; camera builder 0x%llx (routes 0x%llx, 0x%llx, 0x%llx); reticle 0x%llx, 0x%llx, 0x%llx, 0x%llx; controller mask 0x%llx.",
+                      rva(g_render_extent), rva(g_resolution.setter),
+                      rva(g_resolution.width_getter),
+                      rva(g_resolution.height_getter), rva(g_camera.builder),
+                      rva(g_camera.primary_return),
+                      rva(g_camera.cinematic_source_return),
+                      rva(g_camera.cinematic_final_return),
+                      rva(g_reticle_sites[0]), rva(g_reticle_sites[1]),
+                      rva(g_reticle_sites[2]), rva(g_reticle_sites[3]),
+                      rva(g_controller_mask));
+        log_line(resolved_message);
+    }
     log_line("Initial state applied; patch thread finished without a polling loop.");
     return 0;
 }

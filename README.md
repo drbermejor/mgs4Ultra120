@@ -17,7 +17,7 @@ of *METAL GEAR SOLID 4*, with corrected 120 FPS support on Windows through
 > Full credit for the FPS component belongs to Cipherxof, with my thanks for
 > making the work publicly available.
 
-> **Public alpha.** `v0.3.4-alpha.7` targets the verified Steam executable.
+> **Public alpha.** `v0.3.4-alpha.8` targets the verified Steam executable.
 > Other builds are blocked unless the user accepts the unsafe override. Back up
 > saves and keep Steam's game files available for verification.
 
@@ -124,7 +124,7 @@ Captured during the final `v0.3.3-alpha.1` Windows validation at 3440x1440 with
 
 ![Undistorted WeaponWindow at 3440x1440](docs/images/v0.3.3-alpha.1-weapon-window-3440x1440.png)
 
-### Experimental Native Centered HUD (`v0.3.4-alpha.7`)
+### Experimental Native Centered HUD (`v0.3.4-alpha.8`)
 
 The current native-layout path keeps gameplay widgets in a centered 16:9 safe
 area while the 3D scene continues to use the full ultrawide output.
@@ -161,7 +161,7 @@ still extend beyond or be clipped by the centered safe canvas.
 ## Windows downloads
 
 Use the
-[latest v0.3.4-alpha.7 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.7)
+[latest v0.3.4-alpha.8 release](https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.8)
 and choose one package:
 
 1. **Setup EXE** — guided Steam detection, configuration, shortcuts and safe
@@ -262,7 +262,7 @@ configurator warns and never changes driver or Windows display settings. See
 
 ## Linux / Proton
 
-The `v0.3.4-alpha.7` Linux package uses the same architecture as Windows:
+The `v0.3.4-alpha.8` Linux package uses the same architecture as Windows:
 pinned Ultimate ASI Loader plus separate `MGS4Ultra120.asi` and optional
 `MGSFPSUnlock.asi` plugins. Easy Setup downloads MGSFPSUnlock 0.1.0 from its
 official release, verifies its hashes and applies the Wine `PAGE_WRITECOPY`

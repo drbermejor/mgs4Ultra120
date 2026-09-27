@@ -1,7 +1,19 @@
 # Changelog
 
-## Unreleased
+## v0.3.4-alpha.8 - Steam 2026-09-11 executable
 
+- Ported both ASIs to the Steam executable updated on 2026-09-11
+  (`0x6aa36b7c`, SHA-256 `656ede90...02900`). The previous 2026-08-25 build is
+  no longer the supported profile; an unknown executable still fails closed.
+- Relocated every core code target (resolution getters and setter, projection
+  setter, native camera builder and its caller routes, cinematic camera owner,
+  controller-profile setter and the four reticle truncation sites) and every
+  Native Centered HUD function and caller route. Each target was located from
+  its existing expected bytes and confirmed by its native call relationships.
+- Relocated the render-state data that moved in the new build: the
+  controller connection mask and two resolution mirrors. The remaining data
+  addresses were confirmed unchanged from their native readers and writers.
+- No feature, default or INI behavior changed.
 - Made ownership of the current FPS implementation prominent: the original
   limited MGS4 Ultra120 override was retired, and the corrected high-frame-rate
   patch and its FPS-specific timing hooks are Cipherxof's independent

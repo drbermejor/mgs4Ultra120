@@ -1,0 +1,9 @@
+[b]MGS4 Ultra120 v0.3.4-alpha.8 - compatible with the 2026-09-11 game update[/b]
+
+The Steam update of MGS4 released on 2026-09-11 changed mgs4.exe. Previous Ultra120 versions detect it as an unknown version and safely do nothing, so ultrawide, FOV and the other features stopped working.
+
+This release is ported to the new executable. Features, defaults and settings are unchanged, and your existing configuration is preserved when you update.
+
+Tested on native Windows at 3440x1440: all ultrawide, FOV, reticle and Native Centered HUD hooks install, and the launcher bypass works. The known Codec and Mission Briefing limitations from alpha.7 still apply, and Native Centered HUD remains experimental and disabled by default.
+
+[url=https://github.com/drbermejor/mgs4Ultra120/releases/tag/v0.3.4-alpha.8]Download MGS4 Ultra120 v0.3.4-alpha.8[/url]

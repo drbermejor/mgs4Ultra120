@@ -1,6 +1,6 @@
 # Native Centered HUD and video status
 
-`v0.3.4-alpha.7` uses the optional `MGS4NativeCenteredHUD.asi` companion. It
+`v0.3.4-alpha.8` uses the optional `MGS4NativeCenteredHUD.asi` companion. It
 operates on the game's
 native 1280x720 layout converter and a small set of guarded native surface and
 preview producers before the UI reaches D3D11 or D3D12.
